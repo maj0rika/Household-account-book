@@ -142,3 +142,4 @@ type: start | progress | complete | change | issue
 | 2026-02-24 | 계획 | 구현 계획서 작성 | 이 문서 |
 | 2026-02-24 | 완료 | Phase 1 프로젝트 초기화 완료 | [history](./history/2026-02-24-02-phase1-initialization-complete.md) |
 | 2026-02-24 | 진행 | Phase 2 DB + ORM 진행 | [history](./history/2026-02-24-03-phase2-db-orm-progress.md) |
+| 2026-02-24 | 진행 | Phase 3 인증 진행 | [history](./history/2026-02-24-04-phase3-auth-progress.md) |
