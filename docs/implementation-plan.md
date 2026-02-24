@@ -10,28 +10,28 @@
 
 전체 구현을 **Phase** 단위로 나누고, 각 Phase 완료 시 히스토리를 기록한다.
 
-### Phase 1: 프로젝트 초기화
-- [ ] Next.js 15 + TypeScript 프로젝트 생성
-- [ ] Tailwind CSS 4 설정
-- [ ] shadcn/ui 초기화
-- [ ] ESLint + Prettier 설정
-- [ ] 디렉토리 구조 생성
-- [ ] Git 초기화 + .gitignore
-- [ ] 환경변수 템플릿 (.env.example)
+### Phase 1: 프로젝트 초기화 ✅
+- [x] Next.js 15 + TypeScript 프로젝트 생성
+- [x] Tailwind CSS 4 설정
+- [x] shadcn/ui 초기화
+- [x] ESLint + Prettier 설정
+- [x] 디렉토리 구조 생성
+- [x] Git 초기화 + .gitignore
+- [x] 환경변수 템플릿 (.env.example)
 
-### Phase 2: DB + ORM 셋업
-- [ ] Supabase 프로젝트 생성
-- [ ] Drizzle ORM 설정 (drizzle.config.ts)
-- [ ] DB 스키마 정의 (users, categories, transactions, budgets)
-- [ ] 마이그레이션 생성 및 실행
-- [ ] 시드 데이터 (기본 카테고리)
+### Phase 2: DB + ORM 셋업 ✅
+- [x] Supabase 프로젝트 생성
+- [x] Drizzle ORM 설정 (drizzle.config.ts)
+- [x] DB 스키마 정의 (users, categories, transactions, budgets)
+- [x] 마이그레이션 생성 및 실행
+- [x] 시드 데이터 (기본 카테고리)
 
-### Phase 3: 인증
-- [ ] Better Auth 설정
-- [ ] 이메일/비밀번호 가입 + 로그인
-- [ ] Google 소셜 로그인
-- [ ] 인증 미들웨어 (보호된 라우트)
-- [ ] 로그인/회원가입 페이지 UI
+### Phase 3: 인증 ✅
+- [x] Better Auth 설정 (Drizzle 스키마 매핑 포함)
+- [x] 이메일/비밀번호 가입 + 로그인
+- [ ] Google 소셜 로그인 (GOOGLE_CLIENT_ID 미설정 — 추후)
+- [x] 인증 미들웨어 (보호된 라우트)
+- [x] 로그인/회원가입 페이지 UI
 
 ### Phase 4: LLM 파서 (핵심 기능)
 - [ ] TransactionParser 인터페이스 정의
@@ -143,3 +143,5 @@ type: start | progress | complete | change | issue
 | 2026-02-24 | 완료 | Phase 1 프로젝트 초기화 완료 | [history](./history/2026-02-24-02-phase1-initialization-complete.md) |
 | 2026-02-24 | 진행 | Phase 2 DB + ORM 진행 | [history](./history/2026-02-24-03-phase2-db-orm-progress.md) |
 | 2026-02-24 | 진행 | Phase 3 인증 진행 | [history](./history/2026-02-24-04-phase3-auth-progress.md) |
+| 2026-02-24 | 완료 | Phase 2 DB + ORM 완료 (Supabase 연동) | [history](./history/2026-02-24-04-phase2-db-orm-complete.md) |
+| 2026-02-24 | 완료 | Phase 3 인증 완료 | [history](./history/2026-02-24-05-phase3-auth-complete.md) |
