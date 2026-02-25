@@ -22,7 +22,7 @@ export function middleware(request: NextRequest) {
 	}
 
 	if (isAuthPage && signedIn) {
-		return NextResponse.redirect(new URL("/", request.url));
+		return NextResponse.redirect(new URL("/transactions", request.url));
 	}
 
 	return NextResponse.next();
