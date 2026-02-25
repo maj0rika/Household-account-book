@@ -74,7 +74,7 @@ export function ManualInputDialog({ open, onOpenChange }: ManualInputDialogProps
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent>
+			<DialogContent className="max-h-[90dvh] overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle>직접 입력</DialogTitle>
 					<DialogDescription>거래 정보를 수동으로 입력합니다.</DialogDescription>

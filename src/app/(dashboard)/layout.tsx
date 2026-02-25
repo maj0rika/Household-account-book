@@ -6,6 +6,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { ManualInputProvider } from "@/components/providers/ManualInputProvider";
 import { GlobalManualInputDialog } from "@/components/providers/GlobalManualInputDialog";
+import { UnifiedInputSection } from "@/components/transaction/UnifiedInputSection";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
 	const session = await auth.api.getSession({
@@ -24,6 +25,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 				<BottomTabBar />
 			</div>
 			<GlobalManualInputDialog />
+			<UnifiedInputSection />
 		</ManualInputProvider>
 	);
 }

@@ -20,7 +20,7 @@ const configs: Record<LLMProvider, () => LLMConfig> = {
 			baseURL: "https://api.moonshot.ai/v1",
 		}),
 		model: "kimi-k2.5",
-		temperature: 1,
+		temperature: 1, // K2.5는 temperature 1 고정
 	}),
 };
 

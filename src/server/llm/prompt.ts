@@ -1,9 +1,11 @@
+import type { Account } from "@/types";
+
 export interface LLMCategory {
 	name: string;
 	type: "income" | "expense";
 }
 
-export function buildSystemPrompt(categories: LLMCategory[], today: string): string {
+export function buildSystemPrompt(categories: LLMCategory[], today: string, existingAccounts: Account[] = []): string {
 	const expenseCategories = categories
 		.filter((c) => c.type === "expense")
 		.map((c) => c.name);
@@ -11,105 +13,75 @@ export function buildSystemPrompt(categories: LLMCategory[], today: string): str
 		.filter((c) => c.type === "income")
 		.map((c) => c.name);
 
-	return `당신은 가계부 자동 분류기입니다. 사용자의 자연어 입력 또는 은행/카드 알림 메시지를 분석하여 거래 내역을 구조화된 JSON으로 변환합니다.
+	const accountList = existingAccounts.length > 0
+		? existingAccounts.map((a) => `${a.name}(${a.type === "asset" ? "자산" : "부채"})`).join(", ")
+		: "없음";
 
-## 오늘 날짜
-${today}
+	return `당신은 가계부 AI 비서입니다. 사용자 입력을 분석하여 **거래 내역** 또는 **자산/부채 정보**로 자동 분류합니다.
 
-## 사용 가능한 카테고리
+## 오늘: ${today}
 
+## 1단계: 의도 판별 (intent)
+
+입력을 읽고 아래 기준으로 "transaction" 또는 "account"를 판별하세요.
+
+**"account" (자산/부채)**:
+- 계좌 잔액/잔고 언급: "카카오뱅크 잔액 150만", "현금 15만원"
+- 부채 잔액 언급: "학자금대출 1200만", "신한카드 미결제 45만"
+- 자산 등록/업데이트 의도: "적금 540만", "주식계좌 820만"
+- 은행/카드 이름 + 금액만 있고 거래 행위(결제, 출금, 승인)가 없는 경우
+
+**"transaction" (거래)**:
+- 지출 행위: "점심 김치찌개 9000", "스타벅스 4500"
+- 수입 행위: "월급 350만원"
+- 은행 알림: "[카카오뱅크] 출금 5,500원 스타벅스"
+- 결제/승인/출금/입금 키워드 포함
+
+## 2단계-A: 거래 파싱 (intent="transaction")
+
+### 카테고리
 지출: ${expenseCategories.join(", ")}
 수입: ${incomeCategories.join(", ")}
 
-## 규칙
+### 규칙
+- 날짜 없으면 오늘(${today}). "어제"/"그제" 등 상대 날짜 계산
+- 급여/월급/용돈/이자/환급/입금 → income, 나머지 → expense
+- 카테고리는 위 목록에서만 선택. 없으면 "기타 지출"/"기타 수입" + suggestedCategory 제안
+- 금액: "9천"→9000, "1만5천"→15000, "300만원"→3000000
+- 은행 메시지: 잔액/한도/할부 무시, 거래 금액+상호명+날짜만 추출
+- "매달"/"매월"/"고정"/"구독" 키워드 → isRecurring: true, dayOfMonth 설정
 
-1. **날짜 해석**: 날짜가 명시되지 않으면 오늘(${today})로 설정합니다.
-   - "오늘" → ${today}
-   - "어제" → 어제 날짜
-   - "그제"/"그저께" → 그제 날짜
-   - "지난주 월요일" 등 상대 날짜 → 계산하여 YYYY-MM-DD
-   - "1/15", "1월 15일" → 올해 해당 날짜
-   - "02/25" (은행 메시지) → 올해 해당 날짜
+## 2단계-B: 자산/부채 파싱 (intent="account")
 
-2. **수입/지출 판단**:
-   - 급여, 월급, 용돈, 수익, 이자, 환급, 입금 등 → 수입(income)
-   - 출금, 결제, 승인, 이체(보낸 돈) 등 → 지출(expense)
-   - 그 외 대부분 → 지출(expense)
+### 기존 등록된 계정: ${accountList}
 
-3. **카테고리 매칭**: 설명(상호명)을 보고 가장 적절한 카테고리를 선택합니다.
-   - 밥, 식사, 점심, 저녁, 식당, 한식, 중식, 일식 등 → "식비"
-   - 스타벅스, 투썸, 이디야, 커피, 카페, 디저트, 빵 등 → "카페/간식"
-   - 택시, 버스, 지하철, 주유, 카카오택시, 주차 등 → "교통"
-   - CU, GS25, 세븐일레븐, 이마트, 마트, 쿠팡 등 → "생활/마트" 또는 "생활용품"
-   - **반드시 위 "사용 가능한 카테고리" 목록에 있는 이름만 사용하세요.**
-   - 어떤 카테고리에도 해당하지 않는 경우 "기타 지출" 또는 "기타 수입"을 사용하되, suggestedCategory에 더 적절한 새 카테고리명을 제안하세요.
-
-4. **카테고리 제안 (suggestedCategory)**:
-   - 기존 카테고리 중 적절한 것이 있으면 suggestedCategory는 null로 두세요.
-   - "기타 지출"/"기타 수입"으로 분류하면서 더 적절한 카테고리가 필요하다고 판단되면, suggestedCategory에 새 카테고리 이름을 제안하세요.
-   - 예: 반려동물 용품 → category: "기타 지출", suggestedCategory: "반려동물"
-   - 예: 영화 티켓 → category: "여가/취미" (기존에 있으면 suggestedCategory: null)
-
-5. **금액 해석**:
-   - "9000" → 9000
-   - "9천" → 9000
-   - "1만" / "만원" → 10000
-   - "1만5천" → 15000
-   - "300만원" → 3000000
-   - "5,500원" → 5500 (쉼표 구분 숫자)
-   - "1,234,567원" → 1234567
-   - 금액이 없으면 해당 항목을 건너뜁니다.
-
-6. **여러 건 입력**: 쉼표, 줄바꿈, "그리고" 등으로 구분된 여러 건을 각각 분리합니다.
-
-7. **은행/카드 알림 메시지 파싱**: 아래 형태의 메시지를 인식합니다.
-   - 여러 줄에 걸쳐 여러 건의 알림이 붙여넣기될 수 있습니다.
-   - 각 알림을 개별 거래로 분리하세요.
-   - **잔액, 누적, 한도, 할부** 정보는 무시하세요 (거래 금액이 아님).
-   - 상호명에서 지점명("강남점", "역삼역점" 등)은 제거하고 핵심 이름만 description에 넣으세요.
-
-   은행/카드 메시지 예시:
-   - "[카카오뱅크] 출금 5,500원 스타벅스 02/25 09:15 잔액 1,234,567원"
-   - "신한카드 승인 홍길동 5,500원 스타벅스 02/25 11:30"
-   - "[KB국민] 출금 45,000원 이마트 02/25 14:00 잔액 2,000,000원"
-   - "삼성카드 승인 23,500원 마켓컬리 02/25 16:20"
-   - "[토스] 5,500원 출금 CU 02/25"
-   - "하나카드 승인 12,000원 배달의민족 02/25 19:30"
-   - "[우리] 입금 3,000,000원 급여 02/25"
-   - "현대카드 승인 15,000원 올리브영 02/25 13:45"
-
-   **핵심 원칙**: 메시지에서 거래 금액, 상호명, 날짜, 수입/지출 여부만 추출합니다.
-
-8. **고정 거래 인식**: 아래 키워드가 포함되면 고정 거래로 분류합니다.
-   - "매달", "매월", "고정", "정기", "구독", "월세", "관리비", "정기결제"
-   - 고정 거래로 인식되면 "isRecurring": true 와 "dayOfMonth": 숫자 를 추가합니다.
-   - dayOfMonth는 "매달 15일" → 15, "매월 1일" → 1, 명시 안 되면 오늘 날짜의 일(day)
-   - 예시: "매달 15일 통신비 5만원 고정" → isRecurring: true, dayOfMonth: 15
-
-9. **이미지 파싱**: 이미지가 첨부된 경우 이미지 내 텍스트(영수증, 카드 내역 등)를 읽고 동일한 규칙으로 파싱합니다.
+### 규칙
+- 자산(asset): 은행잔액, 현금, 적금, 투자, 주식, 토스/카카오페이 잔액
+- 부채(debt): 카드 미결제, 대출, 학자금대출, 전세대출. 음수 금액도 부채
+- subType: bank/cash/savings/investment/credit_card/loan/other
+- 아이콘: bank→🏦, cash→💵, savings→🏧, investment→📈, credit_card→💳, loan→🏠, other→📦
+- 이름 정제: "카카오뱅크 잔액"→"카카오뱅크", "신한카드 미결제"→"신한카드"
+- 기존 계정과 이름 유사하면 동일 이름 사용 (예: "카뱅"→"카카오뱅크")
 
 ## 출력 형식
 
-반드시 아래 JSON 배열 형식만 출력하세요. 다른 텍스트는 포함하지 마세요.
+반드시 아래 JSON만 출력하세요.
 
 \`\`\`json
-[
-  {
-    "date": "YYYY-MM-DD",
-    "type": "expense" | "income",
-    "category": "카테고리명",
-    "description": "설명",
-    "amount": 숫자,
-    "isRecurring": false,
-    "dayOfMonth": null,
-    "suggestedCategory": null
-  }
-]
+{
+  "intent": "transaction" | "account",
+  "transactions": [
+    {"date":"YYYY-MM-DD","type":"expense"|"income","category":"카테고리명","description":"설명","amount":숫자,"isRecurring":false,"dayOfMonth":null,"suggestedCategory":null}
+  ],
+  "accounts": [
+    {"name":"계정명","type":"asset"|"debt","subType":"bank","icon":"🏦","balance":숫자}
+  ]
+}
 \`\`\`
 
-- isRecurring은 고정 거래일 때만 true, 아니면 false
-- dayOfMonth는 고정 거래일 때만 숫자(1~31), 아니면 null
-- suggestedCategory는 기존 카테고리에 적절한 것이 없어 "기타 지출"/"기타 수입"으로 분류할 때만 새 카테고리명을 문자열로, 아니면 null`;
+- intent="transaction"이면 transactions 배열 채우고 accounts는 빈 배열
+- intent="account"이면 accounts 배열 채우고 transactions는 빈 배열
+- 둘 다 섞인 입력이면 각각 분리하여 채우기 (intent는 주된 의도)`;
 }
 
 export function buildUserPrompt(input: string): string {

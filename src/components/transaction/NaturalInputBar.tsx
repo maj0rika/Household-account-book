@@ -6,22 +6,22 @@ import { Send, Loader2, ImagePlus, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 import { Button } from "@/components/ui/button";
-import { parseTransactionInput, parseTransactionImageInput } from "@/server/actions/parse";
-import type { ParsedTransaction } from "@/server/llm/types";
+import { parseUnifiedInput, parseUnifiedImageInput } from "@/server/actions/parse-unified";
+import type { UnifiedParseResult } from "@/server/llm/types";
 
 const PLACEHOLDER_HINTS = [
 	"점심 김치찌개 9000, 커피 4500",
 	"카드 결제 문자를 붙여넣어 보세요",
 	"어제 택시비 15000원",
 	"매달 15일 통신비 5만원 고정",
+	"카카오뱅크 잔액 150만원",
+	"신한카드 미결제 45만원",
 	"스타벅스 아메리카노 4500",
-	"이번달 월세 50만원 고정",
-	"카드 내역 이미지를 첨부해 보세요",
-	"3만원 마트 장보기",
+	"현금 15만원, 적금 540만원",
 	"월급 350만원",
-	"넷플릭스 17000 매달 고정",
+	"학자금대출 1200만원",
 	"그제 저녁 삼겹살 2만원",
-	"교통비 1450원",
+	"카드 내역 이미지를 첨부해 보세요",
 ];
 
 function AnimatedPlaceholder({ show }: { show: boolean }) {
@@ -62,7 +62,7 @@ function AnimatedPlaceholder({ show }: { show: boolean }) {
 }
 
 interface NaturalInputBarProps {
-	onParsed: (items: ParsedTransaction[], originalInput: string) => void;
+	onParsed: (result: UnifiedParseResult, originalInput: string) => void;
 }
 
 export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
@@ -100,7 +100,6 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 			return;
 		}
 
-		// 5MB 제한
 		if (file.size > 5 * 1024 * 1024) {
 			setError("이미지 크기는 5MB 이하여야 합니다.");
 			return;
@@ -110,7 +109,6 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 		reader.onload = () => {
 			const result = reader.result as string;
 			setImagePreview(result);
-			// data:image/jpeg;base64,... 에서 base64 부분만 추출
 			const base64 = result.split(",")[1];
 			setImageData({ base64, mimeType: file.type });
 			setError(null);
@@ -126,15 +124,15 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 
 		startTransition(async () => {
 			const result = imageData
-				? await parseTransactionImageInput(
+				? await parseUnifiedImageInput(
 						imageData.base64,
 						imageData.mimeType,
 						currentInput,
 					)
-				: await parseTransactionInput(currentInput);
+				: await parseUnifiedInput(currentInput);
 
 			if (result.success) {
-				onParsed(result.transactions, currentInput || "이미지 파싱");
+				onParsed(result, currentInput || "이미지 파싱");
 				setInput("");
 				clearImage();
 				if (textareaRef.current) {
@@ -163,6 +161,22 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 				animate={{ y: 0, opacity: 1 }}
 				transition={{ duration: 0.35, ease: "easeOut" }}
 			>
+				{/* 로딩 상태 표시 */}
+				<AnimatePresence>
+					{isPending && (
+						<motion.div
+							className="flex items-center justify-center gap-2 px-4 pt-2"
+							initial={{ opacity: 0, height: 0 }}
+							animate={{ opacity: 1, height: "auto" }}
+							exit={{ opacity: 0, height: 0 }}
+							transition={{ duration: 0.2 }}
+						>
+							<Loader2 className="h-3 w-3 animate-spin text-primary" />
+							<span className="text-xs text-muted-foreground">AI가 분석 중입니다...</span>
+						</motion.div>
+					)}
+				</AnimatePresence>
+
 				{/* 이미지 미리보기 */}
 				<AnimatePresence>
 					{imagePreview && (
