@@ -1,5 +1,6 @@
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
 import { getLLMConfig } from "./client";
+import type { LLMProvider } from "./client";
 import { buildSystemPrompt, buildUserPrompt } from "./prompt";
 import type { LLMCategory } from "./prompt";
 import type {
@@ -137,8 +138,9 @@ export async function parseUnifiedText(
 	input: string,
 	categories: LLMCategory[],
 	existingAccounts: Account[] = [],
+	provider?: LLMProvider,
 ): Promise<UnifiedParseResponse> {
-	const { client, model, temperature } = getLLMConfig();
+	const { client, model, temperature, extra_body } = getLLMConfig(provider);
 	const today = new Date().toISOString().split("T")[0];
 
 	const systemPrompt = buildSystemPrompt(categories, today, existingAccounts);
@@ -154,6 +156,7 @@ export async function parseUnifiedText(
 						{ role: "user", content: userPrompt },
 					],
 					temperature,
+					...extra_body,
 				}),
 				30000,
 			);
@@ -188,8 +191,9 @@ export async function parseUnifiedImage(
 	textInput: string,
 	categories: LLMCategory[],
 	existingAccounts: Account[] = [],
+	provider?: LLMProvider,
 ): Promise<UnifiedParseResponse> {
-	const { client, model, temperature } = getLLMConfig();
+	const { client, model, temperature, extra_body } = getLLMConfig(provider);
 	const today = new Date().toISOString().split("T")[0];
 
 	const systemPrompt = buildSystemPrompt(categories, today, existingAccounts);
@@ -217,6 +221,7 @@ export async function parseUnifiedImage(
 						{ role: "user", content: userContent },
 					],
 					temperature,
+					...extra_body,
 				}),
 				30000,
 			);
@@ -246,8 +251,9 @@ export async function parseUnifiedImage(
 export async function parseTransactionText(
 	input: string,
 	categories: LLMCategory[],
+	provider?: LLMProvider,
 ): Promise<ParseResponse> {
-	const result = await parseUnifiedText(input, categories);
+	const result = await parseUnifiedText(input, categories, [], provider);
 	if (!result.success) return result;
 	return { success: true, transactions: result.transactions };
 }
@@ -257,8 +263,9 @@ export async function parseTransactionImage(
 	mimeType: string,
 	textInput: string,
 	categories: LLMCategory[],
+	provider?: LLMProvider,
 ): Promise<ParseResponse> {
-	const result = await parseUnifiedImage(imageBase64, mimeType, textInput, categories);
+	const result = await parseUnifiedImage(imageBase64, mimeType, textInput, categories, [], provider);
 	if (!result.success) return result;
 	return { success: true, transactions: result.transactions };
 }

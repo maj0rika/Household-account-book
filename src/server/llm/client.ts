@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 
-type LLMProvider = "openai" | "kimi";
+export type LLMProvider = "openai" | "kimi" | "fireworks";
 
 interface LLMConfig {
 	client: OpenAI;
@@ -26,19 +26,29 @@ const configs: Record<LLMProvider, () => LLMConfig> = {
 			chat_template_kwargs: { thinking: false },
 		},
 	}),
+	fireworks: () => ({
+		client: new OpenAI({
+			apiKey: process.env.FIREWORKS_API_KEY,
+			baseURL: "https://api.fireworks.ai/inference/v1",
+		}),
+		model: "accounts/fireworks/models/kimi-k2p5",
+		temperature: 1,
+	}),
 };
 
-let cached: LLMConfig | null = null;
+// provider별 캐시
+const cache = new Map<LLMProvider, LLMConfig>();
 
-export function getLLMConfig(): LLMConfig {
-	if (cached) return cached;
+export function getLLMConfig(provider?: LLMProvider): LLMConfig {
+	const resolved = provider || (process.env.LLM_PROVIDER as LLMProvider) || "openai";
 
-	const provider = (process.env.LLM_PROVIDER || "openai") as LLMProvider;
+	if (cache.has(resolved)) return cache.get(resolved)!;
 
-	if (!configs[provider]) {
-		throw new Error(`Unknown LLM provider: ${provider}. Use "openai" or "kimi".`);
+	if (!configs[resolved]) {
+		throw new Error(`Unknown LLM provider: ${resolved}. Use "openai", "kimi", or "fireworks".`);
 	}
 
-	cached = configs[provider]();
-	return cached;
+	const config = configs[resolved]();
+	cache.set(resolved, config);
+	return config;
 }

@@ -7,11 +7,44 @@ import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { categories, accounts } from "@/server/db/schema";
 import { parseUnifiedText, parseUnifiedImage } from "@/server/llm";
+import type { LLMProvider } from "@/server/llm/client";
 import { isBankMessage, preprocessBankMessage } from "@/server/llm/bank-message";
 import { isFinancialInput, OOD_ERROR_MESSAGE } from "@/server/llm/ood-filter";
 import type { LLMCategory } from "@/server/llm/prompt";
 import type { UnifiedParseResponse } from "@/server/llm/types";
 import type { Account } from "@/types";
+
+// 세션별 Fireworks 사용 카운터 (인메모리)
+// key: sessionId, value: { count, lastUsed }
+// 로그아웃 → 재로그인 시 새 세션 ID가 발급되므로 자동 리셋
+const FIREWORKS_FREE_LIMIT = 3;
+const MAX_MAP_SIZE = 1000;
+const fireworksUsageMap = new Map<string, { count: number; lastUsed: number }>();
+
+// 오래된 엔트리 정리 (24시간 초과)
+function pruneStaleEntries(): void {
+	if (fireworksUsageMap.size <= MAX_MAP_SIZE) return;
+	const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+	for (const [key, val] of fireworksUsageMap) {
+		if (val.lastUsed < cutoff) fireworksUsageMap.delete(key);
+	}
+}
+
+function resolveProvider(sessionId: string): LLMProvider {
+	if (!process.env.FIREWORKS_API_KEY) return "kimi";
+
+	const entry = fireworksUsageMap.get(sessionId);
+	const used = entry?.count ?? 0;
+	if (used < FIREWORKS_FREE_LIMIT) return "fireworks";
+	return "kimi";
+}
+
+function incrementFireworksUsage(sessionId: string): void {
+	const entry = fireworksUsageMap.get(sessionId);
+	const count = (entry?.count ?? 0) + 1;
+	fireworksUsageMap.set(sessionId, { count, lastUsed: Date.now() });
+	pruneStaleEntries();
+}
 
 async function getUserLLMCategories(userId: string): Promise<LLMCategory[]> {
 	const rows = await db
@@ -61,6 +94,9 @@ export async function parseUnifiedInput(input: string): Promise<UnifiedParseResp
 		return { success: false, error: OOD_ERROR_MESSAGE };
 	}
 
+	// provider 결정 (Fireworks 3회 → Kimi 폴백)
+	const provider = resolveProvider(session.session.id);
+
 	// 병렬로 카테고리 + 계정 조회
 	const [userCategories, existingAccounts] = await Promise.all([
 		getUserLLMCategories(session.user.id),
@@ -72,7 +108,14 @@ export async function parseUnifiedInput(input: string): Promise<UnifiedParseResp
 		? preprocessBankMessage(input)
 		: input;
 
-	return parseUnifiedText(processedInput, userCategories, existingAccounts);
+	const result = await parseUnifiedText(processedInput, userCategories, existingAccounts, provider);
+
+	// 성공 시에만 카운터 증가 (실패하면 횟수 소비하지 않음)
+	if (result.success && provider === "fireworks") {
+		incrementFireworksUsage(session.session.id);
+	}
+
+	return result;
 }
 
 export async function parseUnifiedImageInput(
@@ -92,10 +135,19 @@ export async function parseUnifiedImageInput(
 		return { success: false, error: "이미지가 비어 있습니다." };
 	}
 
+	// provider 결정
+	const provider = resolveProvider(session.session.id);
+
 	const [userCategories, existingAccounts] = await Promise.all([
 		getUserLLMCategories(session.user.id),
 		getUserAccounts(session.user.id),
 	]);
 
-	return parseUnifiedImage(imageBase64, mimeType, textInput, userCategories, existingAccounts);
+	const result = await parseUnifiedImage(imageBase64, mimeType, textInput, userCategories, existingAccounts, provider);
+
+	if (result.success && provider === "fireworks") {
+		incrementFireworksUsage(session.session.id);
+	}
+
+	return result;
 }
