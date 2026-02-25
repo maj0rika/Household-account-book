@@ -7,6 +7,7 @@ import {
 	getDailyExpenses,
 	getMonthlyCalendarData,
 } from "@/server/actions/transaction";
+import { autoApplyRecurringTransactions } from "@/server/actions/recurring";
 import { getCurrentMonth } from "@/lib/format";
 import { MonthlySummaryCard } from "@/components/dashboard/MonthlySummaryCard";
 import { MonthNavigator } from "@/components/dashboard/MonthNavigator";
@@ -25,6 +26,9 @@ interface Props {
 export default async function TransactionsPage({ searchParams }: Props) {
 	const params = await searchParams;
 	const month = params.month ?? getCurrentMonth();
+
+	// 고정 거래 자동 적용 (오늘 날짜 기준, 중복 방지 내장)
+	await autoApplyRecurringTransactions();
 
 	// 주간 차트용: 최근 7일 범위
 	const today = new Date();

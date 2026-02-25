@@ -28,7 +28,10 @@ See `.env.example` and `docs/project-identity.md` for issuance and setup details
 ```bash
 npm run db:generate
 npm run db:migrate
+npm run db:seed:create
 npm run db:seed
+npm run db:reset
+npm run db:init
 ```
 
 ## Quality Checks

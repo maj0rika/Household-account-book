@@ -40,27 +40,44 @@
 - [x] 통합 파싱 함수 (LLM 호출 → JSON 추출 → 유효성 검증 + 재시도)
 - [x] 파싱 Server Action + API Route (/api/parse)
 - [x] 에러 핸들링 (재시도 1회, 실패 시 에러 메시지 반환)
-- [ ] Rate Limiting (v1.0에서는 미구현 — 필요 시 추가)
 
-### Phase 5: 핵심 UI (모바일 퍼스트)
-- [ ] 레이아웃: 하단 탭바 (모바일) / 사이드바 (데스크톱)
-- [ ] 자연어 입력바 (하단 고정, 포커스 시 확장)
-- [ ] AI 파싱 결과 Bottom Sheet (확인/수정/저장)
-- [ ] 거래 목록 (날짜별 그룹, 스와이프 삭제)
-- [ ] 수동 입력 폼 (폴백)
+### Phase 5: 핵심 UI (모바일 퍼스트) ✅
+- [x] DB 스키마 마이그레이션 (users 제거, authUsers로 FK 통합)
+- [x] shadcn/ui 컴포넌트 설치 (button, input, card, dialog, drawer 등 11개)
+- [x] 거래 CRUD Server Actions (생성, 조회, 삭제, 월별 요약)
+- [x] 레이아웃: 하단 탭바 (모바일) / 사이드바 (데스크톱)
+- [x] 자연어 입력바 (하단 고정, AI 파싱 호출)
+- [x] AI 파싱 결과 Bottom Sheet (확인/삭제/저장)
+- [x] 거래 목록 (날짜별 그룹, 삭제 버튼)
+- [x] 수동 입력 폼 (Dialog)
+- [x] 인증 기반 리디렉트 (/ → /transactions 또는 /login)
+- [x] 회원가입 시 기본 카테고리 자동 생성 (databaseHooks)
 
-### Phase 6: 대시보드 + 통계
-- [ ] 월별 요약 카드 (수입/지출/잔액)
-- [ ] 카테고리별 지출 차트
-- [ ] 주간 미니 바 차트
-- [ ] 월 선택 네비게이션
+### Phase 6: 대시보드 + 통계 ✅
+- [x] 월 선택 네비게이션 (이전/다음 월, URL searchParams)
+- [x] 카테고리별 지출 도넛 차트 (Recharts)
+- [x] 주간 미니 바 차트 (최근 7일 일별 지출)
+- [x] 달력 뷰 (일별 수입/지출 금액 표시)
+- [x] 고정 수입/지출 (recurring_transactions 테이블, CRUD, 월 일괄 적용)
+- [x] Server Actions: getCategoryBreakdown, getDailyExpenses, getMonthlyCalendarData
 
-### Phase 7: 카테고리 + 설정
+---
+
+### Phase 7: 메시지/은행 내역 연동 ✅
+카카오톡/SMS 은행 알림 메시지를 붙여넣으면 AI가 자동 파싱하는 기능.
+
+- [x] LLM 프롬프트 확장 (은행/카드 알림 메시지 파싱 규칙)
+- [x] NaturalInputBar 멀티라인 모드 (붙여넣기 감지)
+- [x] 주요 은행/카드사 포맷 지원 (카카오뱅크, 신한, 국민, 토스 등)
+- [x] 여러 줄 메시지 배치 파싱 → 다건 거래 생성
+
+### Phase 8: 카테고리 + 설정
 - [ ] 카테고리 목록 / 추가 / 수정 / 삭제
-- [ ] 프로필 설정
+- [ ] 프로필 설정 (이름, 비밀번호 변경)
 - [ ] 다크모드 토글
+- [ ] 로그아웃
 
-### Phase 8: 디자인 폴리싱
+### Phase 9: 디자인 폴리싱
 - [ ] Glassmorphism 탭바/네비게이션
 - [ ] Framer Motion 애니메이션 (리스트 추가, Bottom Sheet, 차트 업데이트)
 - [ ] Mesh Gradient 대시보드 카드
@@ -68,16 +85,15 @@
 - [ ] 마이크로 인터랙션 (active:scale, 햅틱 피드백)
 - [ ] 스켈레톤 로딩 (AI 처리 대기)
 
-### Phase 9: Capacitor (네이티브 앱)
+### Phase 10: Capacitor (네이티브 앱)
 - [ ] Capacitor 설치 + 설정
 - [ ] Next.js 정적 export 설정
 - [ ] API Route 래핑 (Server Actions → fetch 호출)
 - [ ] iOS 빌드 + 테스트
 - [ ] Android 빌드 + 테스트
-- [ ] 앱스토어 제출 준비
+- [ ] Share Extension (메시지 공유 → 자동 파싱)
 
-### Phase 10: 배포
-- [ ] GitHub 레포 생성
+### Phase 11: 배포
 - [ ] Vercel 연동 (웹 배포)
 - [ ] 환경변수 설정 (Vercel Dashboard)
 - [ ] 도메인 연결 (선택)
@@ -85,13 +101,31 @@
 
 ---
 
-## v1.1 (추후)
-- [ ] 예산 설정 & 알림
-- [ ] 거래 검색/필터
-- [ ] 월별/연별 통계 차트 확장
-- [ ] 반복 거래 (월세, 구독료 등)
-- [ ] AI 학습 개선 (사용자 수정 피드백 반영)
-- [ ] 음성 입력 지원
+## v1.1 확장 기능
+
+### Phase 12: N분의 1 정산 (더치페이) 🆕
+내가 카드로 전체 결제 후, 친구들에게 각자 몫을 청구/추적.
+
+- [ ] DB 스키마: settlements, settlement_members 테이블
+- [ ] 거래 저장 후 "정산하기" 버튼 → 인원 입력 → N등분
+- [ ] 정산 현황 대시보드 (받아야 할 금액, 완료/미완료)
+- [ ] 개별 정산 완료 체크
+- [ ] 카카오페이/토스 딥링크 연동 (송금 요청 URL)
+
+### Phase 13: 예산 설정 & 알림
+- [ ] 카테고리별/전체 월 예산 설정
+- [ ] 예산 초과 시 알림 (웹 + 푸시)
+- [ ] 예산 대비 지출 진행률 바
+
+### Phase 14: 거래 검색/필터 + 반복 거래
+- [ ] 키워드/카테고리/기간/금액 범위 검색
+- [ ] 필터 조합 (AND)
+- [ ] 검색 결과 내 통계
+
+### Phase 15: AI 학습 개선 + 음성 입력
+- [ ] 사용자 수정 피드백 반영 (파싱 정확도 향상)
+- [ ] 음성 입력 (Web Speech API / Capacitor 마이크)
+- [ ] 영수증 사진 OCR → 파싱
 
 ---
 
@@ -146,3 +180,6 @@ type: start | progress | complete | change | issue
 | 2026-02-24 | 완료 | Phase 2 DB + ORM 완료 (Supabase 연동) | [history](./history/2026-02-24-04-phase2-db-orm-complete.md) |
 | 2026-02-24 | 완료 | Phase 3 인증 완료 | [history](./history/2026-02-24-05-phase3-auth-complete.md) |
 | 2026-02-25 | 완료 | Phase 4 LLM 파서 구현 완료 | [history](./history/2026-02-25-01-phase4-llm-parser-complete.md) |
+| 2026-02-25 | 완료 | Phase 5 핵심 UI 구현 완료 | — |
+| 2026-02-25 | 완료 | Phase 6 대시보드 + 통계 구현 완료 | — |
+| 2026-02-25 | 완료 | Phase 7 메시지/은행 내역 연동 완료 | [history](./history/2026-02-25-02-phase7-bank-message-complete.md) |
