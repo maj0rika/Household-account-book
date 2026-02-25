@@ -5,9 +5,18 @@ import { formatCurrency } from "@/lib/format";
 import type { CategoryBreakdown } from "@/types";
 
 const COLORS = [
-	"#6366f1", "#f43f5e", "#f59e0b", "#10b981", "#3b82f6",
-	"#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#06b6d4",
-	"#84cc16", "#a855f7",
+	"oklch(0.55 0.17 155)", // primary green
+	"oklch(0.65 0.20 165)", // teal
+	"oklch(0.45 0.12 145)", // dark green
+	"oklch(0.75 0.15 135)", // lime
+	"oklch(0.60 0.10 175)", // cyan-green
+	"oklch(0.50 0.14 185)", // deep teal
+	"oklch(0.70 0.12 125)", // yellow-green
+	"oklch(0.58 0.16 195)", // blue-green
+	"oklch(0.68 0.08 155)", // sage
+	"oklch(0.42 0.10 165)", // forest
+	"oklch(0.78 0.10 145)", // mint
+	"oklch(0.55 0.12 200)", // ocean
 ];
 
 export function CategoryPieChart({ data }: { data: CategoryBreakdown[] }) {

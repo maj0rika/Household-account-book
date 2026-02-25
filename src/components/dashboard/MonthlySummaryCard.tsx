@@ -14,27 +14,27 @@ export function MonthlySummaryCard({ summary, month }: { summary: MonthlySummary
 			<div className="grid grid-cols-3 gap-2">
 				<Card>
 					<CardContent className="flex flex-col items-center gap-1 p-3">
-						<TrendingUp className="h-4 w-4 text-blue-500" />
+						<TrendingUp className="h-4 w-4 text-income" />
 						<span className="text-xs text-muted-foreground">수입</span>
-						<span className="text-sm font-semibold text-blue-600">
+						<span className="text-sm font-semibold text-income">
 							{formatCurrency(summary.income)}
 						</span>
 					</CardContent>
 				</Card>
 				<Card>
 					<CardContent className="flex flex-col items-center gap-1 p-3">
-						<TrendingDown className="h-4 w-4 text-red-500" />
+						<TrendingDown className="h-4 w-4 text-expense" />
 						<span className="text-xs text-muted-foreground">지출</span>
-						<span className="text-sm font-semibold text-red-600">
+						<span className="text-sm font-semibold text-expense">
 							{formatCurrency(summary.expense)}
 						</span>
 					</CardContent>
 				</Card>
 				<Card>
 					<CardContent className="flex flex-col items-center gap-1 p-3">
-						<Wallet className="h-4 w-4 text-green-500" />
+						<Wallet className="h-4 w-4 text-primary" />
 						<span className="text-xs text-muted-foreground">잔액</span>
-						<span className={`text-sm font-semibold ${summary.balance >= 0 ? "text-green-600" : "text-red-600"}`}>
+						<span className={`text-sm font-semibold ${summary.balance >= 0 ? "text-income" : "text-expense"}`}>
 							{formatCurrency(summary.balance)}
 						</span>
 					</CardContent>

@@ -1,10 +1,15 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { type FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Wallet } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 export default function RegisterPage() {
 	const router = useRouter();
@@ -37,45 +42,76 @@ export default function RegisterPage() {
 	};
 
 	return (
-		<main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-6">
-			<h1 className="text-2xl font-semibold">회원가입</h1>
-			<form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-				<input
-					type="text"
-					required
-					placeholder="이름"
-					value={name}
-					onChange={(event) => setName(event.target.value)}
-					className="w-full rounded border px-3 py-2"
-				/>
-				<input
-					type="email"
-					required
-					placeholder="이메일"
-					value={email}
-					onChange={(event) => setEmail(event.target.value)}
-					className="w-full rounded border px-3 py-2"
-				/>
-				<input
-					type="password"
-					required
-					placeholder="비밀번호"
-					value={password}
-					onChange={(event) => setPassword(event.target.value)}
-					className="w-full rounded border px-3 py-2"
-				/>
-				<button
-					type="submit"
-					disabled={isLoading}
-					className="w-full rounded bg-black px-3 py-2 text-white disabled:opacity-50"
-				>
-					{isLoading ? "가입 중..." : "이메일 회원가입"}
-				</button>
-			</form>
-			{errorMessage ? <p className="mt-3 text-sm text-red-600">{errorMessage}</p> : null}
-			<p className="mt-4 text-sm text-muted-foreground">
-				이미 계정이 있나요? <Link href="/login">로그인</Link>
-			</p>
+		<main className="flex min-h-dvh items-center justify-center px-4">
+			<Card className="w-full max-w-sm">
+				<CardHeader className="items-center gap-2 pb-2">
+					<div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+						<Wallet className="h-6 w-6 text-primary" />
+					</div>
+					<h1 className="text-xl font-semibold">회원가입</h1>
+					<p className="text-sm text-muted-foreground">
+						가계부를 시작해보세요
+					</p>
+				</CardHeader>
+				<CardContent className="space-y-4">
+					<form className="space-y-3" onSubmit={handleSubmit}>
+						<div className="space-y-1.5">
+							<Label htmlFor="name">이름</Label>
+							<Input
+								id="name"
+								type="text"
+								required
+								placeholder="홍길동"
+								value={name}
+								onChange={(event) => setName(event.target.value)}
+								autoComplete="name"
+							/>
+						</div>
+						<div className="space-y-1.5">
+							<Label htmlFor="email">이메일</Label>
+							<Input
+								id="email"
+								type="email"
+								required
+								placeholder="name@example.com"
+								value={email}
+								onChange={(event) => setEmail(event.target.value)}
+								autoComplete="email"
+							/>
+						</div>
+						<div className="space-y-1.5">
+							<Label htmlFor="password">비밀번호</Label>
+							<Input
+								id="password"
+								type="password"
+								required
+								placeholder="8자 이상"
+								minLength={8}
+								value={password}
+								onChange={(event) => setPassword(event.target.value)}
+								autoComplete="new-password"
+							/>
+						</div>
+						<Button type="submit" className="w-full" disabled={isLoading}>
+							{isLoading ? "가입 중..." : "회원가입"}
+						</Button>
+					</form>
+
+					{errorMessage && (
+						<p className="text-center text-sm text-destructive">{errorMessage}</p>
+					)}
+
+					<p className="text-center text-sm text-muted-foreground">
+						이미 계정이 있나요?{" "}
+						<Link
+							href="/login"
+							className="font-medium text-primary hover:underline"
+						>
+							로그인
+						</Link>
+					</p>
+				</CardContent>
+			</Card>
 		</main>
 	);
 }

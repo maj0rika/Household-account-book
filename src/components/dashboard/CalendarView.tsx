@@ -28,8 +28,8 @@ export function CalendarView({ month, data }: CalendarViewProps) {
 						key={d}
 						className={cn(
 							"py-1 font-medium text-muted-foreground",
-							i === 0 && "text-red-400",
-							i === 6 && "text-blue-400",
+							i === 0 && "text-expense/70",
+							i === 6 && "text-income/70",
 						)}
 					>
 						{d}
@@ -52,12 +52,12 @@ export function CalendarView({ month, data }: CalendarViewProps) {
 						>
 							<span className={cn("text-[11px]", isToday && "font-bold")}>{day}</span>
 							{dayData?.expense ? (
-								<span className="text-[8px] leading-none text-red-500">
+								<span className="text-[8px] leading-none text-expense">
 									-{abbreviateAmount(dayData.expense)}
 								</span>
 							) : null}
 							{dayData?.income ? (
-								<span className="text-[8px] leading-none text-blue-500">
+								<span className="text-[8px] leading-none text-income">
 									+{abbreviateAmount(dayData.income)}
 								</span>
 							) : null}
