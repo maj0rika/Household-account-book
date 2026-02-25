@@ -1,0 +1,166 @@
+"use server";
+
+import { headers } from "next/headers";
+import { and, eq, gte, lt, sql, isNull } from "drizzle-orm";
+
+import { auth } from "@/server/auth";
+import { db } from "@/server/db";
+import { budgets, transactions, categories } from "@/server/db/schema";
+
+async function getAuthUserId(): Promise<string> {
+	const session = await auth.api.getSession({
+		headers: await headers(),
+	});
+	if (!session?.user?.id) {
+		throw new Error("인증이 필요합니다.");
+	}
+	return session.user.id;
+}
+
+export interface Budget {
+	id: string;
+	categoryId: string | null;
+	categoryName: string | null;
+	categoryIcon: string | null;
+	amount: number;
+	month: string;
+}
+
+export interface BudgetWithSpent extends Budget {
+	spent: number;
+	percentage: number; // 0~100+
+}
+
+/**
+ * 특정 월의 예산 목록 조회 (지출 실적 포함)
+ */
+export async function getBudgetsWithSpent(month: string): Promise<BudgetWithSpent[]> {
+	const userId = await getAuthUserId();
+
+	// 예산 조회
+	const budgetRows = await db
+		.select({
+			id: budgets.id,
+			categoryId: budgets.categoryId,
+			amount: budgets.amount,
+			month: budgets.month,
+			categoryName: categories.name,
+			categoryIcon: categories.icon,
+		})
+		.from(budgets)
+		.leftJoin(categories, eq(budgets.categoryId, categories.id))
+		.where(
+			and(
+				eq(budgets.userId, userId),
+				eq(budgets.month, month),
+			),
+		);
+
+	if (budgetRows.length === 0) return [];
+
+	// 해당 월 지출 합계 (카테고리별)
+	const startDate = `${month}-01`;
+	const [year, m] = month.split("-").map(Number);
+	const nextMonth = m === 12 ? `${year + 1}-01-01` : `${year}-${String(m + 1).padStart(2, "0")}-01`;
+
+	const spentRows = await db
+		.select({
+			categoryId: transactions.categoryId,
+			total: sql<number>`coalesce(sum(${transactions.amount}), 0)`,
+		})
+		.from(transactions)
+		.where(
+			and(
+				eq(transactions.userId, userId),
+				eq(transactions.type, "expense"),
+				gte(transactions.date, startDate),
+				lt(transactions.date, nextMonth),
+			),
+		)
+		.groupBy(transactions.categoryId);
+
+	const spentMap = new Map(spentRows.map((r) => [r.categoryId, Number(r.total)]));
+
+	// 전체 지출 합계 (전체 예산용)
+	const totalSpent = spentRows.reduce((sum, r) => sum + Number(r.total), 0);
+
+	return budgetRows.map((b) => {
+		// categoryId가 null이면 전체 예산
+		const spent = b.categoryId === null ? totalSpent : (spentMap.get(b.categoryId) ?? 0);
+		return {
+			id: b.id,
+			categoryId: b.categoryId,
+			categoryName: b.categoryId === null ? "전체" : (b.categoryName ?? "미분류"),
+			categoryIcon: b.categoryId === null ? "💰" : (b.categoryIcon ?? "📦"),
+			amount: b.amount,
+			month: b.month,
+			spent,
+			percentage: b.amount > 0 ? Math.round((spent / b.amount) * 10000) / 100 : 0,
+		};
+	});
+}
+
+/**
+ * 예산 설정 (upsert)
+ */
+export async function upsertBudget(data: {
+	categoryId: string | null;
+	amount: number;
+	month: string;
+}): Promise<{ success: true } | { success: false; error: string }> {
+	try {
+		const userId = await getAuthUserId();
+
+		// 기존 예산 확인
+		const existing = await db
+			.select({ id: budgets.id })
+			.from(budgets)
+			.where(
+				and(
+					eq(budgets.userId, userId),
+					eq(budgets.month, data.month),
+					data.categoryId
+						? eq(budgets.categoryId, data.categoryId)
+						: isNull(budgets.categoryId),
+				),
+			)
+			.limit(1);
+
+		if (existing.length > 0) {
+			await db
+				.update(budgets)
+				.set({ amount: data.amount })
+				.where(eq(budgets.id, existing[0].id));
+		} else {
+			await db.insert(budgets).values({
+				userId,
+				categoryId: data.categoryId,
+				amount: data.amount,
+				month: data.month,
+			});
+		}
+
+		return { success: true };
+	} catch (e) {
+		return { success: false, error: e instanceof Error ? e.message : "예산 저장에 실패했습니다." };
+	}
+}
+
+/**
+ * 예산 삭제
+ */
+export async function deleteBudget(
+	id: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+	try {
+		const userId = await getAuthUserId();
+
+		await db
+			.delete(budgets)
+			.where(and(eq(budgets.id, id), eq(budgets.userId, userId)));
+
+		return { success: true };
+	} catch (e) {
+		return { success: false, error: e instanceof Error ? e.message : "예산 삭제에 실패했습니다." };
+	}
+}

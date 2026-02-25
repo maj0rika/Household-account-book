@@ -1,0 +1,150 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Plus, Loader2, Trash2 } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogFooter,
+} from "@/components/ui/dialog";
+import { upsertBudget, deleteBudget } from "@/server/actions/budget";
+import type { BudgetWithSpent } from "@/server/actions/budget";
+import type { Category } from "@/types";
+
+interface BudgetFormProps {
+	month: string;
+	budgets: BudgetWithSpent[];
+	categories: Category[];
+}
+
+export function BudgetForm({ month, budgets, categories }: BudgetFormProps) {
+	const router = useRouter();
+	const [open, setOpen] = useState(false);
+	const [isPending, startTransition] = useTransition();
+
+	const [categoryId, setCategoryId] = useState<string>("__total__");
+	const [amount, setAmount] = useState("");
+
+	const expenseCategories = categories.filter((c) => c.type === "expense");
+
+	// 이미 예산이 설정된 카테고리 제외
+	const existingCategoryIds = new Set(budgets.map((b) => b.categoryId ?? "__total__"));
+
+	const handleSave = () => {
+		const numAmount = Number(amount);
+		if (!numAmount || numAmount <= 0) return;
+
+		startTransition(async () => {
+			const result = await upsertBudget({
+				categoryId: categoryId === "__total__" ? null : categoryId,
+				amount: numAmount,
+				month,
+			});
+			if (result.success) {
+				setOpen(false);
+				setAmount("");
+				setCategoryId("__total__");
+				router.refresh();
+			}
+		});
+	};
+
+	const handleDelete = (budgetId: string) => {
+		startTransition(async () => {
+			await deleteBudget(budgetId);
+			router.refresh();
+		});
+	};
+
+	return (
+		<div className="px-4">
+			<div className="mb-3 flex items-center justify-between">
+				<h3 className="text-sm font-semibold">예산 관리</h3>
+				<Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+					<Plus className="mr-1 h-3.5 w-3.5" />
+					예산 추가
+				</Button>
+			</div>
+
+			{budgets.length > 0 && (
+				<div className="space-y-1">
+					{budgets.map((b) => (
+						<div key={b.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+							<div className="flex items-center gap-2 text-sm">
+								<span>{b.categoryIcon}</span>
+								<span>{b.categoryName}</span>
+							</div>
+							<div className="flex items-center gap-2">
+								<span className="text-sm font-medium">{Number(b.amount).toLocaleString()}원</span>
+								<Button
+									variant="ghost"
+									size="icon"
+									className="h-7 w-7"
+									onClick={() => handleDelete(b.id)}
+									disabled={isPending}
+								>
+									<Trash2 className="h-3.5 w-3.5" />
+								</Button>
+							</div>
+						</div>
+					))}
+				</div>
+			)}
+
+			<Dialog open={open} onOpenChange={setOpen}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>예산 추가</DialogTitle>
+					</DialogHeader>
+					<div className="space-y-4">
+						<div>
+							<Label>카테고리</Label>
+							<select
+								value={categoryId}
+								onChange={(e) => setCategoryId(e.target.value)}
+								className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+							>
+								{!existingCategoryIds.has("__total__") && (
+									<option value="__total__">💰 전체 예산</option>
+								)}
+								{expenseCategories
+									.filter((c) => !existingCategoryIds.has(c.id))
+									.map((c) => (
+										<option key={c.id} value={c.id}>
+											{c.icon} {c.name}
+										</option>
+									))}
+							</select>
+						</div>
+						<div>
+							<Label>금액</Label>
+							<Input
+								type="number"
+								value={amount}
+								onChange={(e) => setAmount(e.target.value)}
+								placeholder="500000"
+								className="mt-1"
+							/>
+						</div>
+					</div>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setOpen(false)}>
+							취소
+						</Button>
+						<Button onClick={handleSave} disabled={isPending || !amount}>
+							{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+							저장
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+		</div>
+	);
+}
