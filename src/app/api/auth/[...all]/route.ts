@@ -9,29 +9,32 @@ export const GET = handler.GET;
 
 export async function POST(req: Request) {
 	try {
-		const cloned = req.clone();
-		const body = await cloned.json().catch(() => null);
-		console.log("[Auth POST] path:", new URL(req.url).pathname, "body:", JSON.stringify(body));
-
 		const response = await handler.POST(req);
-
-		console.log("[Auth POST] status:", response.status);
 		if (response.status >= 400) {
 			const text = await response.clone().text();
-			console.error("[Auth POST] error response:", text);
+			console.error("[Auth POST]", response.status, text);
 			if (!text) {
 				return NextResponse.json(
-					{ error: "Auth returned empty error", status: response.status },
+					{
+						error: "Auth error with empty body",
+						status: response.status,
+						url: req.url,
+						hasGoogleId: !!process.env.GOOGLE_CLIENT_ID,
+						hasGoogleSecret: !!process.env.GOOGLE_CLIENT_SECRET,
+						baseURL: process.env.BETTER_AUTH_URL,
+					},
 					{ status: response.status },
 				);
 			}
 		}
-
 		return response;
 	} catch (e) {
-		console.error("[Auth POST Error]", e);
+		console.error("[Auth POST catch]", e);
 		return NextResponse.json(
-			{ error: e instanceof Error ? e.message : "Unknown auth error", stack: e instanceof Error ? e.stack : undefined },
+			{
+				error: e instanceof Error ? e.message : String(e),
+				stack: e instanceof Error ? e.stack?.split("\n").slice(0, 5) : undefined,
+			},
 			{ status: 500 },
 		);
 	}
