@@ -8,6 +8,7 @@ export interface Transaction {
 	originalInput: string | null;
 	date: string; // YYYY-MM-DD
 	memo: string | null;
+	isRecurring: boolean;
 	createdAt: Date;
 	updatedAt: Date;
 	category: {

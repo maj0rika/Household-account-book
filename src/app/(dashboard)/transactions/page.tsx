@@ -6,6 +6,7 @@ import {
 	getCategoryBreakdown,
 	getDailyExpenses,
 	getMonthlyCalendarData,
+	getUserCategories,
 } from "@/server/actions/transaction";
 import { autoApplyRecurringTransactions } from "@/server/actions/recurring";
 import { getCurrentMonth } from "@/lib/format";
@@ -37,16 +38,18 @@ export default async function TransactionsPage({ searchParams }: Props) {
 	const startDate = weekAgo.toISOString().split("T")[0];
 	const endDate = new Date(today.getTime() + 86400000).toISOString().split("T")[0];
 
-	const [transactions, summary, categoryBreakdown, dailyExpenses, calendarData] = await Promise.all([
-		getTransactions(month),
-		getMonthlySummary(month),
-		getCategoryBreakdown(month),
-		getDailyExpenses(startDate, endDate),
-		getMonthlyCalendarData(month),
-	]);
+	const [transactions, summary, categoryBreakdown, dailyExpenses, calendarData, userCategories] =
+		await Promise.all([
+			getTransactions(month),
+			getMonthlySummary(month),
+			getCategoryBreakdown(month),
+			getDailyExpenses(startDate, endDate),
+			getMonthlyCalendarData(month),
+			getUserCategories(),
+		]);
 
 	return (
-		<>
+		<div className="pb-28 md:pb-24">
 			<Suspense>
 				<MonthNavigator month={month} />
 			</Suspense>
@@ -62,8 +65,8 @@ export default async function TransactionsPage({ searchParams }: Props) {
 			<Separator className="my-2" />
 			<TransactionList transactions={transactions} />
 			<Suspense>
-				<TransactionInputSection />
+				<TransactionInputSection categories={userCategories} />
 			</Suspense>
-		</>
+		</div>
 	);
 }

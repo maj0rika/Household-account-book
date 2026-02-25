@@ -5,9 +5,9 @@ import { and, eq, gte, lt, sql, desc } from "drizzle-orm";
 
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
-import { transactions, categories } from "@/server/db/schema";
+import { transactions, categories, recurringTransactions } from "@/server/db/schema";
 import type { ParsedTransaction } from "@/server/llm/types";
-import type { Transaction, MonthlySummary, CategoryBreakdown, DailyExpense } from "@/types";
+import type { Transaction, MonthlySummary, CategoryBreakdown, DailyExpense, Category } from "@/types";
 
 async function getAuthUserId(): Promise<string> {
 	const session = await auth.api.getSession({
@@ -34,17 +34,56 @@ export async function createTransactions(
 
 		const categoryMap = new Map(userCategories.map((c) => [`${c.type}:${c.name}`, c.id]));
 
-		const values = items.map((item) => ({
-			userId,
-			categoryId: categoryMap.get(`${item.type}:${item.category}`) ?? null,
-			type: item.type as "income" | "expense",
-			amount: item.amount,
-			description: item.description,
-			originalInput,
-			date: item.date,
-		}));
+		// 일반 거래와 고정 거래 분리
+		const regularItems = items.filter((item) => !item.isRecurring);
+		const recurringItems = items.filter((item) => item.isRecurring);
 
-		await db.insert(transactions).values(values);
+		// 일반 거래 저장
+		if (regularItems.length > 0) {
+			const values = regularItems.map((item) => ({
+				userId,
+				categoryId: categoryMap.get(`${item.type}:${item.category}`) ?? null,
+				type: item.type as "income" | "expense",
+				amount: item.amount,
+				description: item.description,
+				originalInput,
+				date: item.date,
+				isRecurring: false,
+			}));
+
+			await db.insert(transactions).values(values);
+		}
+
+		// 고정 거래 저장 (recurring_transactions + 이번 달 거래 즉시 생성)
+		if (recurringItems.length > 0) {
+			for (const item of recurringItems) {
+				const categoryId = categoryMap.get(`${item.type}:${item.category}`) ?? null;
+				const dayOfMonth = item.dayOfMonth ?? new Date(item.date).getDate();
+
+				await db.insert(recurringTransactions).values({
+					userId,
+					categoryId,
+					type: item.type,
+					amount: item.amount,
+					description: item.description,
+					dayOfMonth,
+					isActive: true,
+				});
+
+				// 이번 달 거래도 즉시 생성
+				await db.insert(transactions).values({
+					userId,
+					categoryId,
+					type: item.type,
+					amount: item.amount,
+					description: item.description,
+					originalInput,
+					date: item.date,
+					memo: "고정 거래 자동 생성",
+					isRecurring: true,
+				});
+			}
+		}
 
 		return { success: true, count: items.length };
 	} catch (e) {
@@ -70,6 +109,7 @@ export async function getTransactions(month: string): Promise<Transaction[]> {
 			originalInput: transactions.originalInput,
 			date: transactions.date,
 			memo: transactions.memo,
+			isRecurring: transactions.isRecurring,
 			createdAt: transactions.createdAt,
 			updatedAt: transactions.updatedAt,
 			categoryName: categories.name,
@@ -97,6 +137,7 @@ export async function getTransactions(month: string): Promise<Transaction[]> {
 		originalInput: row.originalInput,
 		date: row.date,
 		memo: row.memo,
+		isRecurring: row.isRecurring,
 		createdAt: row.createdAt,
 		updatedAt: row.updatedAt,
 		category: row.categoryName
@@ -162,14 +203,24 @@ export async function deleteTransaction(
 	}
 }
 
-export async function getUserCategories() {
+export async function getUserCategories(): Promise<Category[]> {
 	const userId = await getAuthUserId();
 
-	return db
+	const rows = await db
 		.select()
 		.from(categories)
 		.where(eq(categories.userId, userId))
 		.orderBy(categories.sortOrder);
+
+	return rows.map((row) => ({
+		id: row.id,
+		userId: row.userId,
+		name: row.name,
+		icon: row.icon,
+		type: row.type,
+		sortOrder: row.sortOrder,
+		isDefault: row.isDefault,
+	}));
 }
 
 export async function createSingleTransaction(data: {

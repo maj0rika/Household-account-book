@@ -1,15 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { useEffect } from "react";
 
 import { NaturalInputBar } from "@/components/transaction/NaturalInputBar";
 import { ParseResultSheet } from "@/components/transaction/ParseResultSheet";
 import { ManualInputDialog } from "@/components/transaction/ManualInputDialog";
 import type { ParsedTransaction } from "@/server/llm/types";
+import type { Category } from "@/types";
 
-export function TransactionInputSection() {
+interface TransactionInputSectionProps {
+	categories: Category[];
+}
+
+export function TransactionInputSection({ categories }: TransactionInputSectionProps) {
 	const searchParams = useSearchParams();
 	const [sheetOpen, setSheetOpen] = useState(false);
 	const [manualOpen, setManualOpen] = useState(false);
@@ -31,12 +35,14 @@ export function TransactionInputSection() {
 
 	return (
 		<>
+			<div aria-hidden="true" className="h-40 md:h-32" />
 			<NaturalInputBar onParsed={handleParsed} />
 			<ParseResultSheet
 				open={sheetOpen}
 				onOpenChange={setSheetOpen}
 				items={parsedItems}
 				originalInput={originalInput}
+				categories={categories}
 			/>
 			<ManualInputDialog open={manualOpen} onOpenChange={setManualOpen} />
 		</>

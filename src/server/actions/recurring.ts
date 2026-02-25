@@ -102,6 +102,7 @@ export async function applyRecurringTransactions(
 				description: r.description,
 				date,
 				memo: "고정 거래 자동 생성",
+				isRecurring: true,
 			};
 		});
 
@@ -184,6 +185,7 @@ export async function autoApplyRecurringTransactions(): Promise<number> {
 					description: r.description,
 					date,
 					memo: "고정 거래 자동 생성",
+					isRecurring: true,
 				};
 			})
 			.filter((v) => !existingSet.has(`${v.type}|${v.description}|${v.amount}|${v.date}`));

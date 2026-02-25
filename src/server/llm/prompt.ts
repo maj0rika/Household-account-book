@@ -70,6 +70,14 @@ ${today}
 
    **핵심 원칙**: 메시지에서 거래 금액, 상호명, 날짜, 수입/지출 여부만 추출합니다.
 
+7. **고정 거래 인식**: 아래 키워드가 포함되면 고정 거래로 분류합니다.
+   - "매달", "매월", "고정", "정기", "구독", "월세", "관리비", "정기결제"
+   - 고정 거래로 인식되면 "isRecurring": true 와 "dayOfMonth": 숫자 를 추가합니다.
+   - dayOfMonth는 "매달 15일" → 15, "매월 1일" → 1, 명시 안 되면 오늘 날짜의 일(day)
+   - 예시: "매달 15일 통신비 5만원 고정" → isRecurring: true, dayOfMonth: 15
+
+8. **이미지 파싱**: 이미지가 첨부된 경우 이미지 내 텍스트(영수증, 카드 내역 등)를 읽고 동일한 규칙으로 파싱합니다.
+
 ## 출력 형식
 
 반드시 아래 JSON 배열 형식만 출력하세요. 다른 텍스트는 포함하지 마세요.
@@ -81,10 +89,15 @@ ${today}
     "type": "expense" | "income",
     "category": "카테고리명",
     "description": "설명",
-    "amount": 숫자
+    "amount": 숫자,
+    "isRecurring": false,
+    "dayOfMonth": null
   }
 ]
-\`\`\``;
+\`\`\`
+
+- isRecurring은 고정 거래일 때만 true, 아니면 false
+- dayOfMonth는 고정 거래일 때만 숫자(1~31), 아니면 null`;
 }
 
 export function buildUserPrompt(input: string): string {

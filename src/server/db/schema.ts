@@ -98,6 +98,7 @@ export const transactions = pgTable("transactions", {
 	originalInput: text("original_input"),
 	date: date("date").notNull(),
 	memo: text("memo"),
+	isRecurring: boolean("is_recurring").notNull().default(false),
 	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
