@@ -7,7 +7,7 @@ const config: CapacitorConfig = {
 	server: {
 		// Next.js는 SSR이므로 배포된 서버 URL을 사용
 		// 프로덕션: Vercel 배포 URL로 변경
-		url: process.env.CAPACITOR_SERVER_URL || "https://localhost:3000",
+		url: "https://household-account-book-tawny.vercel.app",
 		cleartext: false,
 	},
 	plugins: {
