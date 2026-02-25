@@ -230,3 +230,4 @@ type: start | progress | complete | change | issue
 | 2026-02-25 | 결정 | 추가 확정: 자산 선택 1회 기본+설정 변경, 중복판정 2A, Kimi 임계치 100자, soft 제한 | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
 | 2026-02-25 | 진행 | v2 Phase 1 1차 구현 (월점프/주간필터/아코디언/금액포맷/차트상세) | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
 | 2026-02-25 | TODO | 리스크 후속 항목 추가 (월 전환 vs 주간 필터 정합성) | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
+| 2026-02-25 | 완료 | 리스크 보완: 월 전환과 주간 필터 범위 정합성 개선(TX-09) | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |

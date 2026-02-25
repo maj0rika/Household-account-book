@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from "recharts";
 import { motion } from "motion/react";
+
 import type { DailyExpense } from "@/types";
 
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
@@ -15,28 +16,20 @@ function formatDayLabel(dateStr: string): string {
 
 interface WeeklyBarChartProps {
 	data: DailyExpense[];
+	weekDates: string[];
 	selectedDate?: string | null;
 }
 
-export function WeeklyBarChart({ data, selectedDate }: WeeklyBarChartProps) {
+export function WeeklyBarChart({ data, weekDates, selectedDate }: WeeklyBarChartProps) {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const [isPending, startTransition] = useTransition();
 
-	const today = new Date().toISOString().split("T")[0];
-
-	const last7 = Array.from({ length: 7 }, (_, i) => {
-		const d = new Date();
-		d.setDate(d.getDate() - (6 - i));
-		return d.toISOString().split("T")[0];
-	});
-
 	const dataMap = new Map(data.map((d) => [d.date, d.amount]));
-	const chartData = last7.map((date) => ({
+	const chartData = weekDates.map((date) => ({
 		date,
 		label: formatDayLabel(date),
 		amount: dataMap.get(date) ?? 0,
-		isToday: date === today,
 		isSelected: selectedDate === date,
 	}));
 
@@ -72,7 +65,7 @@ export function WeeklyBarChart({ data, selectedDate }: WeeklyBarChartProps) {
 			</div>
 			{maxAmount <= 1 ? (
 				<div className="flex items-center justify-center py-6 text-xs text-muted-foreground">
-					최근 7일간 지출이 없습니다
+					해당 주간 구간 지출이 없습니다
 				</div>
 			) : (
 				<ResponsiveContainer width="100%" height={120}>
@@ -85,19 +78,14 @@ export function WeeklyBarChart({ data, selectedDate }: WeeklyBarChartProps) {
 						/>
 						<YAxis hide domain={[0, maxAmount * 1.1]} />
 						<Bar dataKey="amount" radius={[4, 4, 0, 0]} maxBarSize={28} animationDuration={800}>
-							{chartData.map((entry) => {
-								const fill = entry.isSelected || entry.isToday
-									? "var(--primary)"
-									: "var(--muted)";
-								return (
-									<Cell
-										key={entry.date}
-										fill={fill}
-										style={{ cursor: "pointer", opacity: isPending ? 0.75 : 1 }}
-										onClick={() => handleSelectDay(entry.date)}
-									/>
-								);
-							})}
+							{chartData.map((entry) => (
+								<Cell
+									key={entry.date}
+									fill={entry.isSelected ? "var(--primary)" : "var(--muted)"}
+									style={{ cursor: "pointer", opacity: isPending ? 0.75 : 1 }}
+									onClick={() => handleSelectDay(entry.date)}
+								/>
+							))}
 						</Bar>
 					</BarChart>
 				</ResponsiveContainer>

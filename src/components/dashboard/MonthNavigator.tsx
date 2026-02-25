@@ -36,6 +36,8 @@ export function MonthNavigator({ month }: { month: string }) {
 		} else {
 			params.set("month", targetMonth);
 		}
+		// 월 전환 시 주간 선택 필터는 초기화 (범위 불일치 방지)
+		params.delete("focusDate");
 		const query = params.toString();
 		router.push(query ? `?${query}` : "?");
 	};

@@ -23,27 +23,64 @@ interface Props {
 	searchParams: Promise<{ month?: string; focusDate?: string }>;
 }
 
+function formatDateLocal(date: Date): string {
+	const y = date.getFullYear();
+	const m = String(date.getMonth() + 1).padStart(2, "0");
+	const d = String(date.getDate()).padStart(2, "0");
+	return `${y}-${m}-${d}`;
+}
+
+function getWeeklyRangeByMonth(month: string): { weekDates: string[]; startDate: string; endDateExclusive: string } {
+	const [year, monthNum] = month.split("-").map(Number);
+	const monthStart = new Date(year, monthNum - 1, 1);
+	const monthEnd = new Date(year, monthNum, 0);
+
+	const today = new Date();
+	today.setHours(0, 0, 0, 0);
+
+	const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === monthNum;
+	const rangeEnd = isCurrentMonth ? today : monthEnd;
+
+	const rangeStart = new Date(rangeEnd);
+	rangeStart.setDate(rangeEnd.getDate() - 6);
+	if (rangeStart < monthStart) {
+		rangeStart.setTime(monthStart.getTime());
+	}
+
+	const weekDates: string[] = [];
+	const cursor = new Date(rangeStart);
+	while (cursor <= rangeEnd) {
+		weekDates.push(formatDateLocal(cursor));
+		cursor.setDate(cursor.getDate() + 1);
+	}
+
+	const endExclusive = new Date(rangeEnd);
+	endExclusive.setDate(endExclusive.getDate() + 1);
+
+	return {
+		weekDates,
+		startDate: formatDateLocal(rangeStart),
+		endDateExclusive: formatDateLocal(endExclusive),
+	};
+}
+
 export default async function TransactionsPage({ searchParams }: Props) {
 	const params = await searchParams;
 	const month = params.month ?? getCurrentMonth();
-	const focusDate = params.focusDate ?? null;
+	const rawFocusDate = params.focusDate ?? null;
 
 	// 고정 거래 자동 적용 (오늘 날짜 기준, 중복 방지 내장)
 	await autoApplyRecurringTransactions();
 
-	// 주간 차트용: 최근 7일 범위
-	const today = new Date();
-	const weekAgo = new Date();
-	weekAgo.setDate(today.getDate() - 6);
-	const startDate = weekAgo.toISOString().split("T")[0];
-	const endDate = new Date(today.getTime() + 86400000).toISOString().split("T")[0];
+	const { weekDates, startDate, endDateExclusive } = getWeeklyRangeByMonth(month);
+	const focusDate = rawFocusDate && weekDates.includes(rawFocusDate) ? rawFocusDate : null;
 
 	const [transactions, summary, categoryBreakdown, dailyExpenses, calendarData, userCategories] =
 		await Promise.all([
 			getTransactions(month),
 			getMonthlySummary(month),
 			getCategoryBreakdown(month),
-			getDailyExpenses(startDate, endDate),
+			getDailyExpenses(startDate, endDateExclusive),
 			getMonthlyCalendarData(month),
 			getUserCategories(),
 		]);
@@ -62,7 +99,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
 				categories={userCategories}
 			/>
 			<Separator className="my-2" />
-			<WeeklyBarChart data={dailyExpenses} selectedDate={focusDate} />
+			<WeeklyBarChart data={dailyExpenses} weekDates={weekDates} selectedDate={focusDate} />
 			<Separator className="my-2" />
 			<CategoryPieChart data={categoryBreakdown} month={month} />
 			<Separator className="my-2" />
