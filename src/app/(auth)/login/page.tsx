@@ -7,6 +7,7 @@ import { Wallet } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -20,6 +21,7 @@ export default function LoginPage() {
 	const [password, setPassword] = useState("");
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [isLoading, setIsLoading] = useState(false);
+	const [rememberMe, setRememberMe] = useState(true);
 
 	const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
@@ -29,6 +31,7 @@ export default function LoginPage() {
 		const { error } = await authClient.signIn.email({
 			email,
 			password,
+			rememberMe,
 			callbackURL: "/",
 		});
 
@@ -87,6 +90,19 @@ export default function LoginPage() {
 								onChange={(event) => setPassword(event.target.value)}
 								autoComplete="current-password"
 							/>
+						</div>
+						<div className="flex items-center gap-2">
+							<Checkbox
+								id="rememberMe"
+								checked={rememberMe}
+								onCheckedChange={(checked) => setRememberMe(checked === true)}
+							/>
+							<Label
+								htmlFor="rememberMe"
+								className="text-sm font-normal text-muted-foreground cursor-pointer"
+							>
+								자동 로그인
+							</Label>
 						</div>
 						<Button type="submit" className="w-full" disabled={isLoading}>
 							{isLoading ? "로그인 중..." : "로그인"}
