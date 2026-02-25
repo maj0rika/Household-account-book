@@ -12,11 +12,8 @@ import { autoApplyRecurringTransactions } from "@/server/actions/recurring";
 import { getCurrentMonth } from "@/lib/format";
 import { MonthlySummaryCard } from "@/components/dashboard/MonthlySummaryCard";
 import { MonthNavigator } from "@/components/dashboard/MonthNavigator";
-import { CategoryPieChart } from "@/components/dashboard/CategoryPieChart";
-import { WeeklyBarChart } from "@/components/dashboard/WeeklyBarChart";
 import { InteractiveCalendar } from "@/components/dashboard/InteractiveCalendar";
-import { FilterableTransactionList } from "@/components/transaction/FilterableTransactionList";
-import { RecurringTransactionManager } from "@/components/transaction/RecurringTransactionManager";
+import { TransactionsLazySections } from "@/components/dashboard/TransactionsLazySections";
 import { Separator } from "@/components/ui/separator";
 
 interface Props {
@@ -98,14 +95,15 @@ export default async function TransactionsPage({ searchParams }: Props) {
 				transactions={transactions}
 				categories={userCategories}
 			/>
-			<Separator className="my-2" />
-			<WeeklyBarChart data={dailyExpenses} weekDates={weekDates} selectedDate={focusDate} />
-			<Separator className="my-2" />
-			<CategoryPieChart data={categoryBreakdown} month={month} />
-			<Separator className="my-2" />
-			<RecurringTransactionManager />
-			<Separator className="my-2" />
-			<FilterableTransactionList transactions={transactions} categories={userCategories} focusDate={focusDate} />
+			<TransactionsLazySections
+				dailyExpenses={dailyExpenses}
+				weekDates={weekDates}
+				focusDate={focusDate}
+				categoryBreakdown={categoryBreakdown}
+				month={month}
+				transactions={transactions}
+				categories={userCategories}
+			/>
 		</div>
 	);
 }

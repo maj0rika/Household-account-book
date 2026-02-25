@@ -75,30 +75,35 @@ export function MonthNavigator({ month }: { month: string }) {
 
 	return (
 		<>
-			<div className="flex items-center justify-center gap-2 py-3">
-				<Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(-1)} disabled={isPending}>
-					<ChevronLeft className="h-4 w-4" />
-				</Button>
+			<div className="flex flex-col items-center justify-center gap-1 py-3">
+				<div className="flex items-center justify-center gap-2">
+					<Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(-1)} disabled={isPending}>
+						<ChevronLeft className="h-4 w-4" />
+					</Button>
 
-				<Button
-					variant="ghost"
-					className="min-w-[148px] gap-2 px-3"
-					onClick={handleOpenJump}
-					disabled={isPending}
-				>
-					<span className="text-sm font-semibold">{currentMonthLabel}</span>
-					{isPending && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
-				</Button>
+					<Button
+						variant="ghost"
+						className="min-w-[148px] gap-2 px-3"
+						onClick={handleOpenJump}
+						disabled={isPending}
+					>
+						<span className="text-sm font-semibold">{currentMonthLabel}</span>
+						{isPending && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+					</Button>
 
-				<Button
-					variant="ghost"
-					size="icon"
-					className="h-8 w-8"
-					onClick={() => navigate(1)}
-					disabled={isCurrentMonth || isPending}
-				>
-					<ChevronRight className="h-4 w-4" />
-				</Button>
+					<Button
+						variant="ghost"
+						size="icon"
+						className="h-8 w-8"
+						onClick={() => navigate(1)}
+						disabled={isCurrentMonth || isPending}
+					>
+						<ChevronRight className="h-4 w-4" />
+					</Button>
+				</div>
+				{isPending && (
+					<p className="text-[11px] text-muted-foreground">월 데이터를 불러오는 중...</p>
+				)}
 			</div>
 
 			<Dialog open={jumpOpen} onOpenChange={setJumpOpen}>

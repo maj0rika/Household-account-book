@@ -120,6 +120,7 @@ export function Sidebar() {
 						<Link
 							key={item.href}
 							href={item.href}
+							prefetch
 							title={collapsed ? item.label : undefined}
 							className={cn(
 								"relative flex items-center rounded-lg transition-colors",

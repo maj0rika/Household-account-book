@@ -5,8 +5,7 @@ import { getMonthlySummary } from "@/server/actions/transaction";
 import { getCurrentMonth } from "@/lib/format";
 import { MonthNavigator } from "@/components/dashboard/MonthNavigator";
 import { MonthlySummaryCard } from "@/components/dashboard/MonthlySummaryCard";
-import { MonthlyTrendChart } from "@/components/statistics/MonthlyTrendChart";
-import { CategoryRankingList } from "@/components/statistics/CategoryRankingList";
+import { StatisticsLazySections } from "@/components/statistics/StatisticsLazySections";
 import { Separator } from "@/components/ui/separator";
 
 interface Props {
@@ -31,13 +30,12 @@ export default async function StatisticsPage({ searchParams }: Props) {
 			</Suspense>
 			<MonthlySummaryCard summary={summary} month={month} />
 			<Separator className="my-2" />
-			<div className="px-4 py-2">
-				<MonthlyTrendChart data={trend} />
-			</div>
-			<Separator className="my-2" />
-			<div className="px-4 py-2">
-				<CategoryRankingList data={ranking} selectedCategoryId={selectedCategoryId} month={month} />
-			</div>
+			<StatisticsLazySections
+				trend={trend}
+				ranking={ranking}
+				selectedCategoryId={selectedCategoryId}
+				month={month}
+			/>
 		</div>
 	);
 }

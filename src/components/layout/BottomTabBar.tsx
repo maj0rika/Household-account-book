@@ -51,6 +51,7 @@ export function BottomTabBar() {
 						<Link
 							key={tab.label}
 							href={tab.href}
+							prefetch
 							className={cn(
 								"relative flex flex-1 flex-col items-center gap-0.5 py-1 text-xs transition-colors active:scale-95",
 								isActive
