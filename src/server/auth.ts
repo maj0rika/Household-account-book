@@ -9,6 +9,10 @@ import { DEFAULT_CATEGORIES } from "@/lib/constants";
 export const auth = betterAuth({
 	secret: process.env.BETTER_AUTH_SECRET,
 	baseURL: process.env.BETTER_AUTH_URL,
+	session: {
+		expiresIn: 60 * 60 * 24 * 30, // 30일 (초 단위)
+		updateAge: 60 * 60 * 24, // 1일마다 세션 갱신
+	},
 	database: drizzleAdapter(db, {
 		provider: "pg",
 		schema: {
@@ -20,6 +24,10 @@ export const auth = betterAuth({
 	}),
 	account: {
 		storeStateStrategy: "cookie",
+		accountLinking: {
+			enabled: true,
+			trustedProviders: ["google"],
+		},
 	},
 	emailAndPassword: {
 		enabled: true,

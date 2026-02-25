@@ -6,10 +6,15 @@ import { useRouter } from "next/navigation";
 import { Wallet } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
+import { checkEmailProvider } from "@/server/actions/check-email";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+
+const PROVIDER_LABELS: Record<string, string> = {
+	google: "Google",
+};
 
 export default function RegisterPage() {
 	const router = useRouter();
@@ -17,12 +22,30 @@ export default function RegisterPage() {
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
+	const [isAccountConflict, setIsAccountConflict] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
 
 	const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 		setIsLoading(true);
 		setErrorMessage(null);
+		setIsAccountConflict(false);
+
+		// 이메일 중복 + provider 확인
+		const check = await checkEmailProvider(email);
+		if (check.exists) {
+			if (check.provider !== "credential") {
+				const label = PROVIDER_LABELS[check.provider] ?? check.provider;
+				setErrorMessage(
+					`이미 ${label} 계정으로 가입된 이메일입니다. ${label} 로그인을 이용해주세요.`,
+				);
+			} else {
+				setErrorMessage("이미 가입된 이메일입니다. 로그인을 이용해주세요.");
+			}
+			setIsAccountConflict(true);
+			setIsLoading(false);
+			return;
+		}
 
 		const { error } = await authClient.signUp.email({
 			name,
@@ -98,7 +121,19 @@ export default function RegisterPage() {
 					</form>
 
 					{errorMessage && (
-						<p className="text-center text-sm text-destructive">{errorMessage}</p>
+						isAccountConflict ? (
+							<div className="rounded-md bg-destructive/10 px-3 py-2.5 text-center text-sm text-destructive">
+								<p>{errorMessage}</p>
+								<Link
+									href="/login"
+									className="mt-1 inline-block font-medium underline underline-offset-2"
+								>
+									로그인 페이지로 이동
+								</Link>
+							</div>
+						) : (
+							<p className="text-center text-sm text-destructive">{errorMessage}</p>
+						)
 					)}
 
 					<p className="text-center text-sm text-muted-foreground">
