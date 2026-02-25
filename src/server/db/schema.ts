@@ -11,6 +11,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 export const transactionTypeEnum = pgEnum("transaction_type", ["income", "expense"]);
+export const accountTypeEnum = pgEnum("account_type", ["asset", "debt"]);
 
 // ── Auth 테이블 (better-auth 관리) ──
 
@@ -92,6 +93,7 @@ export const transactions = pgTable("transactions", {
 		.notNull()
 		.references(() => authUsers.id, { onDelete: "cascade" }),
 	categoryId: uuid("category_id").references(() => categories.id, { onDelete: "set null" }),
+	accountId: uuid("account_id").references(() => accounts.id, { onDelete: "set null" }),
 	type: transactionTypeEnum("type").notNull(),
 	amount: integer("amount").notNull(),
 	description: text("description").notNull(),
@@ -137,3 +139,21 @@ export const budgets = pgTable(
 		),
 	}),
 );
+
+// ── 자산/부채 계정 ──
+
+export const accounts = pgTable("accounts", {
+	id: uuid("id").defaultRandom().primaryKey(),
+	userId: text("user_id")
+		.notNull()
+		.references(() => authUsers.id, { onDelete: "cascade" }),
+	name: text("name").notNull(),
+	type: accountTypeEnum("type").notNull(), // 'asset' | 'debt'
+	subType: text("sub_type").notNull(), // 'bank', 'cash', 'savings', 'investment', 'credit_card', 'loan', 'other'
+	icon: text("icon").notNull().default("🏦"),
+	balance: integer("balance").notNull().default(0), // 현재 잔액 (원)
+	sortOrder: integer("sort_order").notNull().default(0),
+	isActive: boolean("is_active").notNull().default(true),
+	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});

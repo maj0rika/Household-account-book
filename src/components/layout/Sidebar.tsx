@@ -3,25 +3,28 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
-import { Home, BarChart3, Settings, Wallet, PlusCircle, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Home, BarChart3, Settings, Wallet, Landmark, PlusCircle, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { motion } from "motion/react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useManualInput } from "@/components/providers/ManualInputProvider";
 
 const NAV_ITEMS = [
 	{ href: "/transactions", label: "거래 내역", icon: Home },
 	{ href: "/statistics", label: "통계", icon: BarChart3 },
-	{ href: "/transactions?manual=true", label: "직접 입력", icon: PlusCircle },
+	{ href: null, label: "직접 입력", icon: PlusCircle, action: "manual-input" },
+	{ href: "/assets", label: "자산/부채", icon: Landmark },
 	{ href: "/budget", label: "예산", icon: Wallet },
 	{ href: "/settings", label: "설정", icon: Settings },
-];
+] as const;
 
 const STORAGE_KEY = "sidebar-collapsed";
 
 export function Sidebar() {
 	const pathname = usePathname();
 	const [collapsed, setCollapsed] = useState(false);
+	const { open: openManualInput } = useManualInput();
 
 	useEffect(() => {
 		const saved = localStorage.getItem(STORAGE_KEY);
@@ -90,11 +93,29 @@ export function Sidebar() {
 			{/* 네비게이션 */}
 			<nav className="flex flex-1 flex-col gap-1 p-2">
 				{NAV_ITEMS.map((item) => {
-					const hrefPath = item.href.split("?")[0];
-					const hasQuery = item.href.includes("?");
-					// 쿼리파라미터가 있는 항목은 active 표시하지 않음 (클릭 전용)
-					const isActive = !hasQuery && pathname.startsWith(hrefPath);
 					const Icon = item.icon;
+
+					// 액션 버튼 (직접 입력)
+					if (!item.href) {
+						return (
+							<button
+								key={item.label}
+								type="button"
+								onClick={openManualInput}
+								title={collapsed ? item.label : undefined}
+								className={cn(
+									"relative flex items-center rounded-lg transition-colors text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+									collapsed ? "justify-center p-2" : "gap-3 px-3 py-2",
+								)}
+							>
+								<Icon className="h-4 w-4 shrink-0" />
+								{!collapsed && <span className="text-sm">{item.label}</span>}
+							</button>
+						);
+					}
+
+					// 일반 네비게이션
+					const isActive = pathname.startsWith(item.href);
 					return (
 						<Link
 							key={item.href}

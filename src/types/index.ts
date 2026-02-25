@@ -53,3 +53,23 @@ export interface DailyExpense {
 	date: string; // YYYY-MM-DD
 	amount: number;
 }
+
+export interface Account {
+	id: string;
+	userId: string;
+	name: string;
+	type: "asset" | "debt";
+	subType: string; // 'bank', 'cash', 'savings', 'investment', 'credit_card', 'loan', 'other'
+	icon: string;
+	balance: number;
+	sortOrder: number;
+	isActive: boolean;
+	createdAt: Date;
+	updatedAt: Date;
+}
+
+export interface AccountSummary {
+	totalAssets: number;
+	totalDebts: number;
+	netWorth: number;
+}
