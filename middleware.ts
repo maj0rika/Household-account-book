@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PROTECTED_PREFIXES = ["/transactions", "/categories", "/budget", "/statistics", "/settings"];
+const PROTECTED_PREFIXES = ["/transactions", "/categories", "/budget", "/statistics", "/settings", "/assets"];
 const AUTH_PAGES = ["/login", "/register"];
 
 const hasSessionCookie = (request: NextRequest): boolean => {
@@ -29,5 +29,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-	matcher: ["/transactions/:path*", "/categories/:path*", "/budget/:path*", "/statistics/:path*", "/settings/:path*", "/login", "/register"],
+	matcher: ["/transactions/:path*", "/categories/:path*", "/budget/:path*", "/statistics/:path*", "/settings/:path*", "/assets/:path*", "/login", "/register"],
 };
