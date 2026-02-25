@@ -18,6 +18,9 @@ export const auth = betterAuth({
 			verification: schema.authVerifications,
 		},
 	}),
+	account: {
+		storeStateStrategy: "cookie",
+	},
 	emailAndPassword: {
 		enabled: true,
 	},
