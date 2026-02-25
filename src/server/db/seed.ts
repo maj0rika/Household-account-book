@@ -5,22 +5,28 @@ import { eq } from "drizzle-orm";
 import { DEFAULT_CATEGORIES } from "@/lib/constants";
 
 import { db } from "./index";
-import { categories, users } from "./schema";
+import { categories, authUsers } from "./schema";
 
 const DEMO_USER_EMAIL = "seed@household.local";
 
 const seed = async (): Promise<void> => {
-	await db.insert(users).values({
+	const now = new Date();
+
+	await db.insert(authUsers).values({
+		id: "seed-user-id",
 		email: DEMO_USER_EMAIL,
 		name: "Seed User",
+		emailVerified: false,
+		createdAt: now,
+		updatedAt: now,
 	}).onConflictDoNothing({
-		target: users.email,
+		target: authUsers.email,
 	});
 
 	const existingUser = await db
-		.select({ id: users.id })
-		.from(users)
-		.where(eq(users.email, DEMO_USER_EMAIL))
+		.select({ id: authUsers.id })
+		.from(authUsers)
+		.where(eq(authUsers.email, DEMO_USER_EMAIL))
 		.limit(1);
 
 	const user = existingUser[0];
