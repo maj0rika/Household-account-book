@@ -33,14 +33,14 @@
 - [x] 인증 미들웨어 (보호된 라우트)
 - [x] 로그인/회원가입 페이지 UI
 
-### Phase 4: LLM 파서 (핵심 기능)
-- [ ] TransactionParser 인터페이스 정의
-- [ ] OpenAI 구현체 (GPT-4o-mini)
-- [ ] 프롬프트 템플릿 작성
-- [ ] 파싱 Server Action (또는 API Route)
-- [ ] KIMI 구현체 (프로바이더 교체 가능 구조)
-- [ ] Rate Limiting
-- [ ] 에러 핸들링 + 수동 입력 폴백
+### Phase 4: LLM 파서 (핵심 기능) ✅
+- [x] 파싱 결과 타입 정의 (ParsedTransaction, ParseResponse)
+- [x] 프롬프트 템플릿 작성 (카테고리 동적 삽입, 한국어 금액/상대 날짜 규칙)
+- [x] LLM 클라이언트 팩토리 (OpenAI SDK 기반, baseURL로 openai/kimi 전환)
+- [x] 통합 파싱 함수 (LLM 호출 → JSON 추출 → 유효성 검증 + 재시도)
+- [x] 파싱 Server Action + API Route (/api/parse)
+- [x] 에러 핸들링 (재시도 1회, 실패 시 에러 메시지 반환)
+- [ ] Rate Limiting (v1.0에서는 미구현 — 필요 시 추가)
 
 ### Phase 5: 핵심 UI (모바일 퍼스트)
 - [ ] 레이아웃: 하단 탭바 (모바일) / 사이드바 (데스크톱)
@@ -145,3 +145,4 @@ type: start | progress | complete | change | issue
 | 2026-02-24 | 진행 | Phase 3 인증 진행 | [history](./history/2026-02-24-04-phase3-auth-progress.md) |
 | 2026-02-24 | 완료 | Phase 2 DB + ORM 완료 (Supabase 연동) | [history](./history/2026-02-24-04-phase2-db-orm-complete.md) |
 | 2026-02-24 | 완료 | Phase 3 인증 완료 | [history](./history/2026-02-24-05-phase3-auth-complete.md) |
+| 2026-02-25 | 완료 | Phase 4 LLM 파서 구현 완료 | [history](./history/2026-02-25-01-phase4-llm-parser-complete.md) |
