@@ -82,14 +82,13 @@ function EditableAccountItem({
 	return (
 		<div className="border-b border-border last:border-b-0">
 			{/* 요약 행 */}
-			<div className="flex items-center gap-2 py-2.5">
-				<button
-					type="button"
-					className="shrink-0 p-0.5 text-muted-foreground hover:text-foreground"
-					onClick={() => setExpanded(!expanded)}
-				>
+			<div
+				className="flex cursor-pointer items-center gap-2 py-2.5"
+				onClick={() => setExpanded((prev) => !prev)}
+			>
+				<span className="shrink-0 p-0.5 text-muted-foreground">
 					{expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-				</button>
+				</span>
 				<span className="text-lg">{parsed.icon}</span>
 				<Badge
 					variant={parsed.type === "asset" ? "default" : "secondary"}
@@ -101,12 +100,13 @@ function EditableAccountItem({
 					<Badge
 						variant={action === "update" ? "outline" : "default"}
 						className="shrink-0 cursor-pointer gap-1 text-xs"
-						onClick={() =>
+						onClick={(e) => {
+							e.stopPropagation();
 							onUpdate(index, {
 								...item,
 								action: action === "update" ? "create" : "update",
-							})
-						}
+							});
+						}}
 					>
 						{action === "update" ? (
 							<><RefreshCw className="h-2.5 w-2.5" />업데이트</>
@@ -131,7 +131,10 @@ function EditableAccountItem({
 					variant="ghost"
 					size="icon"
 					className="h-7 w-7 shrink-0"
-					onClick={() => onRemove(index)}
+					onClick={(e) => {
+						e.stopPropagation();
+						onRemove(index);
+					}}
 				>
 					<X className="h-3.5 w-3.5" />
 				</Button>
@@ -230,12 +233,16 @@ function EditableAccountItem({
 								{parsed.type === "debt" ? "부채 금액 (원)" : "잔액 (원)"}
 							</Label>
 							<Input
-								type="number"
-								value={parsed.balance}
+								type="text"
+								inputMode="numeric"
+								value={parsed.balance > 0 ? parsed.balance.toLocaleString("ko-KR") : ""}
 								onChange={(e) =>
 									onUpdate(index, {
 										...item,
-										parsed: { ...parsed, balance: Number(e.target.value) || 0 },
+										parsed: {
+											...parsed,
+											balance: Number(e.target.value.replace(/[^\d]/g, "")) || 0,
+										},
 									})
 								}
 								className="h-8 text-sm"

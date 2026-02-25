@@ -116,14 +116,13 @@ function EditableItem({
 	return (
 		<div className="border-b border-border last:border-b-0">
 			{/* 요약 행 */}
-			<div className="flex items-center gap-2 py-2.5">
-				<button
-					type="button"
-					className="shrink-0 p-0.5 text-muted-foreground hover:text-foreground"
-					onClick={() => setExpanded(!expanded)}
-				>
+			<div
+				className="flex cursor-pointer items-center gap-2 py-2.5"
+				onClick={() => setExpanded((prev) => !prev)}
+			>
+				<span className="shrink-0 p-0.5 text-muted-foreground">
 					{expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-				</button>
+				</span>
 				<Badge variant={item.type === "income" ? "default" : "secondary"} className="shrink-0 text-xs">
 					{item.type === "income" ? "수입" : "지출"}
 				</Badge>
@@ -144,7 +143,10 @@ function EditableItem({
 					variant="ghost"
 					size="icon"
 					className="h-7 w-7 shrink-0"
-					onClick={() => onRemove(index)}
+					onClick={(e) => {
+						e.stopPropagation();
+						onRemove(index);
+					}}
 				>
 					<X className="h-3.5 w-3.5" />
 				</Button>
@@ -198,9 +200,13 @@ function EditableItem({
 							<div className="space-y-1">
 								<Label className="text-xs">금액</Label>
 								<Input
-									type="number"
-									value={item.amount}
-									onChange={(e) => onUpdate(index, { ...item, amount: Number(e.target.value) || 0 })}
+									type="text"
+									inputMode="numeric"
+									value={item.amount > 0 ? item.amount.toLocaleString("ko-KR") : ""}
+									onChange={(e) => {
+										const digits = e.target.value.replace(/[^\d]/g, "");
+										onUpdate(index, { ...item, amount: digits ? Number(digits) : 0 });
+									}}
 									className="h-8 text-sm"
 								/>
 							</div>

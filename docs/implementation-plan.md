@@ -225,3 +225,8 @@ type: start | progress | complete | change | issue
 | 2026-02-25 | 완료 | 디자인 시스템 수립 + 시드 스크립트 개선 + 인증 접근 제어 | — |
 | 2026-02-25 | 완료 | Phase 11 UX 고도화 (고정거래 프롬프트, 파싱편집, Sidebar토글, 이미지파싱) | — |
 | 2026-02-25 | 완료 | Phase 12 디자인 폴리싱 (Motion, Mesh Gradient, Pretendard, Skeleton) | — |
+| 2026-02-25 | 계획 | v2 TODO + 페이즈 계획 수립 | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
+| 2026-02-25 | 결정 | v2 요구사항 의사결정 반영 (월점프/차트필터/리다이렉트/암호화 범위) | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
+| 2026-02-25 | 결정 | 추가 확정: 자산 선택 1회 기본+설정 변경, 중복판정 2A, Kimi 임계치 100자, soft 제한 | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
+| 2026-02-25 | 진행 | v2 Phase 1 1차 구현 (월점프/주간필터/아코디언/금액포맷/차트상세) | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
+| 2026-02-25 | TODO | 리스크 후속 항목 추가 (월 전환 vs 주간 필터 정합성) | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |

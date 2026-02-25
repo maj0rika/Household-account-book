@@ -102,9 +102,10 @@ export function TransactionEditSheet({ open, onOpenChange, transaction: tx, cate
 						<div className="space-y-1.5">
 							<Label className="text-xs">금액</Label>
 							<Input
-								type="number"
-								value={amount}
-								onChange={(e) => setAmount(e.target.value)}
+								type="text"
+								inputMode="numeric"
+								value={amount ? Number(amount).toLocaleString("ko-KR") : ""}
+								onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ""))}
 								className="h-9"
 							/>
 						</div>

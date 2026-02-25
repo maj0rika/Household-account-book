@@ -10,12 +10,13 @@ import { CategoryRankingList } from "@/components/statistics/CategoryRankingList
 import { Separator } from "@/components/ui/separator";
 
 interface Props {
-	searchParams: Promise<{ month?: string }>;
+	searchParams: Promise<{ month?: string; category?: string }>;
 }
 
 export default async function StatisticsPage({ searchParams }: Props) {
 	const params = await searchParams;
 	const month = params.month ?? getCurrentMonth();
+	const selectedCategoryId = params.category ?? null;
 
 	const [trend, ranking, summary] = await Promise.all([
 		getMonthlyTrend(6),
@@ -35,7 +36,7 @@ export default async function StatisticsPage({ searchParams }: Props) {
 			</div>
 			<Separator className="my-2" />
 			<div className="px-4 py-2">
-				<CategoryRankingList data={ranking} />
+				<CategoryRankingList data={ranking} selectedCategoryId={selectedCategoryId} month={month} />
 			</div>
 		</div>
 	);

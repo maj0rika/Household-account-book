@@ -1,5 +1,7 @@
 "use client";
 
+import { useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from "recharts";
 import { motion } from "motion/react";
 import type { DailyExpense } from "@/types";
@@ -11,7 +13,16 @@ function formatDayLabel(dateStr: string): string {
 	return DAY_NAMES[d.getDay()];
 }
 
-export function WeeklyBarChart({ data }: { data: DailyExpense[] }) {
+interface WeeklyBarChartProps {
+	data: DailyExpense[];
+	selectedDate?: string | null;
+}
+
+export function WeeklyBarChart({ data, selectedDate }: WeeklyBarChartProps) {
+	const router = useRouter();
+	const searchParams = useSearchParams();
+	const [isPending, startTransition] = useTransition();
+
 	const today = new Date().toISOString().split("T")[0];
 
 	const last7 = Array.from({ length: 7 }, (_, i) => {
@@ -26,9 +37,25 @@ export function WeeklyBarChart({ data }: { data: DailyExpense[] }) {
 		label: formatDayLabel(date),
 		amount: dataMap.get(date) ?? 0,
 		isToday: date === today,
+		isSelected: selectedDate === date,
 	}));
 
 	const maxAmount = Math.max(...chartData.map((d) => d.amount), 1);
+
+	const handleSelectDay = (date: string) => {
+		startTransition(() => {
+			const params = new URLSearchParams(searchParams.toString());
+			const current = params.get("focusDate");
+			if (current === date) {
+				params.delete("focusDate");
+			} else {
+				params.set("focusDate", date);
+			}
+
+			const query = params.toString();
+			router.push(query ? `?${query}` : "?");
+		});
+	};
 
 	return (
 		<motion.div
@@ -37,7 +64,12 @@ export function WeeklyBarChart({ data }: { data: DailyExpense[] }) {
 			animate={{ opacity: 1, y: 0 }}
 			transition={{ duration: 0.4, delay: 0.1 }}
 		>
-			<h3 className="mb-3 text-sm font-semibold">주간 지출</h3>
+			<div className="mb-3 flex items-center justify-between">
+				<h3 className="text-sm font-semibold">주간 지출</h3>
+				{selectedDate && (
+					<span className="text-xs text-muted-foreground">선택일 필터 적용 중 (재클릭 해제)</span>
+				)}
+			</div>
 			{maxAmount <= 1 ? (
 				<div className="flex items-center justify-center py-6 text-xs text-muted-foreground">
 					최근 7일간 지출이 없습니다
@@ -53,12 +85,19 @@ export function WeeklyBarChart({ data }: { data: DailyExpense[] }) {
 						/>
 						<YAxis hide domain={[0, maxAmount * 1.1]} />
 						<Bar dataKey="amount" radius={[4, 4, 0, 0]} maxBarSize={28} animationDuration={800}>
-							{chartData.map((entry, index) => (
-								<Cell
-									key={index}
-									fill={entry.isToday ? "var(--primary)" : "var(--muted)"}
-								/>
-							))}
+							{chartData.map((entry) => {
+								const fill = entry.isSelected || entry.isToday
+									? "var(--primary)"
+									: "var(--muted)";
+								return (
+									<Cell
+										key={entry.date}
+										fill={fill}
+										style={{ cursor: "pointer", opacity: isPending ? 0.75 : 1 }}
+										onClick={() => handleSelectDay(entry.date)}
+									/>
+								);
+							})}
 						</Bar>
 					</BarChart>
 				</ResponsiveContainer>

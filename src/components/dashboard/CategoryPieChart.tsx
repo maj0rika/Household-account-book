@@ -1,7 +1,10 @@
 "use client";
 
+import { useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { motion } from "motion/react";
+
 import { formatCurrency } from "@/lib/format";
 import type { CategoryBreakdown } from "@/types";
 
@@ -20,7 +23,16 @@ const COLORS = [
 	"oklch(0.55 0.12 200)",
 ];
 
-export function CategoryPieChart({ data }: { data: CategoryBreakdown[] }) {
+interface CategoryPieChartProps {
+	data: CategoryBreakdown[];
+	month: string;
+}
+
+export function CategoryPieChart({ data, month }: CategoryPieChartProps) {
+	const router = useRouter();
+	const searchParams = useSearchParams();
+	const [, startTransition] = useTransition();
+
 	if (data.length === 0) {
 		return (
 			<div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
@@ -30,6 +42,15 @@ export function CategoryPieChart({ data }: { data: CategoryBreakdown[] }) {
 	}
 
 	const total = data.reduce((sum, d) => sum + d.amount, 0);
+
+	const goToCategoryDetail = (categoryId: string) => {
+		startTransition(() => {
+			const params = new URLSearchParams(searchParams.toString());
+			params.set("month", month);
+			params.set("category", categoryId);
+			router.push(`/statistics?${params.toString()}`);
+		});
+	};
 
 	return (
 		<motion.div
@@ -55,9 +76,13 @@ export function CategoryPieChart({ data }: { data: CategoryBreakdown[] }) {
 								stroke="var(--background)"
 								animationDuration={800}
 								animationBegin={200}
+								onClick={(_, index) => {
+									const target = typeof index === "number" ? data[index] : null;
+									if (target) goToCategoryDetail(target.categoryId);
+								}}
 							>
 								{data.map((_, index) => (
-									<Cell key={index} fill={COLORS[index % COLORS.length]} />
+									<Cell key={index} fill={COLORS[index % COLORS.length]} style={{ cursor: "pointer" }} />
 								))}
 							</Pie>
 						</PieChart>
@@ -69,9 +94,11 @@ export function CategoryPieChart({ data }: { data: CategoryBreakdown[] }) {
 				</div>
 				<div className="flex flex-1 flex-col gap-1.5 overflow-hidden">
 					{data.slice(0, 5).map((item, index) => (
-						<motion.div
+						<motion.button
+							type="button"
 							key={item.categoryId}
-							className="flex items-center gap-2 text-xs"
+							className="flex w-full items-center gap-2 text-left text-xs hover:opacity-80"
+							onClick={() => goToCategoryDetail(item.categoryId)}
 							initial={{ opacity: 0, x: 12 }}
 							animate={{ opacity: 1, x: 0 }}
 							transition={{ delay: 0.3 + index * 0.06, duration: 0.3 }}
@@ -82,7 +109,7 @@ export function CategoryPieChart({ data }: { data: CategoryBreakdown[] }) {
 							/>
 							<span className="truncate">{item.categoryIcon} {item.categoryName}</span>
 							<span className="ml-auto shrink-0 font-medium">{item.percentage}%</span>
-						</motion.div>
+						</motion.button>
 					))}
 					{data.length > 5 && (
 						<span className="text-[10px] text-muted-foreground">+{data.length - 5}개 더</span>

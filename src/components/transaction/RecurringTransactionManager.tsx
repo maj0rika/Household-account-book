@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Trash2, Loader2, Plus, RefreshCw } from "lucide-react";
+import { Check, Trash2, Loader2, Plus, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,17 @@ interface RecurringItem {
 	isActive: boolean;
 }
 
+function extractDigits(value: string): string {
+	return value.replace(/[^\d]/g, "");
+}
+
+function formatNumericInput(value: string): string {
+	if (!value) return "";
+	const num = Number(value);
+	if (!num) return "";
+	return num.toLocaleString("ko-KR");
+}
+
 export function RecurringTransactionManager() {
 	const router = useRouter();
 	const [items, setItems] = useState<RecurringItem[]>([]);
@@ -45,6 +56,7 @@ export function RecurringTransactionManager() {
 	const [isPending, startTransition] = useTransition();
 	const [allApplied, setAllApplied] = useState(false);
 	const [applyMessage, setApplyMessage] = useState<string | null>(null);
+	const [collapsed, setCollapsed] = useState(false);
 
 	// 폼 상태
 	const [type, setType] = useState<"expense" | "income">("expense");
@@ -114,8 +126,15 @@ export function RecurringTransactionManager() {
 
 	return (
 		<div className="px-4 py-2">
-			<div className="flex items-center justify-between mb-3">
-				<h3 className="text-sm font-semibold">고정 수입/지출</h3>
+			<div className="mb-3 flex items-center justify-between">
+				<button
+					type="button"
+					onClick={() => setCollapsed((prev) => !prev)}
+					className="flex items-center gap-1.5 text-sm font-semibold"
+				>
+					고정 수입/지출
+					{collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
+				</button>
 				<div className="flex gap-1">
 					<Button
 						variant="outline"
@@ -143,30 +162,34 @@ export function RecurringTransactionManager() {
 				</div>
 			</div>
 
-			{applyMessage && (
-				<p className="mb-2 text-center text-xs text-muted-foreground">{applyMessage}</p>
-			)}
+			{!collapsed && (
+				<>
+					{applyMessage && (
+						<p className="mb-2 text-center text-xs text-muted-foreground">{applyMessage}</p>
+					)}
 
-			{items.length === 0 ? (
-				<p className="text-xs text-muted-foreground py-3 text-center">
-					등록된 고정 거래가 없습니다
-				</p>
-			) : (
-				<div className="space-y-1.5">
-					{items.map((item) => (
-						<div key={item.id} className="flex items-center gap-2 text-sm">
-							<Badge variant={item.type === "income" ? "default" : "secondary"} className="text-[10px] shrink-0">
-								{item.type === "income" ? "수입" : "지출"}
-							</Badge>
-							<span className="truncate flex-1">{item.description}</span>
-							<span className="text-xs text-muted-foreground shrink-0">매월 {item.dayOfMonth}일</span>
-							<span className="font-medium shrink-0">{formatCurrency(item.amount)}</span>
-							<Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => handleDelete(item.id)} disabled={isPending}>
-								<Trash2 className="h-3 w-3" />
-							</Button>
+					{items.length === 0 ? (
+						<p className="py-3 text-center text-xs text-muted-foreground">
+							등록된 고정 거래가 없습니다
+						</p>
+					) : (
+						<div className="space-y-1.5">
+							{items.map((item) => (
+								<div key={item.id} className="flex items-center gap-2 text-sm">
+									<Badge variant={item.type === "income" ? "default" : "secondary"} className="shrink-0 text-[10px]">
+										{item.type === "income" ? "수입" : "지출"}
+									</Badge>
+									<span className="flex-1 truncate">{item.description}</span>
+									<span className="shrink-0 text-xs text-muted-foreground">매월 {item.dayOfMonth}일</span>
+									<span className="shrink-0 font-medium">{formatCurrency(item.amount)}</span>
+									<Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => handleDelete(item.id)} disabled={isPending}>
+										<Trash2 className="h-3 w-3" />
+									</Button>
+								</div>
+							))}
 						</div>
-					))}
-				</div>
+					)}
+				</>
 			)}
 
 			<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -210,7 +233,13 @@ export function RecurringTransactionManager() {
 						</div>
 						<div className="grid gap-2">
 							<Label>금액 (원)</Label>
-							<Input type="number" placeholder="1500000" value={amount} onChange={(e) => setAmount(e.target.value)} min={1} />
+							<Input
+								type="text"
+								inputMode="numeric"
+								placeholder="1,500,000"
+								value={formatNumericInput(amount)}
+								onChange={(e) => setAmount(extractDigits(e.target.value))}
+							/>
 						</div>
 					</div>
 					<DialogFooter>

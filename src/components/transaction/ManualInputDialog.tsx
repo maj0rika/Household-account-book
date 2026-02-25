@@ -54,14 +54,15 @@ export function ManualInputDialog({ open, onOpenChange }: ManualInputDialogProps
 	};
 
 	const handleSave = () => {
-		if (!description.trim() || !amount) return;
+		const numAmount = Number(amount);
+		if (!description.trim() || !amount || numAmount <= 0) return;
 
 		startTransition(async () => {
 			const result = await createSingleTransaction({
 				type,
 				categoryId: categoryId || null,
 				description: description.trim(),
-				amount: Number(amount),
+				amount: numAmount,
 				date,
 			});
 			if (result.success) {
@@ -155,11 +156,11 @@ export function ManualInputDialog({ open, onOpenChange }: ManualInputDialogProps
 						<Label htmlFor="manual-amount">금액 (원)</Label>
 						<Input
 							id="manual-amount"
-							type="number"
-							placeholder="9000"
-							value={amount}
-							onChange={(e) => setAmount(e.target.value)}
-							min={1}
+							type="text"
+							inputMode="numeric"
+							placeholder="9,000"
+							value={amount ? Number(amount).toLocaleString("ko-KR") : ""}
+							onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ""))}
 						/>
 					</div>
 				</div>

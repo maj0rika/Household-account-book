@@ -1,12 +1,18 @@
 "use client";
 
+import { useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "motion/react";
+
 import { formatCurrency } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import type { CategoryRanking } from "@/server/actions/statistics";
 
 interface CategoryRankingListProps {
 	data: CategoryRanking[];
+	selectedCategoryId?: string | null;
+	month: string;
 }
 
 const itemVariants = {
@@ -18,7 +24,22 @@ const itemVariants = {
 	}),
 };
 
-export function CategoryRankingList({ data }: CategoryRankingListProps) {
+export function CategoryRankingList({ data, selectedCategoryId, month }: CategoryRankingListProps) {
+	const router = useRouter();
+	const searchParams = useSearchParams();
+
+	const filteredData = useMemo(() => {
+		if (!selectedCategoryId) return data;
+		return data.filter((item) => item.categoryId === selectedCategoryId);
+	}, [data, selectedCategoryId]);
+
+	const clearCategoryFilter = () => {
+		const params = new URLSearchParams(searchParams.toString());
+		params.delete("category");
+		params.set("month", month);
+		router.push(`/statistics?${params.toString()}`);
+	};
+
 	if (data.length === 0) {
 		return (
 			<div className="rounded-xl border border-border bg-card p-4">
@@ -28,7 +49,20 @@ export function CategoryRankingList({ data }: CategoryRankingListProps) {
 		);
 	}
 
-	const maxAmount = data[0]?.amount ?? 1;
+	if (selectedCategoryId && filteredData.length === 0) {
+		return (
+			<div className="rounded-xl border border-border bg-card p-4">
+				<div className="mb-3 flex items-center justify-between">
+					<h3 className="text-sm font-semibold">카테고리별 지출</h3>
+					<Button size="sm" variant="outline" onClick={clearCategoryFilter}>전체 보기</Button>
+				</div>
+				<p className="py-8 text-center text-sm text-muted-foreground">선택한 카테고리 내역이 없습니다.</p>
+			</div>
+		);
+	}
+
+	const renderData = filteredData;
+	const maxAmount = renderData[0]?.amount ?? 1;
 
 	return (
 		<motion.div
@@ -37,9 +71,17 @@ export function CategoryRankingList({ data }: CategoryRankingListProps) {
 			animate={{ opacity: 1, y: 0 }}
 			transition={{ duration: 0.4, delay: 0.15 }}
 		>
-			<h3 className="mb-3 text-sm font-semibold">카테고리별 지출</h3>
+			<div className="mb-3 flex items-center justify-between gap-2">
+				<h3 className="text-sm font-semibold">카테고리별 지출</h3>
+				{selectedCategoryId && (
+					<div className="flex items-center gap-2">
+						<Badge variant="secondary" className="text-[11px]">상세 필터 적용됨</Badge>
+						<Button size="sm" variant="outline" onClick={clearCategoryFilter}>전체 보기</Button>
+					</div>
+				)}
+			</div>
 			<div className="space-y-3">
-				{data.map((item, index) => (
+				{renderData.map((item, index) => (
 					<motion.div
 						key={item.categoryId}
 						className="space-y-1"
@@ -56,7 +98,7 @@ export function CategoryRankingList({ data }: CategoryRankingListProps) {
 							</div>
 							<div className="flex items-center gap-2">
 								<span className="font-semibold">{formatCurrency(item.amount)}</span>
-								<Badge variant="outline" className="text-[10px] px-1.5 py-0">
+								<Badge variant="outline" className="px-1.5 py-0 text-[10px]">
 									{item.percentage}%
 								</Badge>
 							</div>

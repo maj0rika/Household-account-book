@@ -20,12 +20,13 @@ import { RecurringTransactionManager } from "@/components/transaction/RecurringT
 import { Separator } from "@/components/ui/separator";
 
 interface Props {
-	searchParams: Promise<{ month?: string }>;
+	searchParams: Promise<{ month?: string; focusDate?: string }>;
 }
 
 export default async function TransactionsPage({ searchParams }: Props) {
 	const params = await searchParams;
 	const month = params.month ?? getCurrentMonth();
+	const focusDate = params.focusDate ?? null;
 
 	// 고정 거래 자동 적용 (오늘 날짜 기준, 중복 방지 내장)
 	await autoApplyRecurringTransactions();
@@ -61,13 +62,13 @@ export default async function TransactionsPage({ searchParams }: Props) {
 				categories={userCategories}
 			/>
 			<Separator className="my-2" />
-			<WeeklyBarChart data={dailyExpenses} />
+			<WeeklyBarChart data={dailyExpenses} selectedDate={focusDate} />
 			<Separator className="my-2" />
-			<CategoryPieChart data={categoryBreakdown} />
+			<CategoryPieChart data={categoryBreakdown} month={month} />
 			<Separator className="my-2" />
 			<RecurringTransactionManager />
 			<Separator className="my-2" />
-			<FilterableTransactionList transactions={transactions} categories={userCategories} />
+			<FilterableTransactionList transactions={transactions} categories={userCategories} focusDate={focusDate} />
 		</div>
 	);
 }
