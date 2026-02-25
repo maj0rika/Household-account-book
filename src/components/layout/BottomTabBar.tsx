@@ -20,7 +20,7 @@ export function BottomTabBar() {
 	const { open: openManualInput } = useManualInput();
 
 	return (
-		<nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/80 backdrop-blur-xl md:hidden">
+		<nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/80 backdrop-blur-xl md:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
 			<div className="mx-auto flex h-14 max-w-lg items-center justify-around">
 				{TABS.map((tab) => {
 					const Icon = tab.icon;
