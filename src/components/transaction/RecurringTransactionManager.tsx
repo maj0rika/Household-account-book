@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, Loader2, Plus, RefreshCw } from "lucide-react";
+import { Check, Trash2, Loader2, Plus, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,7 @@ import {
 	createRecurringTransaction,
 	deleteRecurringTransaction,
 	applyRecurringTransactions,
+	checkRecurringApplied,
 } from "@/server/actions/recurring";
 import { getUserCategories } from "@/server/actions/transaction";
 import type { Category } from "@/types";
@@ -42,6 +43,8 @@ export function RecurringTransactionManager() {
 	const [categories, setCategories] = useState<Category[]>([]);
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [isPending, startTransition] = useTransition();
+	const [allApplied, setAllApplied] = useState(false);
+	const [applyMessage, setApplyMessage] = useState<string | null>(null);
 
 	// 폼 상태
 	const [type, setType] = useState<"expense" | "income">("expense");
@@ -53,6 +56,9 @@ export function RecurringTransactionManager() {
 	const loadData = () => {
 		getRecurringTransactions().then((data) => setItems(data as RecurringItem[]));
 		getUserCategories().then((data) => setCategories(data as Category[]));
+		checkRecurringApplied(getCurrentMonth()).then(({ total, applied }) => {
+			setAllApplied(total > 0 && total === applied);
+		});
 	};
 
 	useEffect(() => {
@@ -93,7 +99,15 @@ export function RecurringTransactionManager() {
 		startTransition(async () => {
 			const result = await applyRecurringTransactions(getCurrentMonth());
 			if (result.success) {
+				if (result.count === 0 && result.alreadyApplied > 0) {
+					setApplyMessage("이번 달 고정 거래가 이미 모두 적용되어 있습니다.");
+					setAllApplied(true);
+				} else if (result.count > 0) {
+					setApplyMessage(`${result.count}건이 새로 적용되었습니다.`);
+					setAllApplied(result.alreadyApplied + result.count === items.length);
+				}
 				router.refresh();
+				setTimeout(() => setApplyMessage(null), 3000);
 			}
 		});
 	};
@@ -103,9 +117,24 @@ export function RecurringTransactionManager() {
 			<div className="flex items-center justify-between mb-3">
 				<h3 className="text-sm font-semibold">고정 수입/지출</h3>
 				<div className="flex gap-1">
-					<Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleApply} disabled={isPending || items.length === 0}>
-						<RefreshCw className="mr-1 h-3 w-3" />
-						이번 달 적용
+					<Button
+						variant="outline"
+						size="sm"
+						className="h-7 text-xs"
+						onClick={handleApply}
+						disabled={isPending || items.length === 0 || allApplied}
+					>
+						{allApplied ? (
+							<>
+								<Check className="mr-1 h-3 w-3" />
+								적용 완료
+							</>
+						) : (
+							<>
+								<RefreshCw className="mr-1 h-3 w-3" />
+								이번 달 적용
+							</>
+						)}
 					</Button>
 					<Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setDialogOpen(true)}>
 						<Plus className="mr-1 h-3 w-3" />
@@ -113,6 +142,10 @@ export function RecurringTransactionManager() {
 					</Button>
 				</div>
 			</div>
+
+			{applyMessage && (
+				<p className="mb-2 text-center text-xs text-muted-foreground">{applyMessage}</p>
+			)}
 
 			{items.length === 0 ? (
 				<p className="text-xs text-muted-foreground py-3 text-center">

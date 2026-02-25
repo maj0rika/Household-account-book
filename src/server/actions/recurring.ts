@@ -70,7 +70,7 @@ export async function deleteRecurringTransaction(
 
 export async function applyRecurringTransactions(
 	month: string,
-): Promise<{ success: true; count: number } | { success: false; error: string }> {
+): Promise<{ success: true; count: number; alreadyApplied: number } | { success: false; error: string }> {
 	try {
 		const userId = await getAuthUserId();
 
@@ -85,32 +85,132 @@ export async function applyRecurringTransactions(
 			);
 
 		if (recurring.length === 0) {
-			return { success: true, count: 0 };
+			return { success: true, count: 0, alreadyApplied: 0 };
 		}
 
 		const [year, m] = month.split("-").map(Number);
 		const daysInMonth = new Date(year, m, 0).getDate();
+		const monthStr = `${year}-${String(m).padStart(2, "0")}`;
+		const startDate = `${monthStr}-01`;
+		const nextMonth = m === 12
+			? `${year + 1}-01-01`
+			: `${year}-${String(m + 1).padStart(2, "0")}-01`;
 
-		const values = recurring.map((r) => {
-			const day = Math.min(r.dayOfMonth, daysInMonth);
-			const date = `${year}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-			return {
-				userId,
-				categoryId: r.categoryId,
-				type: r.type,
-				amount: r.amount,
-				description: r.description,
-				date,
-				memo: "고정 거래 자동 생성",
-				isRecurring: true,
-			};
-		});
+		// 이미 적용된 거래 조회
+		const existingRows = await db
+			.select({
+				description: transactions.description,
+				amount: transactions.amount,
+				type: transactions.type,
+				date: transactions.date,
+			})
+			.from(transactions)
+			.where(
+				and(
+					eq(transactions.userId, userId),
+					eq(transactions.memo, "고정 거래 자동 생성"),
+					gte(transactions.date, startDate),
+					lt(transactions.date, nextMonth),
+				),
+			);
+
+		const existingSet = new Set(
+			existingRows.map((r) => `${r.type}|${r.description}|${r.amount}|${r.date}`),
+		);
+
+		const values = recurring
+			.map((r) => {
+				const day = Math.min(r.dayOfMonth, daysInMonth);
+				const date = `${year}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+				return {
+					userId,
+					categoryId: r.categoryId,
+					type: r.type,
+					amount: r.amount,
+					description: r.description,
+					date,
+					memo: "고정 거래 자동 생성",
+					isRecurring: true,
+				};
+			})
+			.filter((v) => !existingSet.has(`${v.type}|${v.description}|${v.amount}|${v.date}`));
+
+		const alreadyApplied = recurring.length - values.length;
+
+		if (values.length === 0) {
+			return { success: true, count: 0, alreadyApplied };
+		}
 
 		await db.insert(transactions).values(values);
 
-		return { success: true, count: values.length };
+		return { success: true, count: values.length, alreadyApplied };
 	} catch (e) {
 		return { success: false, error: e instanceof Error ? e.message : "적용에 실패했습니다." };
+	}
+}
+
+/** 해당 월에 고정 거래가 모두 적용되었는지 확인한다. */
+export async function checkRecurringApplied(
+	month: string,
+): Promise<{ total: number; applied: number }> {
+	try {
+		const userId = await getAuthUserId();
+
+		const recurring = await db
+			.select()
+			.from(recurringTransactions)
+			.where(
+				and(
+					eq(recurringTransactions.userId, userId),
+					eq(recurringTransactions.isActive, true),
+				),
+			);
+
+		if (recurring.length === 0) {
+			return { total: 0, applied: 0 };
+		}
+
+		const [year, m] = month.split("-").map(Number);
+		const monthStr = `${year}-${String(m).padStart(2, "0")}`;
+		const startDate = `${monthStr}-01`;
+		const nextMonth = m === 12
+			? `${year + 1}-01-01`
+			: `${year}-${String(m + 1).padStart(2, "0")}-01`;
+
+		const existingRows = await db
+			.select({
+				description: transactions.description,
+				amount: transactions.amount,
+				type: transactions.type,
+				date: transactions.date,
+			})
+			.from(transactions)
+			.where(
+				and(
+					eq(transactions.userId, userId),
+					eq(transactions.memo, "고정 거래 자동 생성"),
+					gte(transactions.date, startDate),
+					lt(transactions.date, nextMonth),
+				),
+			);
+
+		const existingSet = new Set(
+			existingRows.map((r) => `${r.type}|${r.description}|${r.amount}|${r.date}`),
+		);
+
+		const daysInMonth = new Date(year, m, 0).getDate();
+		let applied = 0;
+		for (const r of recurring) {
+			const day = Math.min(r.dayOfMonth, daysInMonth);
+			const date = `${year}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+			if (existingSet.has(`${r.type}|${r.description}|${r.amount}|${date}`)) {
+				applied++;
+			}
+		}
+
+		return { total: recurring.length, applied };
+	} catch {
+		return { total: 0, applied: 0 };
 	}
 }
 

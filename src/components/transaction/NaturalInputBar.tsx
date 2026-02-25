@@ -154,7 +154,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 	};
 
 	return (
-		<div className="fixed bottom-16 left-1/2 z-30 w-full max-w-lg -translate-x-1/2 px-3 md:bottom-4">
+		<div className="fixed bottom-[calc(var(--bottom-nav-height)+0.25rem)] left-1/2 z-30 w-full max-w-lg -translate-x-1/2 px-3 md:bottom-4">
 			<motion.div
 				className="rounded-xl border border-border bg-background/95 shadow-sm backdrop-blur-xl"
 				initial={{ y: 20, opacity: 0 }}
