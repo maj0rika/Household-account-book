@@ -286,8 +286,9 @@ export function ParseResultSheet({ open, onOpenChange, items: initialItems, orig
 	const handleRemove = (index: number) => {
 		setItems((prev) => {
 			const next = prev.filter((_, i) => i !== index);
+			// 모든 항목이 제거되면 다음 틱에서 시트를 닫음 (렌더 중 부모 setState 방지)
 			if (next.length === 0) {
-				onOpenChange(false);
+				queueMicrotask(() => onOpenChange(false));
 			}
 			return next;
 		});

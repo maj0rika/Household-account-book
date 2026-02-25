@@ -6,6 +6,7 @@ interface LLMConfig {
 	client: OpenAI;
 	model: string;
 	temperature: number;
+	extra_body?: Record<string, unknown>;
 }
 
 const configs: Record<LLMProvider, () => LLMConfig> = {
@@ -21,6 +22,9 @@ const configs: Record<LLMProvider, () => LLMConfig> = {
 		}),
 		model: "kimi-k2.5",
 		temperature: 1, // K2.5는 temperature 1 고정
+		extra_body: {
+			chat_template_kwargs: { thinking: false },
+		},
 	}),
 };
 

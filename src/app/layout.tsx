@@ -23,6 +23,16 @@ const pretendard = localFont({
 export const metadata: Metadata = {
 	title: "가계부 — AI 자동 분류 가계부",
 	description: "자연어로 입력하면 AI가 자동 분류하는 스마트 가계부",
+	manifest: "/manifest.json",
+	icons: {
+		icon: "/favicon.ico",
+		apple: "/icons/apple-touch-icon.png",
+	},
+	appleWebApp: {
+		capable: true,
+		statusBarStyle: "black-translucent",
+		title: "가계부",
+	},
 };
 
 export const viewport: Viewport = {
