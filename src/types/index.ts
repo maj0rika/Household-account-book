@@ -39,3 +39,16 @@ export interface TransactionGroup {
 	label: string; // "오늘", "어제", "2월 23일 (일)"
 	transactions: Transaction[];
 }
+
+export interface CategoryBreakdown {
+	categoryId: string;
+	categoryName: string;
+	categoryIcon: string;
+	amount: number;
+	percentage: number; // 0~100
+}
+
+export interface DailyExpense {
+	date: string; // YYYY-MM-DD
+	amount: number;
+}

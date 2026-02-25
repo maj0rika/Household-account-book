@@ -7,7 +7,7 @@ import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { transactions, categories } from "@/server/db/schema";
 import type { ParsedTransaction } from "@/server/llm/types";
-import type { Transaction, MonthlySummary } from "@/types";
+import type { Transaction, MonthlySummary, CategoryBreakdown, DailyExpense } from "@/types";
 
 async function getAuthUserId(): Promise<string> {
 	const session = await auth.api.getSession({
@@ -197,4 +197,101 @@ export async function createSingleTransaction(data: {
 	} catch (e) {
 		return { success: false, error: e instanceof Error ? e.message : "저장에 실패했습니다." };
 	}
+}
+
+export async function getCategoryBreakdown(month: string): Promise<CategoryBreakdown[]> {
+	const userId = await getAuthUserId();
+
+	const startDate = `${month}-01`;
+	const [year, m] = month.split("-").map(Number);
+	const nextMonth = m === 12 ? `${year + 1}-01-01` : `${year}-${String(m + 1).padStart(2, "0")}-01`;
+
+	const rows = await db
+		.select({
+			categoryId: transactions.categoryId,
+			categoryName: categories.name,
+			categoryIcon: categories.icon,
+			amount: sql<number>`coalesce(sum(${transactions.amount}), 0)`,
+		})
+		.from(transactions)
+		.leftJoin(categories, eq(transactions.categoryId, categories.id))
+		.where(
+			and(
+				eq(transactions.userId, userId),
+				eq(transactions.type, "expense"),
+				gte(transactions.date, startDate),
+				lt(transactions.date, nextMonth),
+			),
+		)
+		.groupBy(transactions.categoryId, categories.name, categories.icon)
+		.orderBy(sql`sum(${transactions.amount}) desc`);
+
+	const totalExpense = rows.reduce((sum, row) => sum + Number(row.amount), 0);
+
+	return rows.map((row) => ({
+		categoryId: row.categoryId ?? "",
+		categoryName: row.categoryName ?? "미분류",
+		categoryIcon: row.categoryIcon ?? "📦",
+		amount: Number(row.amount),
+		percentage: totalExpense > 0 ? Math.round((Number(row.amount) / totalExpense) * 10000) / 100 : 0,
+	}));
+}
+
+export async function getDailyExpenses(startDate: string, endDate: string): Promise<DailyExpense[]> {
+	const userId = await getAuthUserId();
+
+	const rows = await db
+		.select({
+			date: transactions.date,
+			amount: sql<number>`coalesce(sum(${transactions.amount}), 0)`,
+		})
+		.from(transactions)
+		.where(
+			and(
+				eq(transactions.userId, userId),
+				eq(transactions.type, "expense"),
+				gte(transactions.date, startDate),
+				lt(transactions.date, endDate),
+			),
+		)
+		.groupBy(transactions.date)
+		.orderBy(transactions.date);
+
+	return rows.map((row) => ({
+		date: row.date,
+		amount: Number(row.amount),
+	}));
+}
+
+export async function getMonthlyCalendarData(month: string): Promise<Record<string, { income: number; expense: number }>> {
+	const userId = await getAuthUserId();
+
+	const startDate = `${month}-01`;
+	const [year, m] = month.split("-").map(Number);
+	const nextMonth = m === 12 ? `${year + 1}-01-01` : `${year}-${String(m + 1).padStart(2, "0")}-01`;
+
+	const rows = await db
+		.select({
+			date: transactions.date,
+			type: transactions.type,
+			total: sql<number>`coalesce(sum(${transactions.amount}), 0)`,
+		})
+		.from(transactions)
+		.where(
+			and(
+				eq(transactions.userId, userId),
+				gte(transactions.date, startDate),
+				lt(transactions.date, nextMonth),
+			),
+		)
+		.groupBy(transactions.date, transactions.type);
+
+	const result: Record<string, { income: number; expense: number }> = {};
+	for (const row of rows) {
+		if (!result[row.date]) {
+			result[row.date] = { income: 0, expense: 0 };
+		}
+		result[row.date][row.type] = Number(row.total);
+	}
+	return result;
 }
