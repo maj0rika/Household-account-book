@@ -102,6 +102,20 @@ export const transactions = pgTable("transactions", {
 	updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const recurringTransactions = pgTable("recurring_transactions", {
+	id: uuid("id").defaultRandom().primaryKey(),
+	userId: text("user_id")
+		.notNull()
+		.references(() => authUsers.id, { onDelete: "cascade" }),
+	categoryId: uuid("category_id").references(() => categories.id, { onDelete: "set null" }),
+	type: transactionTypeEnum("type").notNull(),
+	amount: integer("amount").notNull(),
+	description: text("description").notNull(),
+	dayOfMonth: integer("day_of_month").notNull(), // 1~31, 매월 이 날짜에 자동 생성
+	isActive: boolean("is_active").notNull().default(true),
+	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const budgets = pgTable(
 	"budgets",
 	{

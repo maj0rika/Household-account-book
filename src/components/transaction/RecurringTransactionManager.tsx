@@ -1,0 +1,194 @@
+"use client";
+
+import { useState, useTransition, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Trash2, Loader2, Plus, RefreshCw } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogDescription,
+	DialogFooter,
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { formatCurrency, getCurrentMonth } from "@/lib/format";
+import {
+	getRecurringTransactions,
+	createRecurringTransaction,
+	deleteRecurringTransaction,
+	applyRecurringTransactions,
+} from "@/server/actions/recurring";
+import { getUserCategories } from "@/server/actions/transaction";
+import type { Category } from "@/types";
+
+interface RecurringItem {
+	id: string;
+	type: "income" | "expense";
+	description: string;
+	amount: number;
+	dayOfMonth: number;
+	categoryId: string | null;
+	isActive: boolean;
+}
+
+export function RecurringTransactionManager() {
+	const router = useRouter();
+	const [items, setItems] = useState<RecurringItem[]>([]);
+	const [categories, setCategories] = useState<Category[]>([]);
+	const [dialogOpen, setDialogOpen] = useState(false);
+	const [isPending, startTransition] = useTransition();
+
+	// 폼 상태
+	const [type, setType] = useState<"expense" | "income">("expense");
+	const [categoryId, setCategoryId] = useState("");
+	const [description, setDescription] = useState("");
+	const [amount, setAmount] = useState("");
+	const [dayOfMonth, setDayOfMonth] = useState("1");
+
+	const loadData = () => {
+		getRecurringTransactions().then((data) => setItems(data as RecurringItem[]));
+		getUserCategories().then((data) => setCategories(data as Category[]));
+	};
+
+	useEffect(() => {
+		loadData();
+	}, []);
+
+	const filteredCategories = categories.filter((c) => c.type === type);
+
+	const handleCreate = () => {
+		if (!description.trim() || !amount) return;
+		startTransition(async () => {
+			const result = await createRecurringTransaction({
+				type,
+				categoryId: categoryId || null,
+				description: description.trim(),
+				amount: Number(amount),
+				dayOfMonth: Number(dayOfMonth),
+			});
+			if (result.success) {
+				setDialogOpen(false);
+				setDescription("");
+				setAmount("");
+				setCategoryId("");
+				setDayOfMonth("1");
+				loadData();
+			}
+		});
+	};
+
+	const handleDelete = (id: string) => {
+		startTransition(async () => {
+			await deleteRecurringTransaction(id);
+			loadData();
+		});
+	};
+
+	const handleApply = () => {
+		startTransition(async () => {
+			const result = await applyRecurringTransactions(getCurrentMonth());
+			if (result.success) {
+				router.refresh();
+			}
+		});
+	};
+
+	return (
+		<div className="px-4 py-2">
+			<div className="flex items-center justify-between mb-3">
+				<h3 className="text-sm font-semibold">고정 수입/지출</h3>
+				<div className="flex gap-1">
+					<Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleApply} disabled={isPending || items.length === 0}>
+						<RefreshCw className="mr-1 h-3 w-3" />
+						이번 달 적용
+					</Button>
+					<Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setDialogOpen(true)}>
+						<Plus className="mr-1 h-3 w-3" />
+						추가
+					</Button>
+				</div>
+			</div>
+
+			{items.length === 0 ? (
+				<p className="text-xs text-muted-foreground py-3 text-center">
+					등록된 고정 거래가 없습니다
+				</p>
+			) : (
+				<div className="space-y-1.5">
+					{items.map((item) => (
+						<div key={item.id} className="flex items-center gap-2 text-sm">
+							<Badge variant={item.type === "income" ? "default" : "secondary"} className="text-[10px] shrink-0">
+								{item.type === "income" ? "수입" : "지출"}
+							</Badge>
+							<span className="truncate flex-1">{item.description}</span>
+							<span className="text-xs text-muted-foreground shrink-0">매월 {item.dayOfMonth}일</span>
+							<span className="font-medium shrink-0">{formatCurrency(item.amount)}</span>
+							<Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => handleDelete(item.id)} disabled={isPending}>
+								<Trash2 className="h-3 w-3" />
+							</Button>
+						</div>
+					))}
+				</div>
+			)}
+
+			<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>고정 거래 추가</DialogTitle>
+						<DialogDescription>매월 반복되는 수입이나 지출을 등록합니다.</DialogDescription>
+					</DialogHeader>
+					<div className="grid gap-4 py-2">
+						<div className="grid gap-2">
+							<Label>유형</Label>
+							<div className="flex gap-2">
+								<Button type="button" variant={type === "expense" ? "default" : "outline"} size="sm" onClick={() => { setType("expense"); setCategoryId(""); }}>
+									지출
+								</Button>
+								<Button type="button" variant={type === "income" ? "default" : "outline"} size="sm" onClick={() => { setType("income"); setCategoryId(""); }}>
+									수입
+								</Button>
+							</div>
+						</div>
+						<div className="grid gap-2">
+							<Label>매월 날짜</Label>
+							<Input type="number" min={1} max={31} value={dayOfMonth} onChange={(e) => setDayOfMonth(e.target.value)} />
+						</div>
+						<div className="grid gap-2">
+							<Label>카테고리</Label>
+							<select
+								value={categoryId}
+								onChange={(e) => setCategoryId(e.target.value)}
+								className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+							>
+								<option value="">선택 없음</option>
+								{filteredCategories.map((cat) => (
+									<option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>
+								))}
+							</select>
+						</div>
+						<div className="grid gap-2">
+							<Label>설명</Label>
+							<Input placeholder="월급, 관리비, 넷플릭스 등" value={description} onChange={(e) => setDescription(e.target.value)} />
+						</div>
+						<div className="grid gap-2">
+							<Label>금액 (원)</Label>
+							<Input type="number" placeholder="1500000" value={amount} onChange={(e) => setAmount(e.target.value)} min={1} />
+						</div>
+					</div>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setDialogOpen(false)}>취소</Button>
+						<Button onClick={handleCreate} disabled={!description.trim() || !amount || Number(amount) <= 0 || isPending}>
+							{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+							저장
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+		</div>
+	);
+}
