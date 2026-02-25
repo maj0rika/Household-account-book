@@ -40,6 +40,7 @@
 - [x] 통합 파싱 함수 (LLM 호출 → JSON 추출 → 유효성 검증 + 재시도)
 - [x] 파싱 Server Action + API Route (/api/parse)
 - [x] 에러 핸들링 (재시도 1회, 실패 시 에러 메시지 반환)
+- [ ] 카테고리 미매칭 시 새 카테고리 추가 권유 플로우 (LLM이 기존 카테고리에 해당 없다고 판단하면 → 파싱 결과에 suggestedCategory 포함 → UI에서 "새 카테고리 추가" 안내)
 
 ### Phase 5: 핵심 UI (모바일 퍼스트) ✅
 - [x] DB 스키마 마이그레이션 (users 제거, authUsers로 FK 통합)
@@ -82,6 +83,7 @@
 - [x] 예산 CRUD (전체 + 카테고리별, upsert)
 - [x] 예산 대비 지출 진행률 바 (초과 시 빨간색)
 - [x] 월 네비게이션
+- [ ] 예산 수정 기능 (기존 예산 금액 변경/삭제)
 
 ### Phase 10: 설정 페이지 ✅
 - [x] `/settings` 페이지 생성
@@ -98,13 +100,13 @@
 - [x] 프롬프트 플레이스홀더 랜덤 (12가지 예시 문구)
 - [x] 이미지 파싱 (OpenAI Vision, base64 전송, 영수증/카드내역 인식)
 
-### Phase 12: 디자인 폴리싱
-- [ ] Glassmorphism 탭바/네비게이션
-- [ ] Framer Motion 애니메이션 (리스트 추가, Bottom Sheet, 차트 업데이트)
-- [ ] Mesh Gradient 대시보드 카드
-- [ ] Pretendard + SF Pro Display 폰트 적용
-- [ ] 마이크로 인터랙션 (active:scale, 햅틱 피드백)
-- [ ] 스켈레톤 로딩 (AI 처리 대기)
+### Phase 12: 디자인 폴리싱 ✅
+- [x] Glassmorphism 탭바/네비게이션
+- [x] Framer Motion 애니메이션 (리스트 추가, Bottom Sheet, 차트 업데이트)
+- [x] Mesh Gradient 대시보드 카드
+- [x] Pretendard + Geist 폰트 적용
+- [x] 마이크로 인터랙션 (active:scale, 탭 인디케이터, 호버 효과)
+- [x] 스켈레톤 로딩 (페이지별 loading.tsx)
 
 ### Phase 12: Capacitor (네이티브 앱)
 - [ ] Capacitor 설치 + 설정
@@ -207,3 +209,4 @@ type: start | progress | complete | change | issue
 | 2026-02-25 | 완료 | Phase 8~10 통계/예산/설정 페이지 구현 (LNB 전체 접근 가능) | — |
 | 2026-02-25 | 완료 | 디자인 시스템 수립 + 시드 스크립트 개선 + 인증 접근 제어 | — |
 | 2026-02-25 | 완료 | Phase 11 UX 고도화 (고정거래 프롬프트, 파싱편집, Sidebar토글, 이미지파싱) | — |
+| 2026-02-25 | 완료 | Phase 12 디자인 폴리싱 (Motion, Mesh Gradient, Pretendard, Skeleton) | — |

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Home, BarChart3, Settings, Wallet, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { motion } from "motion/react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,6 @@ export function Sidebar() {
 	const pathname = usePathname();
 	const [collapsed, setCollapsed] = useState(false);
 
-	// localStorage에서 상태 복원
 	useEffect(() => {
 		const saved = localStorage.getItem(STORAGE_KEY);
 		if (saved === "true") {
@@ -44,15 +44,46 @@ export function Sidebar() {
 				collapsed ? "md:w-14" : "md:w-56",
 			)}
 		>
-			{/* 헤더 */}
+			{/* 헤더 + 토글 */}
 			<div className={cn(
 				"flex h-14 items-center border-b border-border",
-				collapsed ? "justify-center px-2" : "gap-2 px-4",
+				collapsed ? "justify-center px-2" : "justify-between px-4",
 			)}>
-				<div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-					<Wallet className="h-4 w-4 text-primary" />
-				</div>
-				{!collapsed && <span className="text-base font-semibold">가계부</span>}
+				{collapsed ? (
+					<Button
+						variant="ghost"
+						size="icon-sm"
+						onClick={toggleCollapsed}
+						className="text-muted-foreground hover:text-foreground"
+						title="사이드바 펼치기"
+					>
+						<PanelLeftOpen className="h-4 w-4" />
+					</Button>
+				) : (
+					<>
+						<div className="flex items-center gap-2">
+							<div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+								<Wallet className="h-4 w-4 text-primary" />
+							</div>
+							<motion.span
+								initial={{ opacity: 0, x: -8 }}
+								animate={{ opacity: 1, x: 0 }}
+								className="text-base font-semibold"
+							>
+								가계부
+							</motion.span>
+						</div>
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							onClick={toggleCollapsed}
+							className="text-muted-foreground hover:text-foreground"
+							title="사이드바 접기"
+						>
+							<PanelLeftClose className="h-4 w-4" />
+						</Button>
+					</>
+				)}
 			</div>
 
 			{/* 네비게이션 */}
@@ -66,38 +97,26 @@ export function Sidebar() {
 							href={item.href}
 							title={collapsed ? item.label : undefined}
 							className={cn(
-								"flex items-center rounded-lg transition-colors",
+								"relative flex items-center rounded-lg transition-colors",
 								collapsed ? "justify-center p-2" : "gap-3 px-3 py-2",
 								isActive
-									? "bg-accent text-accent-foreground font-medium"
+									? "text-accent-foreground font-medium"
 									: "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
 							)}
 						>
-							<Icon className="h-4 w-4 shrink-0" />
-							{!collapsed && <span className="text-sm">{item.label}</span>}
+							{isActive && (
+								<motion.span
+									layoutId="sidebar-indicator"
+									className="absolute inset-0 rounded-lg bg-accent"
+									transition={{ type: "spring", stiffness: 500, damping: 30 }}
+								/>
+							)}
+							<Icon className="relative z-10 h-4 w-4 shrink-0" />
+							{!collapsed && <span className="relative z-10 text-sm">{item.label}</span>}
 						</Link>
 					);
 				})}
 			</nav>
-
-			{/* 토글 버튼 */}
-			<div className={cn("border-t border-border p-2", collapsed && "flex justify-center")}>
-				<Button
-					variant="ghost"
-					size={collapsed ? "icon" : "sm"}
-					onClick={toggleCollapsed}
-					className={cn(!collapsed && "w-full justify-start gap-2")}
-				>
-					{collapsed ? (
-						<PanelLeftOpen className="h-4 w-4" />
-					) : (
-						<>
-							<PanelLeftClose className="h-4 w-4" />
-							<span className="text-xs">접기</span>
-						</>
-					)}
-				</Button>
-			</div>
 		</aside>
 	);
 }

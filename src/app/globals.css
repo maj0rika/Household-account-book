@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-pretendard), var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -155,5 +155,53 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Mesh Gradient 유틸 */
+.mesh-gradient-income {
+  background:
+    radial-gradient(ellipse at 20% 50%, oklch(0.55 0.17 155 / 15%) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, oklch(0.65 0.20 165 / 10%) 0%, transparent 50%),
+    radial-gradient(ellipse at 40% 80%, oklch(0.75 0.15 135 / 8%) 0%, transparent 50%);
+}
+.mesh-gradient-expense {
+  background:
+    radial-gradient(ellipse at 20% 50%, oklch(0.577 0.245 27.325 / 12%) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, oklch(0.65 0.15 20 / 8%) 0%, transparent 50%),
+    radial-gradient(ellipse at 40% 80%, oklch(0.75 0.10 35 / 6%) 0%, transparent 50%);
+}
+.mesh-gradient-balance {
+  background:
+    radial-gradient(ellipse at 30% 40%, oklch(0.55 0.17 155 / 10%) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 60%, oklch(0.60 0.10 175 / 8%) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 90%, oklch(0.65 0.20 165 / 6%) 0%, transparent 50%);
+}
+
+.dark .mesh-gradient-income {
+  background:
+    radial-gradient(ellipse at 20% 50%, oklch(0.70 0.18 155 / 12%) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, oklch(0.60 0.15 165 / 8%) 0%, transparent 50%),
+    radial-gradient(ellipse at 40% 80%, oklch(0.75 0.12 135 / 6%) 0%, transparent 50%);
+}
+.dark .mesh-gradient-expense {
+  background:
+    radial-gradient(ellipse at 20% 50%, oklch(0.704 0.191 22.216 / 10%) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, oklch(0.60 0.12 20 / 7%) 0%, transparent 50%),
+    radial-gradient(ellipse at 40% 80%, oklch(0.75 0.08 35 / 5%) 0%, transparent 50%);
+}
+.dark .mesh-gradient-balance {
+  background:
+    radial-gradient(ellipse at 30% 40%, oklch(0.70 0.18 155 / 8%) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 60%, oklch(0.55 0.20 175 / 6%) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 90%, oklch(0.60 0.15 165 / 5%) 0%, transparent 50%);
+}
+
+/* reduced-motion 존중 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

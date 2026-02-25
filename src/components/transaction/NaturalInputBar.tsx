@@ -3,6 +3,7 @@
 import { useState, useTransition, useRef, useCallback, useEffect } from "react";
 import Image from "next/image";
 import { Send, Loader2, ImagePlus, X } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 
 import { Button } from "@/components/ui/button";
 import { parseTransactionInput, parseTransactionImageInput } from "@/server/actions/parse";
@@ -134,28 +135,41 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 
 	return (
 		<div className="fixed bottom-16 left-1/2 z-30 w-full max-w-lg -translate-x-1/2 px-3 md:bottom-4">
-			<div className="rounded-xl border border-border bg-background/95 shadow-sm backdrop-blur-lg">
+			<motion.div
+				className="rounded-xl border border-border bg-background/95 shadow-sm backdrop-blur-xl"
+				initial={{ y: 20, opacity: 0 }}
+				animate={{ y: 0, opacity: 1 }}
+				transition={{ duration: 0.35, ease: "easeOut" }}
+			>
 				{/* 이미지 미리보기 */}
-				{imagePreview && (
-					<div className="relative mx-3 mt-2">
-						<div className="relative h-20 w-20">
-						<Image
-							src={imagePreview}
-							alt="첨부 이미지"
-							fill
-							className="rounded-lg border border-border object-cover"
-							unoptimized
-						/>
-						<button
-							type="button"
-							onClick={clearImage}
-							className="absolute -right-1.5 -top-1.5 rounded-full bg-destructive p-0.5 text-destructive-foreground shadow-sm"
+				<AnimatePresence>
+					{imagePreview && (
+						<motion.div
+							className="relative mx-3 mt-2"
+							initial={{ opacity: 0, scale: 0.8 }}
+							animate={{ opacity: 1, scale: 1 }}
+							exit={{ opacity: 0, scale: 0.8 }}
+							transition={{ duration: 0.2 }}
 						>
-							<X className="h-3 w-3" />
-						</button>
-						</div>
-					</div>
-				)}
+							<div className="relative h-20 w-20">
+							<Image
+								src={imagePreview}
+								alt="첨부 이미지"
+								fill
+								className="rounded-lg border border-border object-cover"
+								unoptimized
+							/>
+							<button
+								type="button"
+								onClick={clearImage}
+								className="absolute -right-1.5 -top-1.5 rounded-full bg-destructive p-0.5 text-destructive-foreground shadow-sm active:scale-90"
+							>
+								<X className="h-3 w-3" />
+							</button>
+							</div>
+						</motion.div>
+					)}
+				</AnimatePresence>
 
 				<div className="flex items-end gap-2 px-3 py-2">
 					{/* 이미지 첨부 버튼 */}
@@ -163,7 +177,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 						type="button"
 						variant="ghost"
 						size="icon"
-						className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+						className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground active:scale-90"
 						onClick={() => fileInputRef.current?.click()}
 						disabled={isPending}
 					>
@@ -187,25 +201,39 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 						}}
 						onKeyDown={handleKeyDown}
 						placeholder={placeholder}
-						className="flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+						className="flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 transition-shadow"
 						rows={1}
 						disabled={isPending}
 					/>
-					<Button
-						size="icon"
-						onClick={handleSubmit}
-						disabled={(!input.trim() && !imageData) || isPending}
-						className="shrink-0"
-					>
-						{isPending ? (
-							<Loader2 className="h-4 w-4 animate-spin" />
-						) : (
-							<Send className="h-4 w-4" />
-						)}
-					</Button>
+					<motion.div whileTap={{ scale: 0.9 }}>
+						<Button
+							size="icon"
+							onClick={handleSubmit}
+							disabled={(!input.trim() && !imageData) || isPending}
+							className="shrink-0"
+						>
+							{isPending ? (
+								<Loader2 className="h-4 w-4 animate-spin" />
+							) : (
+								<Send className="h-4 w-4" />
+							)}
+						</Button>
+					</motion.div>
 				</div>
-				{error && <p className="px-4 pb-2 text-center text-xs text-destructive">{error}</p>}
-			</div>
+				<AnimatePresence>
+					{error && (
+						<motion.p
+							className="px-4 pb-2 text-center text-xs text-destructive"
+							initial={{ opacity: 0, height: 0 }}
+							animate={{ opacity: 1, height: "auto" }}
+							exit={{ opacity: 0, height: 0 }}
+							transition={{ duration: 0.2 }}
+						>
+							{error}
+						</motion.p>
+					)}
+				</AnimatePresence>
+			</motion.div>
 		</div>
 	);
 }

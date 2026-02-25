@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { X, Loader2, ChevronDown, ChevronUp, Repeat } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,8 +93,15 @@ function EditableItem({
 			</div>
 
 			{/* 편집 패널 */}
-			{expanded && (
-				<div className="space-y-3 pb-3 pl-6 pr-2">
+			<AnimatePresence>
+				{expanded && (
+					<motion.div
+						className="space-y-3 pb-3 pl-6 pr-2"
+						initial={{ height: 0, opacity: 0 }}
+						animate={{ height: "auto", opacity: 1 }}
+						exit={{ height: 0, opacity: 0 }}
+						transition={{ duration: 0.2 }}
+					>
 					{/* 설명 */}
 					<div className="space-y-1">
 						<Label className="text-xs">설명</Label>
@@ -202,8 +210,9 @@ function EditableItem({
 							</div>
 						)}
 					</div>
-				</div>
-			)}
+				</motion.div>
+				)}
+			</AnimatePresence>
 		</div>
 	);
 }
