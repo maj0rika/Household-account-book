@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { and, eq, gte, lt, sql, desc } from "drizzle-orm";
+import { and, eq, gte, lt, lte, ilike, sql, desc, type SQL } from "drizzle-orm";
 
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
@@ -91,12 +91,42 @@ export async function createTransactions(
 	}
 }
 
-export async function getTransactions(month: string): Promise<Transaction[]> {
+export interface TransactionFilters {
+	type?: "income" | "expense";
+	categoryId?: string;
+	minAmount?: number;
+	maxAmount?: number;
+	query?: string;
+}
+
+export async function getTransactions(month: string, filters?: TransactionFilters): Promise<Transaction[]> {
 	const userId = await getAuthUserId();
 
 	const startDate = `${month}-01`;
 	const [year, m] = month.split("-").map(Number);
 	const nextMonth = m === 12 ? `${year + 1}-01-01` : `${year}-${String(m + 1).padStart(2, "0")}-01`;
+
+	const conditions: SQL[] = [
+		eq(transactions.userId, userId),
+		gte(transactions.date, startDate),
+		lt(transactions.date, nextMonth),
+	];
+
+	if (filters?.type) {
+		conditions.push(eq(transactions.type, filters.type));
+	}
+	if (filters?.categoryId) {
+		conditions.push(eq(transactions.categoryId, filters.categoryId));
+	}
+	if (filters?.minAmount !== undefined) {
+		conditions.push(gte(transactions.amount, filters.minAmount));
+	}
+	if (filters?.maxAmount !== undefined) {
+		conditions.push(lte(transactions.amount, filters.maxAmount));
+	}
+	if (filters?.query) {
+		conditions.push(ilike(transactions.description, `%${filters.query}%`));
+	}
 
 	const rows = await db
 		.select({
@@ -118,13 +148,7 @@ export async function getTransactions(month: string): Promise<Transaction[]> {
 		})
 		.from(transactions)
 		.leftJoin(categories, eq(transactions.categoryId, categories.id))
-		.where(
-			and(
-				eq(transactions.userId, userId),
-				gte(transactions.date, startDate),
-				lt(transactions.date, nextMonth),
-			),
-		)
+		.where(and(...conditions))
 		.orderBy(desc(transactions.date), desc(transactions.createdAt));
 
 	return rows.map((row) => ({

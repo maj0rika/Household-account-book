@@ -15,7 +15,7 @@ import { MonthNavigator } from "@/components/dashboard/MonthNavigator";
 import { CategoryPieChart } from "@/components/dashboard/CategoryPieChart";
 import { WeeklyBarChart } from "@/components/dashboard/WeeklyBarChart";
 import { InteractiveCalendar } from "@/components/dashboard/InteractiveCalendar";
-import { TransactionList } from "@/components/transaction/TransactionList";
+import { FilterableTransactionList } from "@/components/transaction/FilterableTransactionList";
 import { TransactionInputSection } from "@/components/transaction/TransactionInputSection";
 import { RecurringTransactionManager } from "@/components/transaction/RecurringTransactionManager";
 import { Separator } from "@/components/ui/separator";
@@ -68,7 +68,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
 			<Separator className="my-2" />
 			<RecurringTransactionManager />
 			<Separator className="my-2" />
-			<TransactionList transactions={transactions} categories={userCategories} />
+			<FilterableTransactionList transactions={transactions} categories={userCategories} />
 			<Suspense>
 				<TransactionInputSection categories={userCategories} />
 			</Suspense>

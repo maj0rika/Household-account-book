@@ -83,13 +83,13 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 		el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
 	}, []);
 
-	const clearImage = () => {
+	const clearImage = useCallback(() => {
 		setImagePreview(null);
 		setImageData(null);
 		if (fileInputRef.current) {
 			fileInputRef.current.value = "";
 		}
-	};
+	}, []);
 
 	const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0];
@@ -125,17 +125,13 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 		const currentInput = input;
 
 		startTransition(async () => {
-			let result;
-
-			if (imageData) {
-				result = await parseTransactionImageInput(
-					imageData.base64,
-					imageData.mimeType,
-					currentInput,
-				);
-			} else {
-				result = await parseTransactionInput(currentInput);
-			}
+			const result = imageData
+				? await parseTransactionImageInput(
+						imageData.base64,
+						imageData.mimeType,
+						currentInput,
+					)
+				: await parseTransactionInput(currentInput);
 
 			if (result.success) {
 				onParsed(result.transactions, currentInput || "이미지 파싱");
@@ -149,7 +145,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 				setError(result.error);
 			}
 		});
-	}, [input, imageData, isPending, onParsed, resizeTextarea]);
+	}, [input, imageData, isPending, onParsed, resizeTextarea, clearImage]);
 
 	const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
 		if (e.key === "Enter" && !e.nativeEvent.isComposing) {
@@ -178,26 +174,26 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 							transition={{ duration: 0.2 }}
 						>
 							<div className="relative h-20 w-20">
-							<Image
-								src={imagePreview}
-								alt="첨부 이미지"
-								fill
-								className="rounded-lg border border-border object-cover"
-								unoptimized
-							/>
-							<button
-								type="button"
-								onClick={clearImage}
-								className="absolute -right-1.5 -top-1.5 rounded-full bg-destructive p-0.5 text-destructive-foreground shadow-sm active:scale-90"
-							>
-								<X className="h-3 w-3" />
-							</button>
+								<Image
+									src={imagePreview}
+									alt="첨부 이미지"
+									fill
+									className="rounded-lg border border-border object-cover"
+									unoptimized
+								/>
+								<button
+									type="button"
+									onClick={clearImage}
+									className="absolute -right-1.5 -top-1.5 rounded-full bg-destructive p-0.5 text-destructive-foreground shadow-sm active:scale-90"
+								>
+									<X className="h-3 w-3" />
+								</button>
 							</div>
 						</motion.div>
 					)}
 				</AnimatePresence>
 
-				<div className="flex items-end gap-2 px-3 py-2">
+				<div className="flex items-center gap-2 px-3 py-2">
 					{/* 이미지 첨부 버튼 */}
 					<Button
 						type="button"
@@ -228,17 +224,17 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 								if (error) setError(null);
 							}}
 							onKeyDown={handleKeyDown}
-							className="w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 transition-shadow"
+							className="h-9 min-h-9 w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm leading-5 shadow-xs outline-none transition-shadow focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
 							rows={1}
 							disabled={isPending}
 						/>
 					</div>
-					<motion.div whileTap={{ scale: 0.9 }}>
+					<motion.div className="shrink-0" whileTap={{ scale: 0.9 }}>
 						<Button
 							size="icon"
 							onClick={handleSubmit}
 							disabled={(!input.trim() && !imageData) || isPending}
-							className="shrink-0"
+							className="h-9 w-9"
 						>
 							{isPending ? (
 								<Loader2 className="h-4 w-4 animate-spin" />
