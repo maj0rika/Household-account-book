@@ -1,17 +1,11 @@
 "use server";
 
 import { headers } from "next/headers";
-import { and, eq, desc } from "drizzle-orm";
+import { and, eq, desc, sql } from "drizzle-orm";
 
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { accounts } from "@/server/db/schema";
-import {
-	encryptString,
-	encryptNumber,
-	decryptString,
-	decryptNumber,
-} from "@/server/security/field-encryption";
 import type { Account, AccountSummary } from "@/types";
 
 async function getAuthUserId(): Promise<string> {
@@ -24,22 +18,6 @@ async function getAuthUserId(): Promise<string> {
 	return session.user.id;
 }
 
-function toPublicAccount(row: typeof accounts.$inferSelect): Account {
-	return {
-		id: row.id,
-		userId: row.userId,
-		name: decryptString(row.nameEnc, row.name),
-		type: row.type,
-		subType: row.subType,
-		icon: row.icon,
-		balance: decryptNumber(row.balanceEnc, row.balance),
-		sortOrder: row.sortOrder,
-		isActive: row.isActive,
-		createdAt: row.createdAt,
-		updatedAt: row.updatedAt,
-	};
-}
-
 export async function getAccounts(): Promise<Account[]> {
 	const userId = await getAuthUserId();
 
@@ -49,17 +27,38 @@ export async function getAccounts(): Promise<Account[]> {
 		.where(and(eq(accounts.userId, userId), eq(accounts.isActive, true)))
 		.orderBy(accounts.type, accounts.sortOrder, desc(accounts.createdAt));
 
-	return rows.map(toPublicAccount);
+	return rows.map((row) => ({
+		id: row.id,
+		userId: row.userId,
+		name: row.name,
+		type: row.type,
+		subType: row.subType,
+		icon: row.icon,
+		balance: row.balance,
+		sortOrder: row.sortOrder,
+		isActive: row.isActive,
+		createdAt: row.createdAt,
+		updatedAt: row.updatedAt,
+	}));
 }
 
 export async function getAccountSummary(): Promise<AccountSummary> {
-	const list = await getAccounts();
+	const userId = await getAuthUserId();
+
+	const result = await db
+		.select({
+			type: accounts.type,
+			total: sql<number>`coalesce(sum(${accounts.balance}), 0)`,
+		})
+		.from(accounts)
+		.where(and(eq(accounts.userId, userId), eq(accounts.isActive, true)))
+		.groupBy(accounts.type);
 
 	let totalAssets = 0;
 	let totalDebts = 0;
-	for (const account of list) {
-		if (account.type === "asset") totalAssets += account.balance;
-		if (account.type === "debt") totalDebts += account.balance;
+	for (const row of result) {
+		if (row.type === "asset") totalAssets = Number(row.total);
+		if (row.type === "debt") totalDebts = Number(row.total);
 	}
 
 	return {
@@ -84,12 +83,10 @@ export async function createAccount(data: {
 			.values({
 				userId,
 				name: data.name,
-				nameEnc: encryptString(data.name),
 				type: data.type,
 				subType: data.subType,
 				icon: data.icon,
 				balance: data.balance,
-				balanceEnc: encryptNumber(data.balance),
 			})
 			.returning({ id: accounts.id });
 
@@ -115,15 +112,9 @@ export async function updateAccount(
 		await db
 			.update(accounts)
 			.set({
-				...(data.name !== undefined && {
-					name: data.name,
-					nameEnc: encryptString(data.name),
-				}),
+				...(data.name !== undefined && { name: data.name }),
 				...(data.icon !== undefined && { icon: data.icon }),
-				...(data.balance !== undefined && {
-					balance: data.balance,
-					balanceEnc: encryptNumber(data.balance),
-				}),
+				...(data.balance !== undefined && { balance: data.balance }),
 				...(data.subType !== undefined && { subType: data.subType }),
 				...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
 				updatedAt: new Date(),
@@ -163,11 +154,9 @@ export async function upsertParsedAccountsBatch(
 						.update(accounts)
 						.set({
 							name: item.name,
-							nameEnc: encryptString(item.name),
 							subType: item.subType,
 							icon: item.icon,
 							balance: item.balance,
-							balanceEnc: encryptNumber(item.balance),
 							updatedAt: new Date(),
 						})
 						.where(and(eq(accounts.id, item.accountId), eq(accounts.userId, userId)));
@@ -179,12 +168,10 @@ export async function upsertParsedAccountsBatch(
 					await tx.insert(accounts).values({
 						userId,
 						name: item.name,
-						nameEnc: encryptString(item.name),
 						type: item.type,
 						subType: item.subType,
 						icon: item.icon,
 						balance: item.balance,
-						balanceEnc: encryptNumber(item.balance),
 					});
 				}
 			}

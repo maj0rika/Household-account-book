@@ -237,4 +237,3 @@ type: start | progress | complete | change | issue
 | 2026-02-25 | 결정 | Phase4 착수 전 보안 범위 조정: 자산 name + balance 암호화 | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
 | 2026-02-25 | 완료 | 페이즈 잔여 마무리: TX-08 리다이렉트/포커스, PF-04 섹션별 pending 2차 | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
 | 2026-02-25 | 결정 | 암호화 범위 확대: 자산 + 거래/수입/지출 데이터 민감정보 암호화 | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
-| 2026-02-26 | 진행 | Phase4 DM-01 1차: 암호화 컬럼 추가 + dual-write/read 복호화 적용(신규 데이터) | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |

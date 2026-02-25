@@ -96,14 +96,10 @@ export const transactions = pgTable("transactions", {
 	accountId: uuid("account_id").references(() => accounts.id, { onDelete: "set null" }),
 	type: transactionTypeEnum("type").notNull(),
 	amount: integer("amount").notNull(),
-	amountEnc: text("amount_enc"),
 	description: text("description").notNull(),
-	descriptionEnc: text("description_enc"),
 	originalInput: text("original_input"),
-	originalInputEnc: text("original_input_enc"),
 	date: date("date").notNull(),
 	memo: text("memo"),
-	memoEnc: text("memo_enc"),
 	isRecurring: boolean("is_recurring").notNull().default(false),
 	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -117,9 +113,7 @@ export const recurringTransactions = pgTable("recurring_transactions", {
 	categoryId: uuid("category_id").references(() => categories.id, { onDelete: "set null" }),
 	type: transactionTypeEnum("type").notNull(),
 	amount: integer("amount").notNull(),
-	amountEnc: text("amount_enc"),
 	description: text("description").notNull(),
-	descriptionEnc: text("description_enc"),
 	dayOfMonth: integer("day_of_month").notNull(), // 1~31, 매월 이 날짜에 자동 생성
 	isActive: boolean("is_active").notNull().default(true),
 	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -154,12 +148,10 @@ export const accounts = pgTable("accounts", {
 		.notNull()
 		.references(() => authUsers.id, { onDelete: "cascade" }),
 	name: text("name").notNull(),
-	nameEnc: text("name_enc"),
 	type: accountTypeEnum("type").notNull(), // 'asset' | 'debt'
 	subType: text("sub_type").notNull(), // 'bank', 'cash', 'savings', 'investment', 'credit_card', 'loan', 'other'
 	icon: text("icon").notNull().default("🏦"),
 	balance: integer("balance").notNull().default(0), // 현재 잔액 (원)
-	balanceEnc: text("balance_enc"),
 	sortOrder: integer("sort_order").notNull().default(0),
 	isActive: boolean("is_active").notNull().default(true),
 	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
