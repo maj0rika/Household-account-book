@@ -24,6 +24,9 @@ export const metadata: Metadata = {
 	title: "가계부 — AI 자동 분류 가계부",
 	description: "자연어로 입력하면 AI가 자동 분류하는 스마트 가계부",
 	manifest: "/manifest.json",
+	verification: {
+		google: "COfkn_tZjzFrnmIy3vDP_hXLYaZ-GYI6VQlYqsdVFc8",
+	},
 	icons: {
 		icon: "/favicon.ico",
 		apple: "/icons/apple-touch-icon.png",
