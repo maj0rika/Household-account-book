@@ -59,6 +59,7 @@ interface TransactionsLazySectionsProps {
 	month: string;
 	transactions: Transaction[];
 	categories: Category[];
+	listSectionId?: string;
 }
 
 export function TransactionsLazySections({
@@ -69,6 +70,7 @@ export function TransactionsLazySections({
 	month,
 	transactions,
 	categories,
+	listSectionId,
 }: TransactionsLazySectionsProps) {
 	return (
 		<div style={{ contentVisibility: "auto", containIntrinsicSize: "700px" }}>
@@ -79,7 +81,9 @@ export function TransactionsLazySections({
 			<Separator className="my-2" />
 			<RecurringTransactionManager />
 			<Separator className="my-2" />
-			<FilterableTransactionList transactions={transactions} categories={categories} focusDate={focusDate} />
+			<div id={listSectionId}>
+				<FilterableTransactionList transactions={transactions} categories={categories} focusDate={focusDate} />
+			</div>
 		</div>
 	);
 }

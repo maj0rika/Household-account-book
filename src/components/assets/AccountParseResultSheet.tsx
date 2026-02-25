@@ -325,10 +325,19 @@ export function AccountParseResultSheet({
 
 				if (result.success) {
 					onOpenChange(false);
-					router.refresh();
-				} else {
-					setErrorMessage(result.error);
+
+					// 혼합 저장 완료 시 거래 탭 유지
+					if (splitMeta) {
+						router.push("/transactions?saved=mixed&focus=list");
+						return;
+					}
+
+					// 자산만 저장된 경우 자산 탭으로 이동/포커스
+					router.push("/assets?saved=account&focus=accounts");
+					return;
 				}
+
+				setErrorMessage(result.error);
 			} catch (error) {
 				console.error("[AccountParseResultSheet] 자산/부채 저장 실패", error);
 				setErrorMessage("자산/부채 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");

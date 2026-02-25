@@ -234,3 +234,5 @@ type: start | progress | complete | change | issue
 | 2026-02-25 | 진행 | v2 Phase 2 1차 구현 (prefetch/dynamic import/skeleton/top-down loading) | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
 | 2026-02-25 | 진행 | v2 Phase 3 구현 (AI 중복방지/모델 라우팅/가변 timeout/단계형 UX) | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
 | 2026-02-25 | 결정 | 모델 라우팅 우선순위 확정: Fireworks 3회 룰 > 100자 Kimi 룰 | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
+| 2026-02-25 | 결정 | Phase4 착수 전 보안 범위 조정: 자산 name + balance 암호화 | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
+| 2026-02-25 | 완료 | 페이즈 잔여 마무리: TX-08 리다이렉트/포커스, PF-04 섹션별 pending 2차 | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |

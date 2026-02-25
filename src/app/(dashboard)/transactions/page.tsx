@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, cache } from "react";
 
 import {
 	getTransactions,
@@ -14,10 +14,12 @@ import { MonthlySummaryCard } from "@/components/dashboard/MonthlySummaryCard";
 import { MonthNavigator } from "@/components/dashboard/MonthNavigator";
 import { InteractiveCalendar } from "@/components/dashboard/InteractiveCalendar";
 import { TransactionsLazySections } from "@/components/dashboard/TransactionsLazySections";
+import { PostActionBanner } from "@/components/common/PostActionBanner";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Props {
-	searchParams: Promise<{ month?: string; focusDate?: string }>;
+	searchParams: Promise<{ month?: string; focusDate?: string; saved?: string; focus?: string }>;
 }
 
 function formatDateLocal(date: Date): string {
@@ -61,49 +63,138 @@ function getWeeklyRangeByMonth(month: string): { weekDates: string[]; startDate:
 	};
 }
 
+const getTransactionsCached = cache(async (month: string) => getTransactions(month));
+const getUserCategoriesCached = cache(async () => getUserCategories());
+
+function SummaryFallback() {
+	return (
+		<div className="space-y-2 px-4 py-2">
+			<Skeleton className="h-6 w-40" />
+			<Skeleton className="h-20 w-full" />
+		</div>
+	);
+}
+
+function CalendarFallback() {
+	return (
+		<>
+			<Separator className="my-2" />
+			<div className="space-y-2 px-4 py-2">
+				<Skeleton className="h-5 w-32" />
+				<Skeleton className="h-64 w-full" />
+			</div>
+		</>
+	);
+}
+
+function InsightsFallback() {
+	return (
+		<div className="space-y-2 px-4 py-2">
+			<Separator className="my-2" />
+			<Skeleton className="h-5 w-24" />
+			<Skeleton className="h-28 w-full" />
+			<Separator className="my-2" />
+			<Skeleton className="h-5 w-28" />
+			<Skeleton className="h-28 w-full" />
+			<Separator className="my-2" />
+			<Skeleton className="h-5 w-36" />
+			<Skeleton className="h-20 w-full" />
+			<Separator className="my-2" />
+			<Skeleton className="h-5 w-24" />
+			<Skeleton className="h-56 w-full" />
+		</div>
+	);
+}
+
+async function TransactionsSummarySection({ month }: { month: string }) {
+	const summary = await getMonthlySummary(month);
+	return <MonthlySummaryCard summary={summary} month={month} />;
+}
+
+async function TransactionsCalendarSection({ month }: { month: string }) {
+	const [transactions, calendarData, categories] = await Promise.all([
+		getTransactionsCached(month),
+		getMonthlyCalendarData(month),
+		getUserCategoriesCached(),
+	]);
+
+	return (
+		<>
+			<Separator className="my-2" />
+			<InteractiveCalendar
+				month={month}
+				calendarData={calendarData}
+				transactions={transactions}
+				categories={categories}
+			/>
+		</>
+	);
+}
+
+async function TransactionsInsightsSection({
+	month,
+	rawFocusDate,
+}: {
+	month: string;
+	rawFocusDate: string | null;
+}) {
+	const { weekDates, startDate, endDateExclusive } = getWeeklyRangeByMonth(month);
+	const focusDate = rawFocusDate && weekDates.includes(rawFocusDate) ? rawFocusDate : null;
+
+	const [transactions, categories, categoryBreakdown, dailyExpenses] = await Promise.all([
+		getTransactionsCached(month),
+		getUserCategoriesCached(),
+		getCategoryBreakdown(month),
+		getDailyExpenses(startDate, endDateExclusive),
+	]);
+
+	return (
+		<TransactionsLazySections
+			dailyExpenses={dailyExpenses}
+			weekDates={weekDates}
+			focusDate={focusDate}
+			categoryBreakdown={categoryBreakdown}
+			month={month}
+			transactions={transactions}
+			categories={categories}
+			listSectionId="transactions-list-section"
+		/>
+	);
+}
+
 export default async function TransactionsPage({ searchParams }: Props) {
 	const params = await searchParams;
 	const month = params.month ?? getCurrentMonth();
-	const rawFocusDate = params.focusDate ?? null;
 
 	// 고정 거래 자동 적용 (오늘 날짜 기준, 중복 방지 내장)
 	await autoApplyRecurringTransactions();
 
-	const { weekDates, startDate, endDateExclusive } = getWeeklyRangeByMonth(month);
-	const focusDate = rawFocusDate && weekDates.includes(rawFocusDate) ? rawFocusDate : null;
+	const savedMessage = params.saved === "mixed"
+		? "거래/자산 등록이 완료됐어요. 거래 목록으로 이동했어요."
+		: params.saved === "tx"
+			? "거래 저장이 완료됐어요. 최신 거래를 확인해 주세요."
+			: null;
 
-	const [transactions, summary, categoryBreakdown, dailyExpenses, calendarData, userCategories] =
-		await Promise.all([
-			getTransactions(month),
-			getMonthlySummary(month),
-			getCategoryBreakdown(month),
-			getDailyExpenses(startDate, endDateExclusive),
-			getMonthlyCalendarData(month),
-			getUserCategories(),
-		]);
+	const focusTarget = params.focus === "list" ? "transactions-list-section" : undefined;
 
 	return (
 		<div className="pb-28 md:pb-24">
 			<Suspense>
 				<MonthNavigator month={month} />
 			</Suspense>
-			<MonthlySummaryCard summary={summary} month={month} />
-			<Separator className="my-2" />
-			<InteractiveCalendar
-				month={month}
-				calendarData={calendarData}
-				transactions={transactions}
-				categories={userCategories}
-			/>
-			<TransactionsLazySections
-				dailyExpenses={dailyExpenses}
-				weekDates={weekDates}
-				focusDate={focusDate}
-				categoryBreakdown={categoryBreakdown}
-				month={month}
-				transactions={transactions}
-				categories={userCategories}
-			/>
+			<PostActionBanner message={savedMessage} targetId={focusTarget} />
+
+			<Suspense fallback={<SummaryFallback />}>
+				<TransactionsSummarySection month={month} />
+			</Suspense>
+
+			<Suspense fallback={<CalendarFallback />}>
+				<TransactionsCalendarSection month={month} />
+			</Suspense>
+
+			<Suspense fallback={<InsightsFallback />}>
+				<TransactionsInsightsSection month={month} rawFocusDate={params.focusDate ?? null} />
+			</Suspense>
 		</div>
 	);
 }

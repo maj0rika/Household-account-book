@@ -414,10 +414,19 @@ export function ParseResultSheet({
 				const result = await createTransactions(items, originalInput);
 				if (result.success) {
 					onOpenChange(false);
-					router.refresh();
-				} else {
-					setErrorMessage(result.error);
+
+					// 혼합 입력은 자산 단계로 이어지므로 현재 흐름 유지
+					if (splitMeta) {
+						router.refresh();
+						return;
+					}
+
+					// 거래만 저장된 경우 거래 탭으로 명확히 이동/포커스
+					router.push("/transactions?saved=tx&focus=list");
+					return;
 				}
+
+				setErrorMessage(result.error);
 			} catch (error) {
 				console.error("[ParseResultSheet] 거래 저장 실패", error);
 				setErrorMessage("거래 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
