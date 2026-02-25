@@ -50,12 +50,46 @@ function getDefaultIcon(categoryName: string, type: "income" | "expense"): strin
 	return type === "income" ? "💵" : "📦";
 }
 
+function normalizeCategoryName(name: string): string {
+	return name.trim().replace(/\s+/g, " ");
+}
+
+function categoryKey(type: "income" | "expense", name: string): string {
+	return `${type}:${normalizeCategoryName(name)}`;
+}
+
+function upsertLocalCategory(
+	prev: Category[],
+	category: Pick<Category, "name" | "type" | "icon">,
+): Category[] {
+	const normalizedName = normalizeCategoryName(category.name);
+	const exists = prev.some(
+		(c) => c.type === category.type && normalizeCategoryName(c.name) === normalizedName,
+	);
+	if (exists) return prev;
+
+	const next: Category = {
+		id: `temp-${category.type}-${normalizedName}`,
+		userId: null,
+		name: normalizedName,
+		icon: category.icon,
+		type: category.type,
+		sortOrder: prev.length,
+		isDefault: false,
+	};
+	return [...prev, next];
+}
+
 interface ParseResultSheetProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	items: ParsedTransaction[];
 	originalInput: string;
 	categories: Category[];
+	splitMeta?: {
+		transactionCount: number;
+		accountCount: number;
+	} | null;
 }
 
 function EditableItem({
@@ -149,130 +183,139 @@ function EditableItem({
 						exit={{ height: 0, opacity: 0 }}
 						transition={{ duration: 0.2 }}
 					>
-					{/* 설명 */}
-					<div className="space-y-1">
-						<Label className="text-xs">설명</Label>
-						<Input
-							value={item.description}
-							onChange={(e) => onUpdate(index, { ...item, description: e.target.value })}
-							className="h-8 text-sm"
-						/>
-					</div>
-
-					{/* 금액 + 날짜 */}
-					<div className="grid grid-cols-2 gap-2">
+						{/* 설명 */}
 						<div className="space-y-1">
-							<Label className="text-xs">금액</Label>
+							<Label className="text-xs">설명</Label>
 							<Input
-								type="number"
-								value={item.amount}
-								onChange={(e) => onUpdate(index, { ...item, amount: Number(e.target.value) || 0 })}
+								value={item.description}
+								onChange={(e) => onUpdate(index, { ...item, description: e.target.value })}
 								className="h-8 text-sm"
 							/>
 						</div>
-						<div className="space-y-1">
-							<Label className="text-xs">날짜</Label>
-							<Input
-								type="date"
-								value={item.date}
-								onChange={(e) => onUpdate(index, { ...item, date: e.target.value })}
-								className="h-8 text-sm"
-							/>
-						</div>
-					</div>
 
-					{/* 카테고리 + 타입 */}
-					<div className="grid grid-cols-2 gap-2">
-						<div className="space-y-1">
-							<Label className="text-xs">카테고리</Label>
-							<Select
-								value={item.category}
-								onValueChange={(value) => onUpdate(index, { ...item, category: value, suggestedCategory: undefined })}
-							>
-								<SelectTrigger className="h-8 text-sm">
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent>
-									{filteredCategories.map((cat) => (
-										<SelectItem key={cat.id} value={cat.name}>
-											{cat.icon} {cat.name}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-						<div className="space-y-1">
-							<Label className="text-xs">유형</Label>
-							<Select
-								value={item.type}
-								onValueChange={(value) =>
-									onUpdate(index, {
-										...item,
-										type: value as "income" | "expense",
-										category: value === "income" ? "기타 수입" : "기타 지출",
-									})
-								}
-							>
-								<SelectTrigger className="h-8 text-sm">
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="expense">지출</SelectItem>
-									<SelectItem value="income">수입</SelectItem>
-								</SelectContent>
-							</Select>
-						</div>
-					</div>
-
-					{/* 고정 거래 토글 */}
-					<div className="flex items-center gap-3">
-						<div className="flex items-center gap-2">
-							<Switch
-								id={`recurring-${index}`}
-								checked={item.isRecurring ?? false}
-								onCheckedChange={(checked) =>
-									onUpdate(index, {
-										...item,
-										isRecurring: checked,
-										dayOfMonth: checked ? (item.dayOfMonth ?? new Date(item.date).getDate()) : undefined,
-									})
-								}
-							/>
-							<Label htmlFor={`recurring-${index}`} className="text-xs">
-								고정 거래
-							</Label>
-						</div>
-						{item.isRecurring && (
-							<div className="flex items-center gap-1">
-								<Label className="text-xs text-muted-foreground">매월</Label>
+						{/* 금액 + 날짜 */}
+						<div className="grid grid-cols-2 gap-2">
+							<div className="space-y-1">
+								<Label className="text-xs">금액</Label>
 								<Input
 									type="number"
-									min={1}
-									max={31}
-									value={item.dayOfMonth ?? ""}
-									onChange={(e) => onUpdate(index, { ...item, dayOfMonth: Number(e.target.value) || undefined })}
-									className="h-7 w-14 text-center text-xs"
+									value={item.amount}
+									onChange={(e) => onUpdate(index, { ...item, amount: Number(e.target.value) || 0 })}
+									className="h-8 text-sm"
 								/>
-								<Label className="text-xs text-muted-foreground">일</Label>
 							</div>
-						)}
-					</div>
-				</motion.div>
+							<div className="space-y-1">
+								<Label className="text-xs">날짜</Label>
+								<Input
+									type="date"
+									value={item.date}
+									onChange={(e) => onUpdate(index, { ...item, date: e.target.value })}
+									className="h-8 text-sm"
+								/>
+							</div>
+						</div>
+
+						{/* 카테고리 + 타입 */}
+						<div className="grid grid-cols-2 gap-2">
+							<div className="space-y-1">
+								<Label className="text-xs">카테고리</Label>
+								<Select
+									value={item.category}
+									onValueChange={(value) => onUpdate(index, { ...item, category: value, suggestedCategory: undefined })}
+								>
+									<SelectTrigger className="h-8 text-sm">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										{filteredCategories.map((cat) => (
+											<SelectItem key={cat.id} value={cat.name}>
+												{cat.icon} {cat.name}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+							<div className="space-y-1">
+								<Label className="text-xs">유형</Label>
+								<Select
+									value={item.type}
+									onValueChange={(value) =>
+										onUpdate(index, {
+											...item,
+											type: value as "income" | "expense",
+											category: value === "income" ? "기타 수입" : "기타 지출",
+										})
+									}
+								>
+									<SelectTrigger className="h-8 text-sm">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="expense">지출</SelectItem>
+										<SelectItem value="income">수입</SelectItem>
+									</SelectContent>
+								</Select>
+							</div>
+						</div>
+
+						{/* 고정 거래 토글 */}
+						<div className="flex items-center gap-3">
+							<div className="flex items-center gap-2">
+								<Switch
+									id={`recurring-${index}`}
+									checked={item.isRecurring ?? false}
+									onCheckedChange={(checked) =>
+										onUpdate(index, {
+											...item,
+											isRecurring: checked,
+											dayOfMonth: checked ? (item.dayOfMonth ?? new Date(item.date).getDate()) : undefined,
+										})
+									}
+								/>
+								<Label htmlFor={`recurring-${index}`} className="text-xs">
+									고정 거래
+								</Label>
+							</div>
+							{item.isRecurring && (
+								<div className="flex items-center gap-1">
+									<Label className="text-xs text-muted-foreground">매월</Label>
+									<Input
+										type="number"
+										min={1}
+										max={31}
+										value={item.dayOfMonth ?? ""}
+										onChange={(e) => onUpdate(index, { ...item, dayOfMonth: Number(e.target.value) || undefined })}
+										className="h-7 w-14 text-center text-xs"
+									/>
+									<Label className="text-xs text-muted-foreground">일</Label>
+								</div>
+							)}
+						</div>
+					</motion.div>
 				)}
 			</AnimatePresence>
 		</div>
 	);
 }
 
-export function ParseResultSheet({ open, onOpenChange, items: initialItems, originalInput, categories: initialCategories }: ParseResultSheetProps) {
+export function ParseResultSheet({
+	open,
+	onOpenChange,
+	items: initialItems,
+	originalInput,
+	categories: initialCategories,
+	splitMeta,
+}: ParseResultSheetProps) {
 	const router = useRouter();
 	const [items, setItems] = useState<ParsedTransaction[]>(initialItems);
 	const [localCategories, setLocalCategories] = useState<Category[]>(initialCategories);
 	const [isPending, startTransition] = useTransition();
-	const [addingCategoryIndex, setAddingCategoryIndex] = useState<number | null>(null);
+	const [pendingCategoryKeys, setPendingCategoryKeys] = useState<Set<string>>(new Set());
+	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
 	useEffect(() => {
 		setItems(initialItems);
+		setErrorMessage(null);
 	}, [initialItems]);
 
 	useEffect(() => {
@@ -294,39 +337,52 @@ export function ParseResultSheet({ open, onOpenChange, items: initialItems, orig
 		});
 	};
 
-	const handleAddCategory = async (index: number, name: string, type: "income" | "expense") => {
-		setAddingCategoryIndex(index);
+	const handleAddCategory = async (index: number, rawName: string, type: "income" | "expense") => {
+		const name = normalizeCategoryName(rawName);
+		if (!name) return;
+
+		const key = categoryKey(type, name);
+		if (pendingCategoryKeys.has(key)) return;
+
+		setErrorMessage(null);
+		setPendingCategoryKeys((prev) => {
+			const next = new Set(prev);
+			next.add(key);
+			return next;
+		});
+
 		const icon = getDefaultIcon(name, type);
 		const result = await addCategory({ name, icon, type });
+		const duplicate = !result.success && result.error.includes("이미 같은 이름의 카테고리");
 
-		if (result.success) {
-			// 로컬 카테고리 Select 표시용 (실제 저장은 이름 기반 매칭)
-			const newCat: Category = {
-				id: `temp-${name}`,
-				userId: null,
-				name,
-				icon,
-				type,
-				sortOrder: localCategories.length,
-				isDefault: false,
-			};
-			setLocalCategories((prev) => [...prev, newCat]);
+		if (result.success || duplicate) {
+			setLocalCategories((prev) => upsertLocalCategory(prev, { name, type, icon }));
 
-			// 해당 항목의 카테고리를 새 카테고리로 변경하고 suggestedCategory 제거
+			// 해당 항목 + 같은 suggestedCategory를 가진 항목까지 일괄 동기화
 			setItems((prev) =>
 				prev.map((item, i) => {
 					if (i === index) {
 						return { ...item, category: name, suggestedCategory: undefined };
 					}
-					// 같은 suggestedCategory를 가진 다른 항목도 함께 업데이트
-					if (item.suggestedCategory === name && item.type === type) {
+					if (
+						item.type === type
+						&& item.suggestedCategory
+						&& normalizeCategoryName(item.suggestedCategory) === name
+					) {
 						return { ...item, category: name, suggestedCategory: undefined };
 					}
 					return item;
 				}),
 			);
+		} else {
+			setErrorMessage(result.error || "카테고리 추가에 실패했습니다.");
 		}
-		setAddingCategoryIndex(null);
+
+		setPendingCategoryKeys((prev) => {
+			const next = new Set(prev);
+			next.delete(key);
+			return next;
+		});
 	};
 
 	const totalExpense = items
@@ -336,14 +392,19 @@ export function ParseResultSheet({ open, onOpenChange, items: initialItems, orig
 		.filter((i) => i.type === "income")
 		.reduce((sum, i) => sum + i.amount, 0);
 
+	const hasPendingCategoryAdds = pendingCategoryKeys.size > 0;
+
 	const handleSave = () => {
-		if (items.length === 0) return;
+		if (items.length === 0 || hasPendingCategoryAdds) return;
+		setErrorMessage(null);
 
 		startTransition(async () => {
 			const result = await createTransactions(items, originalInput);
 			if (result.success) {
 				onOpenChange(false);
 				router.refresh();
+			} else {
+				setErrorMessage(result.error);
 			}
 		});
 	};
@@ -356,21 +417,32 @@ export function ParseResultSheet({ open, onOpenChange, items: initialItems, orig
 					<DrawerDescription>
 						{items.length}건의 거래를 인식했습니다. 항목을 눌러 수정할 수 있습니다.
 					</DrawerDescription>
+					{splitMeta && (
+						<p className="text-xs text-muted-foreground">
+							입력 내용을 <strong className="text-foreground">거래 {splitMeta.transactionCount}건 + 자산/부채 {splitMeta.accountCount}건</strong>으로 분리했습니다.
+							 거래 저장 후 자산/부채 등록 단계로 이어집니다.
+						</p>
+					)}
 				</DrawerHeader>
 
 				<div className="max-h-[50vh] overflow-y-auto px-4">
-					{items.map((item, index) => (
-						<EditableItem
-							key={`${item.description}-${item.amount}-${index}`}
-							item={item}
-							index={index}
-							categories={localCategories}
-							onUpdate={handleUpdate}
-							onRemove={handleRemove}
-							onAddCategory={handleAddCategory}
-							isAddingCategory={addingCategoryIndex === index}
-						/>
-					))}
+					{items.map((item, index) => {
+						const key = item.suggestedCategory
+							? categoryKey(item.type, item.suggestedCategory)
+							: null;
+						return (
+							<EditableItem
+								key={`${item.description}-${item.amount}-${index}`}
+								item={item}
+								index={index}
+								categories={localCategories}
+								onUpdate={handleUpdate}
+								onRemove={handleRemove}
+								onAddCategory={handleAddCategory}
+								isAddingCategory={!!key && pendingCategoryKeys.has(key)}
+							/>
+						);
+					})}
 				</div>
 
 				<DrawerFooter>
@@ -388,12 +460,20 @@ export function ParseResultSheet({ open, onOpenChange, items: initialItems, orig
 							)}
 						</div>
 					)}
-					<Button onClick={handleSave} disabled={items.length === 0 || isPending}>
+					{hasPendingCategoryAdds && (
+						<p className="mb-1 text-xs text-muted-foreground">카테고리 동기화 중입니다. 완료 후 저장해 주세요.</p>
+					)}
+					{errorMessage && (
+						<p className="mb-1 whitespace-pre-wrap text-xs text-destructive">{errorMessage}</p>
+					)}
+					<Button onClick={handleSave} disabled={items.length === 0 || isPending || hasPendingCategoryAdds}>
 						{isPending ? (
 							<>
 								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 								저장 중...
 							</>
+						) : splitMeta ? (
+							`${items.length}건 저장 후 자산 단계로`
 						) : (
 							`${items.length}건 저장`
 						)}

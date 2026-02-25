@@ -19,31 +19,88 @@ async function getAuthUserId(): Promise<string> {
 	return session.user.id;
 }
 
+function normalizeCategoryName(name: string): string {
+	return name.trim().replace(/\s+/g, " ");
+}
+
+function categoryKey(type: "income" | "expense", name: string): string {
+	return `${type}:${normalizeCategoryName(name)}`;
+}
+
+function defaultCategoryName(type: "income" | "expense"): string {
+	return type === "income" ? "기타 수입" : "기타 지출";
+}
+
+function defaultCategoryIcon(type: "income" | "expense"): string {
+	return type === "income" ? "💵" : "📦";
+}
+
 export async function createTransactions(
 	items: ParsedTransaction[],
 	originalInput: string,
 ): Promise<{ success: true; count: number } | { success: false; error: string }> {
 	try {
 		const userId = await getAuthUserId();
+		if (items.length === 0) {
+			return { success: false, error: "저장할 거래가 없습니다." };
+		}
 
-		// 사용자의 카테고리 맵 조회
-		const userCategories = await db
+		const normalizedItems = items.map((item) => {
+			const normalizedCategory = normalizeCategoryName(item.category || defaultCategoryName(item.type));
+			return {
+				...item,
+				category: normalizedCategory || defaultCategoryName(item.type),
+				description: item.description.trim() || item.category,
+			};
+		});
+
+		// 1) 카테고리 조회
+		let userCategories = await db
 			.select({ id: categories.id, name: categories.name, type: categories.type })
 			.from(categories)
 			.where(eq(categories.userId, userId));
 
-		const categoryMap = new Map(userCategories.map((c) => [`${c.type}:${c.name}`, c.id]));
+		let categoryMap = new Map(userCategories.map((c) => [categoryKey(c.type, c.name), c.id]));
 
-		// 일반 거래와 고정 거래 분리
-		const regularItems = items.filter((item) => !item.isRecurring);
-		const recurringItems = items.filter((item) => item.isRecurring);
+		// 2) 누락 카테고리 자동 보정 (추천 추가 직후 동기화 지연 대응)
+		const missingMap = new Map<string, { name: string; type: "income" | "expense" }>();
+		for (const item of normalizedItems) {
+			const key = categoryKey(item.type, item.category);
+			if (!categoryMap.has(key)) {
+				missingMap.set(key, { name: item.category, type: item.type });
+			}
+		}
 
-		// 일반 거래 저장
-		if (regularItems.length > 0) {
-			const values = regularItems.map((item) => ({
+		if (missingMap.size > 0) {
+			await db
+				.insert(categories)
+				.values(
+					Array.from(missingMap.values()).map((cat, index) => ({
+						userId,
+						name: cat.name,
+						type: cat.type,
+						icon: defaultCategoryIcon(cat.type),
+						sortOrder: userCategories.length + index,
+						isDefault: false,
+					})),
+				)
+				.onConflictDoNothing({
+					target: [categories.userId, categories.type, categories.name],
+				});
+
+			userCategories = await db
+				.select({ id: categories.id, name: categories.name, type: categories.type })
+				.from(categories)
+				.where(eq(categories.userId, userId));
+			categoryMap = new Map(userCategories.map((c) => [categoryKey(c.type, c.name), c.id]));
+		}
+
+		const regularValues = normalizedItems
+			.filter((item) => !item.isRecurring)
+			.map((item) => ({
 				userId,
-				categoryId: categoryMap.get(`${item.type}:${item.category}`) ?? null,
-				type: item.type as "income" | "expense",
+				categoryId: categoryMap.get(categoryKey(item.type, item.category)) ?? null,
+				type: item.type,
 				amount: item.amount,
 				description: item.description,
 				originalInput,
@@ -51,41 +108,58 @@ export async function createTransactions(
 				isRecurring: false,
 			}));
 
-			await db.insert(transactions).values(values);
-		}
-
-		// 고정 거래 저장 (recurring_transactions + 이번 달 거래 즉시 생성)
-		if (recurringItems.length > 0) {
-			for (const item of recurringItems) {
-				const categoryId = categoryMap.get(`${item.type}:${item.category}`) ?? null;
-				const dayOfMonth = item.dayOfMonth ?? new Date(item.date).getDate();
-
-				await db.insert(recurringTransactions).values({
+		const recurringValues = normalizedItems
+			.filter((item) => item.isRecurring)
+			.map((item) => {
+				const day = item.dayOfMonth ?? new Date(item.date).getDate();
+				const dayOfMonth = Math.max(1, Math.min(31, day));
+				return {
 					userId,
-					categoryId,
+					categoryId: categoryMap.get(categoryKey(item.type, item.category)) ?? null,
 					type: item.type,
 					amount: item.amount,
 					description: item.description,
 					dayOfMonth,
 					isActive: true,
-				});
-
-				// 이번 달 거래도 즉시 생성
-				await db.insert(transactions).values({
-					userId,
-					categoryId,
-					type: item.type,
-					amount: item.amount,
-					description: item.description,
-					originalInput,
 					date: item.date,
-					memo: "고정 거래 자동 생성",
-					isRecurring: true,
-				});
-			}
-		}
+				};
+			});
 
-		return { success: true, count: items.length };
+		await db.transaction(async (tx) => {
+			if (regularValues.length > 0) {
+				await tx.insert(transactions).values(regularValues);
+			}
+
+			if (recurringValues.length > 0) {
+				await tx.insert(recurringTransactions).values(
+					recurringValues.map((item) => ({
+						userId: item.userId,
+						categoryId: item.categoryId,
+						type: item.type,
+						amount: item.amount,
+						description: item.description,
+						dayOfMonth: item.dayOfMonth,
+						isActive: true,
+					})),
+				);
+
+				await tx.insert(transactions).values(
+					recurringValues.map((item) => ({
+						userId: item.userId,
+						categoryId: item.categoryId,
+						type: item.type,
+						amount: item.amount,
+						description: item.description,
+						originalInput,
+						date: item.date,
+						memo: "고정 거래 자동 생성",
+						isRecurring: true,
+					})),
+				);
+			}
+		});
+
+		return { success: true, count: normalizedItems.length };
 	} catch (e) {
 		return { success: false, error: e instanceof Error ? e.message : "저장에 실패했습니다." };
 	}

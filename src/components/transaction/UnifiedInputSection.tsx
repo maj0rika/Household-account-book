@@ -22,6 +22,8 @@ export function UnifiedInputSection() {
 	// 자산 결과 시트
 	const [accountSheetOpen, setAccountSheetOpen] = useState(false);
 	const [parsedAccounts, setParsedAccounts] = useState<ParsedAccount[]>([]);
+	const [deferAccountSheet, setDeferAccountSheet] = useState(false);
+	const [splitMeta, setSplitMeta] = useState<{ transactionCount: number; accountCount: number } | null>(null);
 
 	// 초기 데이터 로드
 	useEffect(() => {
@@ -37,9 +39,15 @@ export function UnifiedInputSection() {
 		if (prevTxOpen.current && !txSheetOpen) {
 			getAccounts().then((accs) => setExistingAccounts(accs));
 			getUserCategories().then((cats) => setCategories(cats as Category[]));
+
+			// 혼합 입력이면 거래 시트 저장/닫기 후 자산 시트를 이어서 보여줌
+			if (deferAccountSheet && parsedAccounts.length > 0) {
+				setAccountSheetOpen(true);
+				setDeferAccountSheet(false);
+			}
 		}
 		prevTxOpen.current = txSheetOpen;
-	}, [txSheetOpen]);
+	}, [txSheetOpen, deferAccountSheet, parsedAccounts.length]);
 
 	useEffect(() => {
 		if (prevAccountOpen.current && !accountSheetOpen) {
@@ -51,22 +59,26 @@ export function UnifiedInputSection() {
 	const handleParsed = (result: UnifiedParseResult, input: string) => {
 		setOriginalInput(input);
 
-		if (result.intent === "account" && result.accounts.length > 0) {
-			setParsedAccounts(result.accounts);
-			setAccountSheetOpen(true);
-		} else if (result.transactions.length > 0) {
+		const transactionCount = result.transactions.length;
+		const accountCount = result.accounts.length;
+		const hasTransactions = transactionCount > 0;
+		const hasAccounts = accountCount > 0;
+
+		setSplitMeta(hasTransactions && hasAccounts ? { transactionCount, accountCount } : null);
+
+		if (hasTransactions) {
 			setParsedTransactions(result.transactions);
 			setTxSheetOpen(true);
 		}
 
-		// 혼합 결과
-		if (result.intent === "transaction" && result.accounts.length > 0) {
+		if (hasAccounts) {
 			setParsedAccounts(result.accounts);
-			setAccountSheetOpen(true);
-		}
-		if (result.intent === "account" && result.transactions.length > 0) {
-			setParsedTransactions(result.transactions);
-			setTxSheetOpen(true);
+			if (hasTransactions) {
+				setDeferAccountSheet(true);
+				setAccountSheetOpen(false);
+			} else {
+				setAccountSheetOpen(true);
+			}
 		}
 	};
 
@@ -79,12 +91,14 @@ export function UnifiedInputSection() {
 				items={parsedTransactions}
 				originalInput={originalInput}
 				categories={categories}
+				splitMeta={splitMeta}
 			/>
 			<AccountParseResultSheet
 				open={accountSheetOpen}
 				onOpenChange={setAccountSheetOpen}
 				items={parsedAccounts}
 				existingAccounts={existingAccounts}
+				splitMeta={splitMeta}
 			/>
 		</>
 	);

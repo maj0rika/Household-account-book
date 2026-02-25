@@ -127,6 +127,65 @@ export async function updateAccount(
 	}
 }
 
+export interface AccountBatchItem {
+	action: "create" | "update";
+	accountId?: string;
+	name: string;
+	type: "asset" | "debt";
+	subType: string;
+	icon: string;
+	balance: number;
+}
+
+export async function upsertParsedAccountsBatch(
+	items: AccountBatchItem[],
+): Promise<{ success: true; count: number } | { success: false; error: string }> {
+	try {
+		const userId = await getAuthUserId();
+
+		await db.transaction(async (tx) => {
+			for (const item of items) {
+				if (item.action === "update") {
+					if (!item.accountId) {
+						throw new Error("업데이트 대상 계정 ID가 없습니다.");
+					}
+
+					const result = await tx
+						.update(accounts)
+						.set({
+							name: item.name,
+							subType: item.subType,
+							icon: item.icon,
+							balance: item.balance,
+							updatedAt: new Date(),
+						})
+						.where(and(eq(accounts.id, item.accountId), eq(accounts.userId, userId)));
+
+					if (result.rowCount === 0) {
+						throw new Error("수정할 계정을 찾을 수 없습니다.");
+					}
+				} else {
+					await tx.insert(accounts).values({
+						userId,
+						name: item.name,
+						type: item.type,
+						subType: item.subType,
+						icon: item.icon,
+						balance: item.balance,
+					});
+				}
+			}
+		});
+
+		return { success: true, count: items.length };
+	} catch (e) {
+		return {
+			success: false,
+			error: e instanceof Error ? e.message : "자산/부채 저장에 실패했습니다.",
+		};
+	}
+}
+
 export async function deleteAccount(
 	id: string,
 ): Promise<{ success: true } | { success: false; error: string }> {

@@ -25,7 +25,7 @@ import {
 	DrawerFooter,
 } from "@/components/ui/drawer";
 import { formatCurrency } from "@/lib/format";
-import { createAccount, updateAccount } from "@/server/actions/account";
+import { upsertParsedAccountsBatch } from "@/server/actions/account";
 import type { ParsedAccount } from "@/server/llm/types";
 import type { Account } from "@/types";
 
@@ -100,7 +100,7 @@ function EditableAccountItem({
 				{matchedAccount ? (
 					<Badge
 						variant={action === "update" ? "outline" : "default"}
-						className="shrink-0 gap-1 text-xs cursor-pointer"
+						className="shrink-0 cursor-pointer gap-1 text-xs"
 						onClick={() =>
 							onUpdate(index, {
 								...item,
@@ -253,6 +253,10 @@ interface AccountParseResultSheetProps {
 	onOpenChange: (open: boolean) => void;
 	items: ParsedAccount[];
 	existingAccounts: Account[];
+	splitMeta?: {
+		transactionCount: number;
+		accountCount: number;
+	} | null;
 }
 
 export function AccountParseResultSheet({
@@ -260,10 +264,12 @@ export function AccountParseResultSheet({
 	onOpenChange,
 	items: initialItems,
 	existingAccounts,
+	splitMeta,
 }: AccountParseResultSheetProps) {
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 	const [matchedItems, setMatchedItems] = useState<MatchedItem[]>([]);
+	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
 	useEffect(() => {
 		const matched = initialItems.map((parsed) => {
@@ -275,6 +281,7 @@ export function AccountParseResultSheet({
 			};
 		});
 		setMatchedItems(matched);
+		setErrorMessage(null);
 	}, [initialItems, existingAccounts]);
 
 	const handleUpdate = (index: number, updated: MatchedItem) => {
@@ -293,38 +300,26 @@ export function AccountParseResultSheet({
 
 	const handleSave = () => {
 		if (matchedItems.length === 0) return;
+		setErrorMessage(null);
 
 		startTransition(async () => {
-			let hasError = false;
+			const result = await upsertParsedAccountsBatch(
+				matchedItems.map((item) => ({
+					action: item.action,
+					accountId: item.matchedAccount?.id,
+					name: item.parsed.name,
+					type: item.parsed.type,
+					subType: item.parsed.subType,
+					icon: item.parsed.icon,
+					balance: item.parsed.balance,
+				})),
+			);
 
-			for (const item of matchedItems) {
-				if (item.action === "update" && item.matchedAccount) {
-					const result = await updateAccount(item.matchedAccount.id, {
-						balance: item.parsed.balance,
-						name: item.parsed.name,
-						icon: item.parsed.icon,
-						subType: item.parsed.subType,
-					});
-					if (!result.success) {
-						hasError = true;
-					}
-				} else {
-					const result = await createAccount({
-						name: item.parsed.name,
-						type: item.parsed.type,
-						subType: item.parsed.subType,
-						icon: item.parsed.icon,
-						balance: item.parsed.balance,
-					});
-					if (!result.success) {
-						hasError = true;
-					}
-				}
-			}
-
-			if (!hasError) {
+			if (result.success) {
 				onOpenChange(false);
 				router.refresh();
+			} else {
+				setErrorMessage(result.error);
 			}
 		});
 	};
@@ -340,6 +335,12 @@ export function AccountParseResultSheet({
 					<DrawerDescription>
 						{matchedItems.length}건을 인식했습니다. 항목을 눌러 수정할 수 있습니다.
 					</DrawerDescription>
+					{splitMeta && (
+						<p className="text-xs text-muted-foreground">
+							이전 입력은 거래 {splitMeta.transactionCount}건과 자산/부채 {splitMeta.accountCount}건으로 분리되었고,
+							 현재 자산/부채 등록 단계입니다.
+						</p>
+					)}
 				</DrawerHeader>
 
 				<div className="max-h-[50vh] overflow-y-auto px-4">
@@ -368,6 +369,9 @@ export function AccountParseResultSheet({
 								</span>
 							)}
 						</div>
+					)}
+					{errorMessage && (
+						<p className="mb-1 whitespace-pre-wrap text-xs text-destructive">{errorMessage}</p>
 					)}
 					<Button onClick={handleSave} disabled={matchedItems.length === 0 || isPending}>
 						{isPending ? (
