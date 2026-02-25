@@ -110,6 +110,12 @@ export default function RegisterPage() {
 							로그인
 						</Link>
 					</p>
+
+					<p className="text-center text-xs text-muted-foreground/60">
+						<Link href="/terms" className="hover:underline">이용약관</Link>
+						{" · "}
+						<Link href="/privacy" className="hover:underline">개인정보처리방침</Link>
+					</p>
 				</CardContent>
 			</Card>
 		</main>
