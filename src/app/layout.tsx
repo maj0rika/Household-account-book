@@ -25,10 +25,7 @@ export const metadata: Metadata = {
 	description: "자연어로 입력하면 AI가 자동 분류하는 스마트 가계부",
 	manifest: "/manifest.json",
 	verification: {
-		google: [
-			"COfkn_tZjzFrnmIy3vDP_hXLYaZ-GYI6VQlYqsdVFc8",
-			"6oyxHvAc_wnE7jBVHAIP7OwI8KdU2MgaWibbaipragY",
-		],
+		google: "6oyxHvAc_wnE7jBVHAIP7OwI8KdU2MgaWibbaipragY",
 	},
 	icons: {
 		icon: "/favicon.ico",
