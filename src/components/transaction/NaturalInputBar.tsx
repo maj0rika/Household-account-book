@@ -238,7 +238,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 								if (error) setError(null);
 							}}
 							onKeyDown={handleKeyDown}
-							className="h-9 min-h-9 w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm leading-5 shadow-xs outline-none transition-shadow focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+							className="block h-9 min-h-9 w-full resize-none rounded-md border border-input bg-transparent px-3 py-[7px] text-sm leading-5 shadow-xs outline-none transition-shadow focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
 							rows={1}
 							disabled={isPending}
 						/>
