@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import Image from "next/image";
-import { Send, Loader2, ImagePlus, X } from "lucide-react";
+import { Send, Loader2, ImagePlus, X, Square } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 import { Button } from "@/components/ui/button";
@@ -65,14 +65,43 @@ interface NaturalInputBarProps {
 	onParsed: (result: UnifiedParseResult, originalInput: string) => void;
 }
 
+interface ParseSubmission {
+	input: string;
+	imageData: { base64: string; mimeType: string } | null;
+}
+
+function buildStatusStages(isLongTask: boolean): string[] {
+	if (isLongTask) {
+		return [
+			"AI가 입력을 읽고 있어요...",
+			"거래/자산 항목을 정리 중이에요...",
+			"중복 여부와 날짜를 검증 중이에요...",
+			"거의 완료됐어요. 결과를 마무리 중이에요...",
+		];
+	}
+
+	return [
+		"AI가 빠르게 분석 중이에요...",
+		"결과를 정리 중이에요...",
+		"검증 후 곧 보여드릴게요...",
+	];
+}
+
 export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 	const [input, setInput] = useState("");
-	const [isPending, startTransition] = useTransition();
 	const [error, setError] = useState<string | null>(null);
 	const [imagePreview, setImagePreview] = useState<string | null>(null);
 	const [imageData, setImageData] = useState<{ base64: string; mimeType: string } | null>(null);
+
+	const [isLoading, setIsLoading] = useState(false);
+	const [statusMessage, setStatusMessage] = useState<string>("");
+	const [showLongHint, setShowLongHint] = useState(false);
+
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const requestIdRef = useRef(0);
+	const statusTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+	const lastSubmissionRef = useRef<ParseSubmission | null>(null);
 
 	const resizeTextarea = useCallback((el: HTMLTextAreaElement) => {
 		if (!el.value.trim()) {
@@ -83,6 +112,31 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 		el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
 	}, []);
 
+	const stopStatusTicker = useCallback(() => {
+		if (statusTimerRef.current) {
+			clearInterval(statusTimerRef.current);
+			statusTimerRef.current = null;
+		}
+		setStatusMessage("");
+		setShowLongHint(false);
+	}, []);
+
+	const startStatusTicker = useCallback((isLongTask: boolean) => {
+		const stages = buildStatusStages(isLongTask);
+		let index = 0;
+		setStatusMessage(stages[0]);
+		setShowLongHint(isLongTask);
+
+		if (statusTimerRef.current) {
+			clearInterval(statusTimerRef.current);
+		}
+
+		statusTimerRef.current = setInterval(() => {
+			index = Math.min(index + 1, stages.length - 1);
+			setStatusMessage(stages[index]);
+		}, 2800);
+	}, []);
+
 	const clearImage = useCallback(() => {
 		setImagePreview(null);
 		setImageData(null);
@@ -90,6 +144,50 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 			fileInputRef.current.value = "";
 		}
 	}, []);
+
+	const executeParse = useCallback(async (submission: ParseSubmission) => {
+		const requestId = ++requestIdRef.current;
+		const trimmedInput = submission.input.trim();
+		const isLongTask = !!submission.imageData || trimmedInput.length > 100;
+
+		lastSubmissionRef.current = submission;
+		setError(null);
+		setIsLoading(true);
+		startStatusTicker(isLongTask);
+
+		try {
+			const result = submission.imageData
+				? await parseUnifiedImageInput(
+						submission.imageData.base64,
+						submission.imageData.mimeType,
+						submission.input,
+					)
+				: await parseUnifiedInput(submission.input);
+
+			if (requestId !== requestIdRef.current) return;
+
+			if (result.success) {
+				onParsed(result, submission.input || "이미지 파싱");
+				setInput("");
+				clearImage();
+				if (textareaRef.current) {
+					textareaRef.current.value = "";
+					resizeTextarea(textareaRef.current);
+				}
+			} else {
+				setError(result.error);
+			}
+		} catch (e) {
+			if (requestId !== requestIdRef.current) return;
+			console.error("[NaturalInputBar] 파싱 요청 실패", e);
+			setError("요청 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+		} finally {
+			if (requestId === requestIdRef.current) {
+				setIsLoading(false);
+				stopStatusTicker();
+			}
+		}
+	}, [onParsed, clearImage, resizeTextarea, startStatusTicker, stopStatusTicker]);
 
 	const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0];
@@ -117,38 +215,22 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 	};
 
 	const handleSubmit = useCallback(() => {
-		if ((!input.trim() && !imageData) || isPending) return;
+		if ((!input.trim() && !imageData) || isLoading) return;
+		void executeParse({ input, imageData });
+	}, [input, imageData, isLoading, executeParse]);
 
-		setError(null);
-		const currentInput = input;
+	const handleRetry = useCallback(() => {
+		if (isLoading || !lastSubmissionRef.current) return;
+		void executeParse(lastSubmissionRef.current);
+	}, [isLoading, executeParse]);
 
-		startTransition(async () => {
-			try {
-				const result = imageData
-					? await parseUnifiedImageInput(
-							imageData.base64,
-							imageData.mimeType,
-							currentInput,
-						)
-					: await parseUnifiedInput(currentInput);
-
-				if (result.success) {
-					onParsed(result, currentInput || "이미지 파싱");
-					setInput("");
-					clearImage();
-					if (textareaRef.current) {
-						textareaRef.current.value = "";
-						resizeTextarea(textareaRef.current);
-					}
-				} else {
-					setError(result.error);
-				}
-			} catch (error) {
-				console.error("[NaturalInputBar] 파싱 요청 실패", error);
-				setError("요청 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
-			}
-		});
-	}, [input, imageData, isPending, onParsed, resizeTextarea, clearImage]);
+	const handleCancel = useCallback(() => {
+		if (!isLoading) return;
+		requestIdRef.current += 1;
+		setIsLoading(false);
+		stopStatusTicker();
+		setError("요청을 취소했어요. 필요하면 다시 시도해 주세요.");
+	}, [isLoading, stopStatusTicker]);
 
 	const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
 		if (e.key === "Enter" && !e.nativeEvent.isComposing) {
@@ -158,6 +240,10 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 		}
 	};
 
+	useEffect(() => () => stopStatusTicker(), [stopStatusTicker]);
+
+	const canRetry = !!error && !!lastSubmissionRef.current && !isLoading;
+
 	return (
 		<div className="fixed bottom-[calc(var(--bottom-nav-height)+0.25rem)] left-1/2 z-30 w-full max-w-lg -translate-x-1/2 px-3 md:bottom-4">
 			<motion.div
@@ -166,23 +252,38 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 				animate={{ y: 0, opacity: 1 }}
 				transition={{ duration: 0.35, ease: "easeOut" }}
 			>
-				{/* 로딩 상태 표시 */}
 				<AnimatePresence>
-					{isPending && (
+					{isLoading && (
 						<motion.div
-							className="flex items-center justify-center gap-2 px-4 pt-2"
+							className="space-y-1 px-4 pt-2"
 							initial={{ opacity: 0, height: 0 }}
 							animate={{ opacity: 1, height: "auto" }}
 							exit={{ opacity: 0, height: 0 }}
 							transition={{ duration: 0.2 }}
 						>
-							<Loader2 className="h-3 w-3 animate-spin text-primary" />
-							<span className="text-xs text-muted-foreground">AI가 분석 중입니다...</span>
+							<div className="flex items-center justify-between gap-2">
+								<div className="flex items-center gap-2">
+									<Loader2 className="h-3 w-3 animate-spin text-primary" />
+									<span className="text-xs text-muted-foreground">{statusMessage}</span>
+								</div>
+								<button
+									type="button"
+									onClick={handleCancel}
+									className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+								>
+									<Square className="h-2.5 w-2.5" />
+									취소
+								</button>
+							</div>
+							{showLongHint && (
+								<p className="text-[11px] text-muted-foreground">
+									긴 입력/이미지는 시간이 더 걸릴 수 있어요.
+								</p>
+							)}
 						</motion.div>
 					)}
 				</AnimatePresence>
 
-				{/* 이미지 미리보기 */}
 				<AnimatePresence>
 					{imagePreview && (
 						<motion.div
@@ -204,6 +305,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 									type="button"
 									onClick={clearImage}
 									className="absolute -right-1.5 -top-1.5 rounded-full bg-destructive p-0.5 text-destructive-foreground shadow-sm active:scale-90"
+									disabled={isLoading}
 								>
 									<X className="h-3 w-3" />
 								</button>
@@ -213,14 +315,13 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 				</AnimatePresence>
 
 				<div className="flex items-center gap-2 px-3 py-2">
-					{/* 이미지 첨부 버튼 */}
 					<Button
 						type="button"
 						variant="ghost"
 						size="icon"
 						className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground active:scale-90"
 						onClick={() => fileInputRef.current?.click()}
-						disabled={isPending}
+						disabled={isLoading}
 					>
 						<ImagePlus className="h-4 w-4" />
 					</Button>
@@ -233,7 +334,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 					/>
 
 					<div className="relative min-w-0 flex-1">
-						<AnimatedPlaceholder show={!input && !isPending} />
+						<AnimatedPlaceholder show={!input && !isLoading} />
 						<textarea
 							ref={textareaRef}
 							value={input}
@@ -245,35 +346,41 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 							onKeyDown={handleKeyDown}
 							className="block h-9 min-h-9 w-full resize-none rounded-md border border-input bg-transparent px-3 py-[7px] text-sm leading-5 shadow-xs outline-none transition-shadow focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
 							rows={1}
-							disabled={isPending}
+							disabled={isLoading}
 						/>
 					</div>
 					<motion.div className="shrink-0" whileTap={{ scale: 0.9 }}>
 						<Button
 							size="icon"
 							onClick={handleSubmit}
-							disabled={(!input.trim() && !imageData) || isPending}
+							disabled={(!input.trim() && !imageData) || isLoading}
 							className="h-9 w-9"
 						>
-							{isPending ? (
-								<Loader2 className="h-4 w-4 animate-spin" />
-							) : (
-								<Send className="h-4 w-4" />
-							)}
+							{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
 						</Button>
 					</motion.div>
 				</div>
+
 				<AnimatePresence>
 					{error && (
-						<motion.p
-							className="whitespace-pre-line px-4 pb-2 text-center text-xs text-destructive"
+						<motion.div
+							className="space-y-1 px-4 pb-2 text-center"
 							initial={{ opacity: 0, height: 0 }}
 							animate={{ opacity: 1, height: "auto" }}
 							exit={{ opacity: 0, height: 0 }}
 							transition={{ duration: 0.2 }}
 						>
-							{error}
-						</motion.p>
+							<p className="whitespace-pre-line text-xs text-destructive">{error}</p>
+							{canRetry && (
+								<button
+									type="button"
+									onClick={handleRetry}
+									className="text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+								>
+									같은 요청 다시 시도
+								</button>
+							)}
+						</motion.div>
 					)}
 				</AnimatePresence>
 			</motion.div>

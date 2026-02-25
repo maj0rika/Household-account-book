@@ -121,7 +121,7 @@ function parseUnifiedResponse(parsed: unknown): { intent: "transaction" | "accou
 	throw new Error("LLM 응답 형식을 인식할 수 없습니다.");
 }
 
-// 타임아웃 래퍼 (30초)
+// 타임아웃 래퍼
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 	return Promise.race([
 		promise,
@@ -129,6 +129,11 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 			setTimeout(() => reject(new Error("LLM 응답 시간 초과")), ms),
 		),
 	]);
+}
+
+function resolveTimeoutMs(timeoutMs?: number, fallback = 30000): number {
+	if (!timeoutMs || Number.isNaN(timeoutMs)) return fallback;
+	return Math.max(15000, Math.min(timeoutMs, 120000));
 }
 
 /**
@@ -139,9 +144,11 @@ export async function parseUnifiedText(
 	categories: LLMCategory[],
 	existingAccounts: Account[] = [],
 	provider?: LLMProvider,
+	options?: { timeoutMs?: number },
 ): Promise<UnifiedParseResponse> {
 	const { client, model, temperature, extra_body } = getLLMConfig(provider);
 	const today = new Date().toISOString().split("T")[0];
+	const timeoutMs = resolveTimeoutMs(options?.timeoutMs, 30000);
 
 	const systemPrompt = buildSystemPrompt(categories, today, existingAccounts);
 	const userPrompt = buildUserPrompt(input);
@@ -158,7 +165,7 @@ export async function parseUnifiedText(
 					temperature,
 					...extra_body,
 				}),
-				30000,
+				timeoutMs,
 			);
 
 			const content = response.choices[0]?.message?.content;
@@ -192,9 +199,11 @@ export async function parseUnifiedImage(
 	categories: LLMCategory[],
 	existingAccounts: Account[] = [],
 	provider?: LLMProvider,
+	options?: { timeoutMs?: number },
 ): Promise<UnifiedParseResponse> {
 	const { client, model, temperature, extra_body } = getLLMConfig(provider);
 	const today = new Date().toISOString().split("T")[0];
+	const timeoutMs = resolveTimeoutMs(options?.timeoutMs, 45000);
 
 	const systemPrompt = buildSystemPrompt(categories, today, existingAccounts);
 
@@ -223,7 +232,7 @@ export async function parseUnifiedImage(
 					temperature,
 					...extra_body,
 				}),
-				30000,
+				timeoutMs,
 			);
 
 			const content = response.choices[0]?.message?.content;

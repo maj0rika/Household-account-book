@@ -35,6 +35,31 @@ function defaultCategoryIcon(type: "income" | "expense"): string {
 	return type === "income" ? "💵" : "📦";
 }
 
+function normalizeDescription(value: string): string {
+	return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+interface ExistingRecurringSignature {
+	type: "income" | "expense";
+	amount: number;
+	description: string;
+	categoryId: string | null;
+	dayOfMonth: number;
+}
+
+function isRecurringDuplicate(
+	candidate: ExistingRecurringSignature,
+	existingList: ExistingRecurringSignature[],
+): boolean {
+	return existingList.some((row) => {
+		if (row.type !== candidate.type) return false;
+		if (row.amount !== candidate.amount) return false;
+		if (normalizeDescription(row.description) !== normalizeDescription(candidate.description)) return false;
+		if ((row.categoryId ?? null) !== (candidate.categoryId ?? null)) return false;
+		return Math.abs(row.dayOfMonth - candidate.dayOfMonth) <= 1;
+	});
+}
+
 export async function createTransactions(
 	items: ParsedTransaction[],
 	originalInput: string,
@@ -108,7 +133,7 @@ export async function createTransactions(
 				isRecurring: false,
 			}));
 
-		const recurringValues = normalizedItems
+		const recurringCandidates = normalizedItems
 			.filter((item) => item.isRecurring)
 			.map((item) => {
 				const day = item.dayOfMonth ?? new Date(item.date).getDate();
@@ -125,14 +150,52 @@ export async function createTransactions(
 				};
 			});
 
+		// AI 자동 파싱 중복 방지: 기존 고정거래 + 현재 요청 내 중복 제거
+		const existingRecurring = await db
+			.select({
+				type: recurringTransactions.type,
+				amount: recurringTransactions.amount,
+				description: recurringTransactions.description,
+				categoryId: recurringTransactions.categoryId,
+				dayOfMonth: recurringTransactions.dayOfMonth,
+			})
+			.from(recurringTransactions)
+			.where(and(eq(recurringTransactions.userId, userId), eq(recurringTransactions.isActive, true)));
+
+		const dedupedRecurring: typeof recurringCandidates = [];
+		const existingSignatures: ExistingRecurringSignature[] = existingRecurring.map((row) => ({
+			type: row.type,
+			amount: row.amount,
+			description: row.description,
+			categoryId: row.categoryId,
+			dayOfMonth: row.dayOfMonth,
+		}));
+
+		for (const candidate of recurringCandidates) {
+			const signature: ExistingRecurringSignature = {
+				type: candidate.type,
+				amount: candidate.amount,
+				description: candidate.description,
+				categoryId: candidate.categoryId,
+				dayOfMonth: candidate.dayOfMonth,
+			};
+
+			if (isRecurringDuplicate(signature, existingSignatures)) {
+				continue;
+			}
+
+			dedupedRecurring.push(candidate);
+			existingSignatures.push(signature);
+		}
+
 		await db.transaction(async (tx) => {
 			if (regularValues.length > 0) {
 				await tx.insert(transactions).values(regularValues);
 			}
 
-			if (recurringValues.length > 0) {
+			if (dedupedRecurring.length > 0) {
 				await tx.insert(recurringTransactions).values(
-					recurringValues.map((item) => ({
+					dedupedRecurring.map((item) => ({
 						userId: item.userId,
 						categoryId: item.categoryId,
 						type: item.type,
@@ -144,7 +207,7 @@ export async function createTransactions(
 				);
 
 				await tx.insert(transactions).values(
-					recurringValues.map((item) => ({
+					dedupedRecurring.map((item) => ({
 						userId: item.userId,
 						categoryId: item.categoryId,
 						type: item.type,
@@ -159,7 +222,7 @@ export async function createTransactions(
 			}
 		});
 
-		return { success: true, count: normalizedItems.length };
+		return { success: true, count: regularValues.length + dedupedRecurring.length };
 	} catch (e) {
 		return { success: false, error: e instanceof Error ? e.message : "저장에 실패했습니다." };
 	}
