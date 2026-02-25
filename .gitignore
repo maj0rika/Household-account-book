@@ -41,6 +41,7 @@ yarn-error.log*
 ios/App/Pods/
 ios/DerivedData/
 android/.gradle/
+android/.idea/
 android/app/build/
 android/build/
 android/local.properties
