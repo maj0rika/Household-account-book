@@ -303,23 +303,28 @@ export function AccountParseResultSheet({
 		setErrorMessage(null);
 
 		startTransition(async () => {
-			const result = await upsertParsedAccountsBatch(
-				matchedItems.map((item) => ({
-					action: item.action,
-					accountId: item.matchedAccount?.id,
-					name: item.parsed.name,
-					type: item.parsed.type,
-					subType: item.parsed.subType,
-					icon: item.parsed.icon,
-					balance: item.parsed.balance,
-				})),
-			);
+			try {
+				const result = await upsertParsedAccountsBatch(
+					matchedItems.map((item) => ({
+						action: item.action,
+						accountId: item.matchedAccount?.id,
+						name: item.parsed.name,
+						type: item.parsed.type,
+						subType: item.parsed.subType,
+						icon: item.parsed.icon,
+						balance: item.parsed.balance,
+					})),
+				);
 
-			if (result.success) {
-				onOpenChange(false);
-				router.refresh();
-			} else {
-				setErrorMessage(result.error);
+				if (result.success) {
+					onOpenChange(false);
+					router.refresh();
+				} else {
+					setErrorMessage(result.error);
+				}
+			} catch (error) {
+				console.error("[AccountParseResultSheet] 자산/부채 저장 실패", error);
+				setErrorMessage("자산/부채 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
 			}
 		});
 	};

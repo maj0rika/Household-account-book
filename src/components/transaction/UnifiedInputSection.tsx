@@ -27,8 +27,29 @@ export function UnifiedInputSection() {
 
 	// 초기 데이터 로드
 	useEffect(() => {
-		getUserCategories().then((cats) => setCategories(cats as Category[]));
-		getAccounts().then((accs) => setExistingAccounts(accs));
+		let mounted = true;
+
+		const loadInitialData = async () => {
+			try {
+				const [cats, accs] = await Promise.all([
+					getUserCategories(),
+					getAccounts(),
+				]);
+				if (!mounted) return;
+				setCategories(cats as Category[]);
+				setExistingAccounts(accs);
+			} catch (error) {
+				console.error("[UnifiedInputSection] 초기 데이터 로드 실패", error);
+				if (!mounted) return;
+				setCategories([]);
+				setExistingAccounts([]);
+			}
+		};
+
+		void loadInitialData();
+		return () => {
+			mounted = false;
+		};
 	}, []);
 
 	// 시트 닫힐 때 데이터 갱신 (useEffect로 분리하여 렌더 중 setState 방지)
@@ -37,8 +58,18 @@ export function UnifiedInputSection() {
 
 	useEffect(() => {
 		if (prevTxOpen.current && !txSheetOpen) {
-			getAccounts().then((accs) => setExistingAccounts(accs));
-			getUserCategories().then((cats) => setCategories(cats as Category[]));
+			void (async () => {
+				try {
+					const [accs, cats] = await Promise.all([
+						getAccounts(),
+						getUserCategories(),
+					]);
+					setExistingAccounts(accs);
+					setCategories(cats as Category[]);
+				} catch (error) {
+					console.error("[UnifiedInputSection] 거래 시트 종료 후 동기화 실패", error);
+				}
+			})();
 
 			// 혼합 입력이면 거래 시트 저장/닫기 후 자산 시트를 이어서 보여줌
 			if (deferAccountSheet && parsedAccounts.length > 0) {
@@ -51,7 +82,14 @@ export function UnifiedInputSection() {
 
 	useEffect(() => {
 		if (prevAccountOpen.current && !accountSheetOpen) {
-			getAccounts().then((accs) => setExistingAccounts(accs));
+			void (async () => {
+				try {
+					const accs = await getAccounts();
+					setExistingAccounts(accs);
+				} catch (error) {
+					console.error("[UnifiedInputSection] 자산 시트 종료 후 동기화 실패", error);
+				}
+			})();
 		}
 		prevAccountOpen.current = accountSheetOpen;
 	}, [accountSheetOpen]);

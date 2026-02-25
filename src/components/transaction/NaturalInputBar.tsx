@@ -123,24 +123,29 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 		const currentInput = input;
 
 		startTransition(async () => {
-			const result = imageData
-				? await parseUnifiedImageInput(
-						imageData.base64,
-						imageData.mimeType,
-						currentInput,
-					)
-				: await parseUnifiedInput(currentInput);
+			try {
+				const result = imageData
+					? await parseUnifiedImageInput(
+							imageData.base64,
+							imageData.mimeType,
+							currentInput,
+						)
+					: await parseUnifiedInput(currentInput);
 
-			if (result.success) {
-				onParsed(result, currentInput || "이미지 파싱");
-				setInput("");
-				clearImage();
-				if (textareaRef.current) {
-					textareaRef.current.value = "";
-					resizeTextarea(textareaRef.current);
+				if (result.success) {
+					onParsed(result, currentInput || "이미지 파싱");
+					setInput("");
+					clearImage();
+					if (textareaRef.current) {
+						textareaRef.current.value = "";
+						resizeTextarea(textareaRef.current);
+					}
+				} else {
+					setError(result.error);
 				}
-			} else {
-				setError(result.error);
+			} catch (error) {
+				console.error("[NaturalInputBar] 파싱 요청 실패", error);
+				setError("요청 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
 			}
 		});
 	}, [input, imageData, isPending, onParsed, resizeTextarea, clearImage]);

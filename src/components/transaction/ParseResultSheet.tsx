@@ -351,38 +351,43 @@ export function ParseResultSheet({
 			return next;
 		});
 
-		const icon = getDefaultIcon(name, type);
-		const result = await addCategory({ name, icon, type });
-		const duplicate = !result.success && result.error.includes("이미 같은 이름의 카테고리");
+		try {
+			const icon = getDefaultIcon(name, type);
+			const result = await addCategory({ name, icon, type });
+			const duplicate = !result.success && result.error.includes("이미 같은 이름의 카테고리");
 
-		if (result.success || duplicate) {
-			setLocalCategories((prev) => upsertLocalCategory(prev, { name, type, icon }));
+			if (result.success || duplicate) {
+				setLocalCategories((prev) => upsertLocalCategory(prev, { name, type, icon }));
 
-			// 해당 항목 + 같은 suggestedCategory를 가진 항목까지 일괄 동기화
-			setItems((prev) =>
-				prev.map((item, i) => {
-					if (i === index) {
-						return { ...item, category: name, suggestedCategory: undefined };
-					}
-					if (
-						item.type === type
-						&& item.suggestedCategory
-						&& normalizeCategoryName(item.suggestedCategory) === name
-					) {
-						return { ...item, category: name, suggestedCategory: undefined };
-					}
-					return item;
-				}),
-			);
-		} else {
-			setErrorMessage(result.error || "카테고리 추가에 실패했습니다.");
+				// 해당 항목 + 같은 suggestedCategory를 가진 항목까지 일괄 동기화
+				setItems((prev) =>
+					prev.map((item, i) => {
+						if (i === index) {
+							return { ...item, category: name, suggestedCategory: undefined };
+						}
+						if (
+							item.type === type
+							&& item.suggestedCategory
+							&& normalizeCategoryName(item.suggestedCategory) === name
+						) {
+							return { ...item, category: name, suggestedCategory: undefined };
+						}
+						return item;
+					}),
+				);
+			} else {
+				setErrorMessage(result.error || "카테고리 추가에 실패했습니다.");
+			}
+		} catch (error) {
+			console.error("[ParseResultSheet] 카테고리 추가 실패", error);
+			setErrorMessage("카테고리 추가 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+		} finally {
+			setPendingCategoryKeys((prev) => {
+				const next = new Set(prev);
+				next.delete(key);
+				return next;
+			});
 		}
-
-		setPendingCategoryKeys((prev) => {
-			const next = new Set(prev);
-			next.delete(key);
-			return next;
-		});
 	};
 
 	const totalExpense = items
@@ -399,12 +404,17 @@ export function ParseResultSheet({
 		setErrorMessage(null);
 
 		startTransition(async () => {
-			const result = await createTransactions(items, originalInput);
-			if (result.success) {
-				onOpenChange(false);
-				router.refresh();
-			} else {
-				setErrorMessage(result.error);
+			try {
+				const result = await createTransactions(items, originalInput);
+				if (result.success) {
+					onOpenChange(false);
+					router.refresh();
+				} else {
+					setErrorMessage(result.error);
+				}
+			} catch (error) {
+				console.error("[ParseResultSheet] 거래 저장 실패", error);
+				setErrorMessage("거래 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
 			}
 		});
 	};
