@@ -24,8 +24,41 @@ const PLACEHOLDER_HINTS = [
 	"교통비 1450원",
 ];
 
-function getRandomPlaceholder(): string {
-	return PLACEHOLDER_HINTS[Math.floor(Math.random() * PLACEHOLDER_HINTS.length)];
+function AnimatedPlaceholder({ show }: { show: boolean }) {
+	const [index, setIndex] = useState(0);
+	const [mounted, setMounted] = useState(false);
+
+	useEffect(() => {
+		setIndex(Math.floor(Math.random() * PLACEHOLDER_HINTS.length));
+		setMounted(true);
+	}, []);
+
+	useEffect(() => {
+		if (!show || !mounted) return;
+		const interval = setInterval(() => {
+			setIndex((prev) => (prev + 1) % PLACEHOLDER_HINTS.length);
+		}, 2500);
+		return () => clearInterval(interval);
+	}, [show, mounted]);
+
+	if (!show || !mounted) return null;
+
+	return (
+		<div className="pointer-events-none absolute inset-0 flex items-center overflow-hidden px-3">
+			<AnimatePresence mode="wait">
+				<motion.span
+					key={index}
+					className="truncate text-sm text-muted-foreground"
+					initial={{ y: 14, opacity: 0 }}
+					animate={{ y: 0, opacity: 1 }}
+					exit={{ y: -14, opacity: 0 }}
+					transition={{ duration: 0.25, ease: "easeInOut" }}
+				>
+					{PLACEHOLDER_HINTS[index]}
+				</motion.span>
+			</AnimatePresence>
+		</div>
+	);
 }
 
 interface NaturalInputBarProps {
@@ -36,16 +69,10 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 	const [input, setInput] = useState("");
 	const [isPending, startTransition] = useTransition();
 	const [error, setError] = useState<string | null>(null);
-	const [placeholder, setPlaceholder] = useState("");
 	const [imagePreview, setImagePreview] = useState<string | null>(null);
 	const [imageData, setImageData] = useState<{ base64: string; mimeType: string } | null>(null);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
-
-	// 마운트 시 랜덤 플레이스홀더 설정
-	useEffect(() => {
-		setPlaceholder(getRandomPlaceholder());
-	}, []);
 
 	const resizeTextarea = useCallback((el: HTMLTextAreaElement) => {
 		if (!el.value.trim()) {
@@ -114,7 +141,6 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 				onParsed(result.transactions, currentInput || "이미지 파싱");
 				setInput("");
 				clearImage();
-				setPlaceholder(getRandomPlaceholder());
 				if (textareaRef.current) {
 					textareaRef.current.value = "";
 					resizeTextarea(textareaRef.current);
@@ -191,20 +217,22 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 						onChange={handleImageSelect}
 					/>
 
-					<textarea
-						ref={textareaRef}
-						value={input}
-						onChange={(e) => {
-							setInput(e.target.value);
-							resizeTextarea(e.target);
-							if (error) setError(null);
-						}}
-						onKeyDown={handleKeyDown}
-						placeholder={placeholder}
-						className="flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 transition-shadow"
-						rows={1}
-						disabled={isPending}
-					/>
+					<div className="relative min-w-0 flex-1">
+						<AnimatedPlaceholder show={!input && !isPending} />
+						<textarea
+							ref={textareaRef}
+							value={input}
+							onChange={(e) => {
+								setInput(e.target.value);
+								resizeTextarea(e.target);
+								if (error) setError(null);
+							}}
+							onKeyDown={handleKeyDown}
+							className="w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 transition-shadow"
+							rows={1}
+							disabled={isPending}
+						/>
+					</div>
 					<motion.div whileTap={{ scale: 0.9 }}>
 						<Button
 							size="icon"

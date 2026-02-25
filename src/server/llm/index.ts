@@ -1,7 +1,7 @@
-import type { DefaultCategory } from "@/lib/constants";
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
 import { getLLMConfig } from "./client";
 import { buildSystemPrompt, buildUserPrompt } from "./prompt";
+import type { LLMCategory } from "./prompt";
 import type { ParseResponse, ParsedTransaction } from "./types";
 
 function extractJSON(text: string): string {
@@ -45,13 +45,17 @@ function validateTransactions(data: unknown): ParsedTransaction[] {
 			result.dayOfMonth = typeof item.dayOfMonth === "number" ? item.dayOfMonth : undefined;
 		}
 
+		if (typeof item.suggestedCategory === "string" && item.suggestedCategory.trim()) {
+			result.suggestedCategory = item.suggestedCategory.trim();
+		}
+
 		return result;
 	});
 }
 
 export async function parseTransactionText(
 	input: string,
-	categories: DefaultCategory[],
+	categories: LLMCategory[],
 ): Promise<ParseResponse> {
 	const { client, model, temperature } = getLLMConfig();
 	const today = new Date().toISOString().split("T")[0];
@@ -102,7 +106,7 @@ export async function parseTransactionImage(
 	imageBase64: string,
 	mimeType: string,
 	textInput: string,
-	categories: DefaultCategory[],
+	categories: LLMCategory[],
 ): Promise<ParseResponse> {
 	const { client, model, temperature } = getLLMConfig();
 	const today = new Date().toISOString().split("T")[0];

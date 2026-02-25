@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { X, Loader2, ChevronDown, ChevronUp, Repeat } from "lucide-react";
+import { X, Loader2, ChevronDown, ChevronUp, Repeat, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 import { Button } from "@/components/ui/button";
@@ -27,8 +27,28 @@ import {
 } from "@/components/ui/drawer";
 import { formatCurrency, formatSignedCurrency } from "@/lib/format";
 import { createTransactions } from "@/server/actions/transaction";
+import { addCategory } from "@/server/actions/settings";
 import type { ParsedTransaction } from "@/server/llm/types";
 import type { Category } from "@/types";
+
+// 카테고리 타입별 기본 아이콘 매핑
+const CATEGORY_ICON_MAP: Record<string, string> = {
+	"반려동물": "🐾",
+	"구독": "📺",
+	"보험": "🛡️",
+	"자동차": "🚗",
+	"운동/스포츠": "🏋️",
+	"여행": "✈️",
+	"술/유흥": "🍻",
+	"경조사": "💐",
+	"저축": "🏦",
+	"배달": "🛵",
+};
+
+function getDefaultIcon(categoryName: string, type: "income" | "expense"): string {
+	if (CATEGORY_ICON_MAP[categoryName]) return CATEGORY_ICON_MAP[categoryName];
+	return type === "income" ? "💵" : "📦";
+}
 
 interface ParseResultSheetProps {
 	open: boolean;
@@ -44,12 +64,16 @@ function EditableItem({
 	categories,
 	onUpdate,
 	onRemove,
+	onAddCategory,
+	isAddingCategory,
 }: {
 	item: ParsedTransaction;
 	index: number;
 	categories: Category[];
 	onUpdate: (index: number, updated: ParsedTransaction) => void;
 	onRemove: (index: number) => void;
+	onAddCategory: (index: number, name: string, type: "income" | "expense") => void;
+	isAddingCategory: boolean;
 }) {
 	const [expanded, setExpanded] = useState(false);
 
@@ -91,6 +115,29 @@ function EditableItem({
 					<X className="h-3.5 w-3.5" />
 				</Button>
 			</div>
+
+			{/* 카테고리 추천 배너 */}
+			{item.suggestedCategory && (
+				<div className="mx-1 mb-2 flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+					<Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
+					<span className="flex-1 text-xs text-muted-foreground">
+						<strong className="text-foreground">&quot;{item.suggestedCategory}&quot;</strong> 카테고리를 추가할까요?
+					</span>
+					<Button
+						size="sm"
+						variant="outline"
+						className="h-6 px-2 text-xs"
+						disabled={isAddingCategory}
+						onClick={() => onAddCategory(index, item.suggestedCategory!, item.type)}
+					>
+						{isAddingCategory ? (
+							<Loader2 className="h-3 w-3 animate-spin" />
+						) : (
+							"추가"
+						)}
+					</Button>
+				</div>
+			)}
 
 			{/* 편집 패널 */}
 			<AnimatePresence>
@@ -140,7 +187,7 @@ function EditableItem({
 							<Label className="text-xs">카테고리</Label>
 							<Select
 								value={item.category}
-								onValueChange={(value) => onUpdate(index, { ...item, category: value })}
+								onValueChange={(value) => onUpdate(index, { ...item, category: value, suggestedCategory: undefined })}
 							>
 								<SelectTrigger className="h-8 text-sm">
 									<SelectValue />
@@ -217,21 +264,68 @@ function EditableItem({
 	);
 }
 
-export function ParseResultSheet({ open, onOpenChange, items: initialItems, originalInput, categories }: ParseResultSheetProps) {
+export function ParseResultSheet({ open, onOpenChange, items: initialItems, originalInput, categories: initialCategories }: ParseResultSheetProps) {
 	const router = useRouter();
 	const [items, setItems] = useState<ParsedTransaction[]>(initialItems);
+	const [localCategories, setLocalCategories] = useState<Category[]>(initialCategories);
 	const [isPending, startTransition] = useTransition();
+	const [addingCategoryIndex, setAddingCategoryIndex] = useState<number | null>(null);
 
 	useEffect(() => {
 		setItems(initialItems);
 	}, [initialItems]);
+
+	useEffect(() => {
+		setLocalCategories(initialCategories);
+	}, [initialCategories]);
 
 	const handleUpdate = (index: number, updated: ParsedTransaction) => {
 		setItems((prev) => prev.map((item, i) => (i === index ? updated : item)));
 	};
 
 	const handleRemove = (index: number) => {
-		setItems((prev) => prev.filter((_, i) => i !== index));
+		setItems((prev) => {
+			const next = prev.filter((_, i) => i !== index);
+			if (next.length === 0) {
+				onOpenChange(false);
+			}
+			return next;
+		});
+	};
+
+	const handleAddCategory = async (index: number, name: string, type: "income" | "expense") => {
+		setAddingCategoryIndex(index);
+		const icon = getDefaultIcon(name, type);
+		const result = await addCategory({ name, icon, type });
+
+		if (result.success) {
+			// 로컬 카테고리 Select 표시용 (실제 저장은 이름 기반 매칭)
+			const newCat: Category = {
+				id: `temp-${name}`,
+				userId: null,
+				name,
+				icon,
+				type,
+				sortOrder: localCategories.length,
+				isDefault: false,
+			};
+			setLocalCategories((prev) => [...prev, newCat]);
+
+			// 해당 항목의 카테고리를 새 카테고리로 변경하고 suggestedCategory 제거
+			setItems((prev) =>
+				prev.map((item, i) => {
+					if (i === index) {
+						return { ...item, category: name, suggestedCategory: undefined };
+					}
+					// 같은 suggestedCategory를 가진 다른 항목도 함께 업데이트
+					if (item.suggestedCategory === name && item.type === type) {
+						return { ...item, category: name, suggestedCategory: undefined };
+					}
+					return item;
+				}),
+			);
+		}
+		setAddingCategoryIndex(null);
 	};
 
 	const totalExpense = items
@@ -269,9 +363,11 @@ export function ParseResultSheet({ open, onOpenChange, items: initialItems, orig
 							key={`${item.description}-${item.amount}-${index}`}
 							item={item}
 							index={index}
-							categories={categories}
+							categories={localCategories}
 							onUpdate={handleUpdate}
 							onRemove={handleRemove}
+							onAddCategory={handleAddCategory}
+							isAddingCategory={addingCategoryIndex === index}
 						/>
 					))}
 				</div>

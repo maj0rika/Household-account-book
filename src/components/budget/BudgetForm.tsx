@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Loader2, Trash2 } from "lucide-react";
+import { Plus, Loader2, Trash2, Pencil } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,15 +26,21 @@ interface BudgetFormProps {
 
 export function BudgetForm({ month, budgets, categories }: BudgetFormProps) {
 	const router = useRouter();
-	const [open, setOpen] = useState(false);
 	const [isPending, startTransition] = useTransition();
 
+	// 추가 Dialog
+	const [addOpen, setAddOpen] = useState(false);
 	const [categoryId, setCategoryId] = useState<string>("__total__");
 	const [amount, setAmount] = useState("");
 
+	// 수정 Dialog
+	const [editOpen, setEditOpen] = useState(false);
+	const [editTarget, setEditTarget] = useState<BudgetWithSpent | null>(null);
+	const [editAmount, setEditAmount] = useState("");
+
 	const expenseCategories = categories.filter((c) => c.type === "expense");
 
-	// 이미 예산이 설정된 카테고리 제외
+	// 이미 예산이 설정된 카테고리 제외 (추가용)
 	const existingCategoryIds = new Set(budgets.map((b) => b.categoryId ?? "__total__"));
 
 	const handleSave = () => {
@@ -48,9 +54,35 @@ export function BudgetForm({ month, budgets, categories }: BudgetFormProps) {
 				month,
 			});
 			if (result.success) {
-				setOpen(false);
+				setAddOpen(false);
 				setAmount("");
 				setCategoryId("__total__");
+				router.refresh();
+			}
+		});
+	};
+
+	const handleEditOpen = (budget: BudgetWithSpent) => {
+		setEditTarget(budget);
+		setEditAmount(String(budget.amount));
+		setEditOpen(true);
+	};
+
+	const handleEditSave = () => {
+		if (!editTarget) return;
+		const numAmount = Number(editAmount);
+		if (!numAmount || numAmount <= 0) return;
+
+		startTransition(async () => {
+			const result = await upsertBudget({
+				categoryId: editTarget.categoryId,
+				amount: numAmount,
+				month,
+			});
+			if (result.success) {
+				setEditOpen(false);
+				setEditTarget(null);
+				setEditAmount("");
 				router.refresh();
 			}
 		});
@@ -67,7 +99,7 @@ export function BudgetForm({ month, budgets, categories }: BudgetFormProps) {
 		<div className="px-4">
 			<div className="mb-3 flex items-center justify-between">
 				<h3 className="text-sm font-semibold">예산 관리</h3>
-				<Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+				<Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
 					<Plus className="mr-1 h-3.5 w-3.5" />
 					예산 추가
 				</Button>
@@ -81,8 +113,17 @@ export function BudgetForm({ month, budgets, categories }: BudgetFormProps) {
 								<span>{b.categoryIcon}</span>
 								<span>{b.categoryName}</span>
 							</div>
-							<div className="flex items-center gap-2">
+							<div className="flex items-center gap-1.5">
 								<span className="text-sm font-medium">{Number(b.amount).toLocaleString()}원</span>
+								<Button
+									variant="ghost"
+									size="icon"
+									className="h-7 w-7"
+									onClick={() => handleEditOpen(b)}
+									disabled={isPending}
+								>
+									<Pencil className="h-3.5 w-3.5" />
+								</Button>
 								<Button
 									variant="ghost"
 									size="icon"
@@ -98,7 +139,8 @@ export function BudgetForm({ month, budgets, categories }: BudgetFormProps) {
 				</div>
 			)}
 
-			<Dialog open={open} onOpenChange={setOpen}>
+			{/* 예산 추가 Dialog */}
+			<Dialog open={addOpen} onOpenChange={setAddOpen}>
 				<DialogContent>
 					<DialogHeader>
 						<DialogTitle>예산 추가</DialogTitle>
@@ -135,12 +177,52 @@ export function BudgetForm({ month, budgets, categories }: BudgetFormProps) {
 						</div>
 					</div>
 					<DialogFooter>
-						<Button variant="outline" onClick={() => setOpen(false)}>
+						<Button variant="outline" onClick={() => setAddOpen(false)}>
 							취소
 						</Button>
 						<Button onClick={handleSave} disabled={isPending || !amount}>
 							{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
 							저장
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* 예산 수정 Dialog */}
+			<Dialog open={editOpen} onOpenChange={setEditOpen}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>예산 수정</DialogTitle>
+					</DialogHeader>
+					{editTarget && (
+						<div className="space-y-4">
+							<div>
+								<Label>카테고리</Label>
+								<div className="mt-1 flex items-center gap-2 rounded-md border border-input bg-muted/50 px-3 py-2 text-sm">
+									<span>{editTarget.categoryIcon}</span>
+									<span>{editTarget.categoryName}</span>
+								</div>
+							</div>
+							<div>
+								<Label>금액</Label>
+								<Input
+									type="number"
+									value={editAmount}
+									onChange={(e) => setEditAmount(e.target.value)}
+									placeholder="500000"
+									className="mt-1"
+									autoFocus
+								/>
+							</div>
+						</div>
+					)}
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setEditOpen(false)}>
+							취소
+						</Button>
+						<Button onClick={handleEditSave} disabled={isPending || !editAmount}>
+							{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+							수정
 						</Button>
 					</DialogFooter>
 				</DialogContent>

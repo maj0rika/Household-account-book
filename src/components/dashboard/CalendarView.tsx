@@ -7,9 +7,11 @@ const DAY_HEADERS = ["일", "월", "화", "수", "목", "금", "토"];
 interface CalendarViewProps {
 	month: string; // YYYY-MM
 	data: Record<string, { income: number; expense: number }>;
+	selectedDate?: string | null;
+	onDateSelect?: (date: string) => void;
 }
 
-export function CalendarView({ month, data }: CalendarViewProps) {
+export function CalendarView({ month, data, selectedDate, onDateSelect }: CalendarViewProps) {
 	const [year, m] = month.split("-").map(Number);
 	const firstDay = new Date(year, m - 1, 1).getDay();
 	const daysInMonth = new Date(year, m, 0).getDate();
@@ -41,16 +43,27 @@ export function CalendarView({ month, data }: CalendarViewProps) {
 					const dateStr = `${year}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 					const dayData = data[dateStr];
 					const isToday = dateStr === today;
+					const isSelected = dateStr === selectedDate;
 
 					return (
-						<div
+						<button
 							key={day}
+							type="button"
+							onClick={() => onDateSelect?.(dateStr)}
 							className={cn(
-								"flex flex-col items-center gap-0.5 rounded-md py-1",
-								isToday && "bg-accent",
+								"flex flex-col items-center gap-0.5 rounded-md py-1 transition-colors",
+								"hover:bg-accent/50 active:scale-95",
+								isToday && !isSelected && "bg-accent",
+								isSelected && "bg-primary/15 ring-1 ring-primary/40",
 							)}
 						>
-							<span className={cn("text-[11px]", isToday && "font-bold")}>{day}</span>
+							<span className={cn(
+								"text-[11px]",
+								isToday && "font-bold",
+								isSelected && "font-bold text-primary",
+							)}>
+								{day}
+							</span>
 							{dayData?.expense ? (
 								<span className="text-[8px] leading-none text-expense">
 									-{abbreviateAmount(dayData.expense)}
@@ -61,7 +74,7 @@ export function CalendarView({ month, data }: CalendarViewProps) {
 									+{abbreviateAmount(dayData.income)}
 								</span>
 							) : null}
-						</div>
+						</button>
 					);
 				})}
 			</div>

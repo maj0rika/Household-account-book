@@ -14,7 +14,7 @@ import { MonthlySummaryCard } from "@/components/dashboard/MonthlySummaryCard";
 import { MonthNavigator } from "@/components/dashboard/MonthNavigator";
 import { CategoryPieChart } from "@/components/dashboard/CategoryPieChart";
 import { WeeklyBarChart } from "@/components/dashboard/WeeklyBarChart";
-import { CalendarView } from "@/components/dashboard/CalendarView";
+import { InteractiveCalendar } from "@/components/dashboard/InteractiveCalendar";
 import { TransactionList } from "@/components/transaction/TransactionList";
 import { TransactionInputSection } from "@/components/transaction/TransactionInputSection";
 import { RecurringTransactionManager } from "@/components/transaction/RecurringTransactionManager";
@@ -55,7 +55,12 @@ export default async function TransactionsPage({ searchParams }: Props) {
 			</Suspense>
 			<MonthlySummaryCard summary={summary} month={month} />
 			<Separator className="my-2" />
-			<CalendarView month={month} data={calendarData} />
+			<InteractiveCalendar
+				month={month}
+				calendarData={calendarData}
+				transactions={transactions}
+				categories={userCategories}
+			/>
 			<Separator className="my-2" />
 			<WeeklyBarChart data={dailyExpenses} />
 			<Separator className="my-2" />
@@ -63,7 +68,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
 			<Separator className="my-2" />
 			<RecurringTransactionManager />
 			<Separator className="my-2" />
-			<TransactionList transactions={transactions} />
+			<TransactionList transactions={transactions} categories={userCategories} />
 			<Suspense>
 				<TransactionInputSection categories={userCategories} />
 			</Suspense>

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
-import { Home, BarChart3, Settings, Wallet, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Home, BarChart3, Settings, Wallet, PlusCircle, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { motion } from "motion/react";
 
 import { cn } from "@/lib/utils";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 const NAV_ITEMS = [
 	{ href: "/transactions", label: "거래 내역", icon: Home },
 	{ href: "/statistics", label: "통계", icon: BarChart3 },
+	{ href: "/transactions?manual=true", label: "직접 입력", icon: PlusCircle },
 	{ href: "/budget", label: "예산", icon: Wallet },
 	{ href: "/settings", label: "설정", icon: Settings },
 ];
@@ -89,7 +90,10 @@ export function Sidebar() {
 			{/* 네비게이션 */}
 			<nav className="flex flex-1 flex-col gap-1 p-2">
 				{NAV_ITEMS.map((item) => {
-					const isActive = pathname.startsWith(item.href);
+					const hrefPath = item.href.split("?")[0];
+					const hasQuery = item.href.includes("?");
+					// 쿼리파라미터가 있는 항목은 active 표시하지 않음 (클릭 전용)
+					const isActive = !hasQuery && pathname.startsWith(hrefPath);
 					const Icon = item.icon;
 					return (
 						<Link

@@ -1,6 +1,9 @@
-import type { DefaultCategory } from "@/lib/constants";
+export interface LLMCategory {
+	name: string;
+	type: "income" | "expense";
+}
 
-export function buildSystemPrompt(categories: DefaultCategory[], today: string): string {
+export function buildSystemPrompt(categories: LLMCategory[], today: string): string {
 	const expenseCategories = categories
 		.filter((c) => c.type === "expense")
 		.map((c) => c.name);
@@ -37,10 +40,17 @@ ${today}
    - 밥, 식사, 점심, 저녁, 식당, 한식, 중식, 일식 등 → "식비"
    - 스타벅스, 투썸, 이디야, 커피, 카페, 디저트, 빵 등 → "카페/간식"
    - 택시, 버스, 지하철, 주유, 카카오택시, 주차 등 → "교통"
-   - CU, GS25, 세븐일레븐, 이마트, 마트, 쿠팡 등 → "생활/마트"
-   - 매칭이 어려우면 "기타 지출" 또는 "기타 수입"
+   - CU, GS25, 세븐일레븐, 이마트, 마트, 쿠팡 등 → "생활/마트" 또는 "생활용품"
+   - **반드시 위 "사용 가능한 카테고리" 목록에 있는 이름만 사용하세요.**
+   - 어떤 카테고리에도 해당하지 않는 경우 "기타 지출" 또는 "기타 수입"을 사용하되, suggestedCategory에 더 적절한 새 카테고리명을 제안하세요.
 
-4. **금액 해석**:
+4. **카테고리 제안 (suggestedCategory)**:
+   - 기존 카테고리 중 적절한 것이 있으면 suggestedCategory는 null로 두세요.
+   - "기타 지출"/"기타 수입"으로 분류하면서 더 적절한 카테고리가 필요하다고 판단되면, suggestedCategory에 새 카테고리 이름을 제안하세요.
+   - 예: 반려동물 용품 → category: "기타 지출", suggestedCategory: "반려동물"
+   - 예: 영화 티켓 → category: "여가/취미" (기존에 있으면 suggestedCategory: null)
+
+5. **금액 해석**:
    - "9000" → 9000
    - "9천" → 9000
    - "1만" / "만원" → 10000
@@ -50,9 +60,9 @@ ${today}
    - "1,234,567원" → 1234567
    - 금액이 없으면 해당 항목을 건너뜁니다.
 
-5. **여러 건 입력**: 쉼표, 줄바꿈, "그리고" 등으로 구분된 여러 건을 각각 분리합니다.
+6. **여러 건 입력**: 쉼표, 줄바꿈, "그리고" 등으로 구분된 여러 건을 각각 분리합니다.
 
-6. **은행/카드 알림 메시지 파싱**: 아래 형태의 메시지를 인식합니다.
+7. **은행/카드 알림 메시지 파싱**: 아래 형태의 메시지를 인식합니다.
    - 여러 줄에 걸쳐 여러 건의 알림이 붙여넣기될 수 있습니다.
    - 각 알림을 개별 거래로 분리하세요.
    - **잔액, 누적, 한도, 할부** 정보는 무시하세요 (거래 금액이 아님).
@@ -70,13 +80,13 @@ ${today}
 
    **핵심 원칙**: 메시지에서 거래 금액, 상호명, 날짜, 수입/지출 여부만 추출합니다.
 
-7. **고정 거래 인식**: 아래 키워드가 포함되면 고정 거래로 분류합니다.
+8. **고정 거래 인식**: 아래 키워드가 포함되면 고정 거래로 분류합니다.
    - "매달", "매월", "고정", "정기", "구독", "월세", "관리비", "정기결제"
    - 고정 거래로 인식되면 "isRecurring": true 와 "dayOfMonth": 숫자 를 추가합니다.
    - dayOfMonth는 "매달 15일" → 15, "매월 1일" → 1, 명시 안 되면 오늘 날짜의 일(day)
    - 예시: "매달 15일 통신비 5만원 고정" → isRecurring: true, dayOfMonth: 15
 
-8. **이미지 파싱**: 이미지가 첨부된 경우 이미지 내 텍스트(영수증, 카드 내역 등)를 읽고 동일한 규칙으로 파싱합니다.
+9. **이미지 파싱**: 이미지가 첨부된 경우 이미지 내 텍스트(영수증, 카드 내역 등)를 읽고 동일한 규칙으로 파싱합니다.
 
 ## 출력 형식
 
@@ -91,13 +101,15 @@ ${today}
     "description": "설명",
     "amount": 숫자,
     "isRecurring": false,
-    "dayOfMonth": null
+    "dayOfMonth": null,
+    "suggestedCategory": null
   }
 ]
 \`\`\`
 
 - isRecurring은 고정 거래일 때만 true, 아니면 false
-- dayOfMonth는 고정 거래일 때만 숫자(1~31), 아니면 null`;
+- dayOfMonth는 고정 거래일 때만 숫자(1~31), 아니면 null
+- suggestedCategory는 기존 카테고리에 적절한 것이 없어 "기타 지출"/"기타 수입"으로 분류할 때만 새 카테고리명을 문자열로, 아니면 null`;
 }
 
 export function buildUserPrompt(input: string): string {

@@ -203,6 +203,39 @@ export async function deleteTransaction(
 	}
 }
 
+export async function updateTransaction(
+	id: string,
+	data: {
+		type?: "income" | "expense";
+		categoryId?: string | null;
+		description?: string;
+		amount?: number;
+		date?: string;
+		memo?: string | null;
+	},
+): Promise<{ success: true } | { success: false; error: string }> {
+	try {
+		const userId = await getAuthUserId();
+
+		await db
+			.update(transactions)
+			.set({
+				...(data.type !== undefined && { type: data.type }),
+				...(data.categoryId !== undefined && { categoryId: data.categoryId }),
+				...(data.description !== undefined && { description: data.description }),
+				...(data.amount !== undefined && { amount: data.amount }),
+				...(data.date !== undefined && { date: data.date }),
+				...(data.memo !== undefined && { memo: data.memo }),
+				updatedAt: new Date(),
+			})
+			.where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
+
+		return { success: true };
+	} catch (e) {
+		return { success: false, error: e instanceof Error ? e.message : "수정에 실패했습니다." };
+	}
+}
+
 export async function getUserCategories(): Promise<Category[]> {
 	const userId = await getAuthUserId();
 
