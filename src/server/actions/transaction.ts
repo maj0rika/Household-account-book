@@ -6,6 +6,12 @@ import { and, eq, gte, lt, lte, ilike, sql, desc, type SQL } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { transactions, categories, recurringTransactions } from "@/server/db/schema";
+import {
+	encryptString,
+	encryptNumber,
+	decryptString,
+	decryptNumber,
+} from "@/server/security/field-encryption";
 import type { ParsedTransaction } from "@/server/llm/types";
 import type { Transaction, MonthlySummary, CategoryBreakdown, DailyExpense, Category } from "@/types";
 
@@ -127,8 +133,11 @@ export async function createTransactions(
 				categoryId: categoryMap.get(categoryKey(item.type, item.category)) ?? null,
 				type: item.type,
 				amount: item.amount,
+				amountEnc: encryptNumber(item.amount),
 				description: item.description,
+				descriptionEnc: encryptString(item.description),
 				originalInput,
+				originalInputEnc: encryptString(originalInput),
 				date: item.date,
 				isRecurring: false,
 			}));
@@ -155,7 +164,9 @@ export async function createTransactions(
 			.select({
 				type: recurringTransactions.type,
 				amount: recurringTransactions.amount,
+				amountEnc: recurringTransactions.amountEnc,
 				description: recurringTransactions.description,
+				descriptionEnc: recurringTransactions.descriptionEnc,
 				categoryId: recurringTransactions.categoryId,
 				dayOfMonth: recurringTransactions.dayOfMonth,
 			})
@@ -165,8 +176,8 @@ export async function createTransactions(
 		const dedupedRecurring: typeof recurringCandidates = [];
 		const existingSignatures: ExistingRecurringSignature[] = existingRecurring.map((row) => ({
 			type: row.type,
-			amount: row.amount,
-			description: row.description,
+			amount: decryptNumber(row.amountEnc, row.amount),
+			description: decryptString(row.descriptionEnc, row.description),
 			categoryId: row.categoryId,
 			dayOfMonth: row.dayOfMonth,
 		}));
@@ -200,7 +211,9 @@ export async function createTransactions(
 						categoryId: item.categoryId,
 						type: item.type,
 						amount: item.amount,
+						amountEnc: encryptNumber(item.amount),
 						description: item.description,
+						descriptionEnc: encryptString(item.description),
 						dayOfMonth: item.dayOfMonth,
 						isActive: true,
 					})),
@@ -212,10 +225,14 @@ export async function createTransactions(
 						categoryId: item.categoryId,
 						type: item.type,
 						amount: item.amount,
+						amountEnc: encryptNumber(item.amount),
 						description: item.description,
+						descriptionEnc: encryptString(item.description),
 						originalInput,
+						originalInputEnc: encryptString(originalInput),
 						date: item.date,
 						memo: "고정 거래 자동 생성",
+						memoEnc: encryptString("고정 거래 자동 생성"),
 						isRecurring: true,
 					})),
 				);
@@ -272,10 +289,14 @@ export async function getTransactions(month: string, filters?: TransactionFilter
 			categoryId: transactions.categoryId,
 			type: transactions.type,
 			amount: transactions.amount,
+			amountEnc: transactions.amountEnc,
 			description: transactions.description,
+			descriptionEnc: transactions.descriptionEnc,
 			originalInput: transactions.originalInput,
+			originalInputEnc: transactions.originalInputEnc,
 			date: transactions.date,
 			memo: transactions.memo,
+			memoEnc: transactions.memoEnc,
 			isRecurring: transactions.isRecurring,
 			createdAt: transactions.createdAt,
 			updatedAt: transactions.updatedAt,
@@ -288,16 +309,16 @@ export async function getTransactions(month: string, filters?: TransactionFilter
 		.where(and(...conditions))
 		.orderBy(desc(transactions.date), desc(transactions.createdAt));
 
-	return rows.map((row) => ({
+	const decryptedRows = rows.map((row) => ({
 		id: row.id,
 		userId: row.userId,
 		categoryId: row.categoryId,
 		type: row.type,
-		amount: row.amount,
-		description: row.description,
-		originalInput: row.originalInput,
+		amount: decryptNumber(row.amountEnc, row.amount),
+		description: decryptString(row.descriptionEnc, row.description),
+		originalInput: decryptString(row.originalInputEnc, row.originalInput),
 		date: row.date,
-		memo: row.memo,
+		memo: row.memoEnc ? decryptString(row.memoEnc, row.memo) : row.memo,
 		isRecurring: row.isRecurring,
 		createdAt: row.createdAt,
 		updatedAt: row.updatedAt,
@@ -310,6 +331,13 @@ export async function getTransactions(month: string, filters?: TransactionFilter
 				}
 			: null,
 	}));
+
+	if (!filters?.query) {
+		return decryptedRows;
+	}
+
+	const q = filters.query.toLowerCase();
+	return decryptedRows.filter((row) => row.description.toLowerCase().includes(q));
 }
 
 export async function getMonthlySummary(month: string): Promise<MonthlySummary> {
@@ -383,10 +411,19 @@ export async function updateTransaction(
 			.set({
 				...(data.type !== undefined && { type: data.type }),
 				...(data.categoryId !== undefined && { categoryId: data.categoryId }),
-				...(data.description !== undefined && { description: data.description }),
-				...(data.amount !== undefined && { amount: data.amount }),
+				...(data.description !== undefined && {
+					description: data.description,
+					descriptionEnc: encryptString(data.description),
+				}),
+				...(data.amount !== undefined && {
+					amount: data.amount,
+					amountEnc: encryptNumber(data.amount),
+				}),
 				...(data.date !== undefined && { date: data.date }),
-				...(data.memo !== undefined && { memo: data.memo }),
+				...(data.memo !== undefined && {
+					memo: data.memo,
+					memoEnc: encryptString(data.memo),
+				}),
 				updatedAt: new Date(),
 			})
 			.where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
@@ -433,9 +470,12 @@ export async function createSingleTransaction(data: {
 			categoryId: data.categoryId,
 			type: data.type,
 			amount: data.amount,
+			amountEnc: encryptNumber(data.amount),
 			description: data.description,
+			descriptionEnc: encryptString(data.description),
 			date: data.date,
 			memo: data.memo ?? null,
+			memoEnc: encryptString(data.memo ?? null),
 		});
 
 		return { success: true };

@@ -6,6 +6,12 @@ import { eq, and, gte, lt } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { recurringTransactions, transactions } from "@/server/db/schema";
+import {
+	encryptString,
+	encryptNumber,
+	decryptString,
+	decryptNumber,
+} from "@/server/security/field-encryption";
 
 async function getAuthUserId(): Promise<string> {
 	const session = await auth.api.getSession({
@@ -20,11 +26,17 @@ async function getAuthUserId(): Promise<string> {
 export async function getRecurringTransactions() {
 	const userId = await getAuthUserId();
 
-	return db
+	const rows = await db
 		.select()
 		.from(recurringTransactions)
 		.where(eq(recurringTransactions.userId, userId))
 		.orderBy(recurringTransactions.dayOfMonth);
+
+	return rows.map((row) => ({
+		...row,
+		description: decryptString(row.descriptionEnc, row.description),
+		amount: decryptNumber(row.amountEnc, row.amount),
+	}));
 }
 
 export async function createRecurringTransaction(data: {
@@ -42,7 +54,9 @@ export async function createRecurringTransaction(data: {
 			categoryId: data.categoryId,
 			type: data.type,
 			amount: data.amount,
+			amountEnc: encryptNumber(data.amount),
 			description: data.description,
+			descriptionEnc: encryptString(data.description),
 			dayOfMonth: data.dayOfMonth,
 		});
 
@@ -100,7 +114,9 @@ export async function applyRecurringTransactions(
 		const existingRows = await db
 			.select({
 				description: transactions.description,
+				descriptionEnc: transactions.descriptionEnc,
 				amount: transactions.amount,
+				amountEnc: transactions.amountEnc,
 				type: transactions.type,
 				date: transactions.date,
 			})
@@ -115,21 +131,30 @@ export async function applyRecurringTransactions(
 			);
 
 		const existingSet = new Set(
-			existingRows.map((r) => `${r.type}|${r.description}|${r.amount}|${r.date}`),
+			existingRows.map((r) => {
+				const description = decryptString(r.descriptionEnc, r.description);
+				const amount = decryptNumber(r.amountEnc, r.amount);
+				return `${r.type}|${description}|${amount}|${r.date}`;
+			}),
 		);
 
 		const values = recurring
 			.map((r) => {
 				const day = Math.min(r.dayOfMonth, daysInMonth);
 				const date = `${year}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+				const amount = decryptNumber(r.amountEnc, r.amount);
+				const description = decryptString(r.descriptionEnc, r.description);
 				return {
 					userId,
 					categoryId: r.categoryId,
 					type: r.type,
-					amount: r.amount,
-					description: r.description,
+					amount,
+					amountEnc: encryptNumber(amount),
+					description,
+					descriptionEnc: encryptString(description),
 					date,
 					memo: "고정 거래 자동 생성",
+					memoEnc: encryptString("고정 거래 자동 생성"),
 					isRecurring: true,
 				};
 			})
@@ -180,7 +205,9 @@ export async function checkRecurringApplied(
 		const existingRows = await db
 			.select({
 				description: transactions.description,
+				descriptionEnc: transactions.descriptionEnc,
 				amount: transactions.amount,
+				amountEnc: transactions.amountEnc,
 				type: transactions.type,
 				date: transactions.date,
 			})
@@ -195,7 +222,11 @@ export async function checkRecurringApplied(
 			);
 
 		const existingSet = new Set(
-			existingRows.map((r) => `${r.type}|${r.description}|${r.amount}|${r.date}`),
+			existingRows.map((r) => {
+				const description = decryptString(r.descriptionEnc, r.description);
+				const amount = decryptNumber(r.amountEnc, r.amount);
+				return `${r.type}|${description}|${amount}|${r.date}`;
+			}),
 		);
 
 		const daysInMonth = new Date(year, m, 0).getDate();
@@ -203,7 +234,9 @@ export async function checkRecurringApplied(
 		for (const r of recurring) {
 			const day = Math.min(r.dayOfMonth, daysInMonth);
 			const date = `${year}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-			if (existingSet.has(`${r.type}|${r.description}|${r.amount}|${date}`)) {
+			const description = decryptString(r.descriptionEnc, r.description);
+			const amount = decryptNumber(r.amountEnc, r.amount);
+			if (existingSet.has(`${r.type}|${description}|${amount}|${date}`)) {
 				applied++;
 			}
 		}
@@ -254,7 +287,9 @@ export async function autoApplyRecurringTransactions(): Promise<number> {
 		const existingRows = await db
 			.select({
 				description: transactions.description,
+				descriptionEnc: transactions.descriptionEnc,
 				amount: transactions.amount,
+				amountEnc: transactions.amountEnc,
 				type: transactions.type,
 				date: transactions.date,
 			})
@@ -269,7 +304,11 @@ export async function autoApplyRecurringTransactions(): Promise<number> {
 			);
 
 		const existingSet = new Set(
-			existingRows.map((r) => `${r.type}|${r.description}|${r.amount}|${r.date}`),
+			existingRows.map((r) => {
+				const description = decryptString(r.descriptionEnc, r.description);
+				const amount = decryptNumber(r.amountEnc, r.amount);
+				return `${r.type}|${description}|${amount}|${r.date}`;
+			}),
 		);
 
 		// 아직 적용 안 된 건만 필터
@@ -277,14 +316,19 @@ export async function autoApplyRecurringTransactions(): Promise<number> {
 			.map((r) => {
 				const day = Math.min(r.dayOfMonth, daysInMonth);
 				const date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+				const amount = decryptNumber(r.amountEnc, r.amount);
+				const description = decryptString(r.descriptionEnc, r.description);
 				return {
 					userId,
 					categoryId: r.categoryId,
 					type: r.type,
-					amount: r.amount,
-					description: r.description,
+					amount,
+					amountEnc: encryptNumber(amount),
+					description,
+					descriptionEnc: encryptString(description),
 					date,
 					memo: "고정 거래 자동 생성",
+					memoEnc: encryptString("고정 거래 자동 생성"),
 					isRecurring: true,
 				};
 			})
