@@ -261,7 +261,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 				<AnimatePresence>
 					{error && (
 						<motion.p
-							className="px-4 pb-2 text-center text-xs text-destructive"
+							className="whitespace-pre-line px-4 pb-2 text-center text-xs text-destructive"
 							initial={{ opacity: 0, height: 0 }}
 							animate={{ opacity: 1, height: "auto" }}
 							exit={{ opacity: 0, height: 0 }}

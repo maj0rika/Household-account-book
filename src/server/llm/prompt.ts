@@ -81,7 +81,18 @@ export function buildSystemPrompt(categories: LLMCategory[], today: string, exis
 
 - intent="transaction"이면 transactions 배열 채우고 accounts는 빈 배열
 - intent="account"이면 accounts 배열 채우고 transactions는 빈 배열
-- 둘 다 섞인 입력이면 각각 분리하여 채우기 (intent는 주된 의도)`;
+- 둘 다 섞인 입력이면 각각 분리하여 채우기 (intent는 주된 의도)
+
+## 도메인 외 입력 거부 (OOD)
+
+입력이 거래/자산/부채와 **전혀 관련 없는** 경우 아래 JSON을 반환하세요:
+
+\`\`\`json
+{"rejected": true, "reason": "가계부와 관련 없는 입력입니다."}
+\`\`\`
+
+**거부 예시**: "오늘 날씨 어때?", "자바스크립트 코드 짜줘", "사랑해", "재미있는 얘기 해줘"
+**거부하지 마세요**: 금액이 포함된 모든 입력, 은행/카드 메시지, 자산/부채 언급`;
 }
 
 export function buildUserPrompt(input: string): string {

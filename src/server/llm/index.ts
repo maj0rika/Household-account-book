@@ -93,6 +93,13 @@ function parseUnifiedResponse(parsed: unknown): { intent: "transaction" | "accou
 	// 새 통합 포맷: { intent, transactions, accounts }
 	if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
 		const obj = parsed as Record<string, unknown>;
+
+		// LLM이 OOD로 거부한 경우
+		if (obj.rejected === true) {
+			const reason = typeof obj.reason === "string" ? obj.reason : "가계부와 관련된 내용을 입력해 주세요.";
+			throw new Error(reason);
+		}
+
 		const intent = (obj.intent === "account" ? "account" : "transaction") as "transaction" | "account";
 		const transactions = validateTransactions(obj.transactions);
 		const accounts = validateAccounts(obj.accounts);

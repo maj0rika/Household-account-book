@@ -8,6 +8,7 @@ import { db } from "@/server/db";
 import { categories, accounts } from "@/server/db/schema";
 import { parseUnifiedText, parseUnifiedImage } from "@/server/llm";
 import { isBankMessage, preprocessBankMessage } from "@/server/llm/bank-message";
+import { isFinancialInput, OOD_ERROR_MESSAGE } from "@/server/llm/ood-filter";
 import type { LLMCategory } from "@/server/llm/prompt";
 import type { UnifiedParseResponse } from "@/server/llm/types";
 import type { Account } from "@/types";
@@ -53,6 +54,11 @@ export async function parseUnifiedInput(input: string): Promise<UnifiedParseResp
 
 	if (!input.trim()) {
 		return { success: false, error: "입력이 비어 있습니다." };
+	}
+
+	// 1단계 OOD 필터: 가계부와 무관한 입력 차단 (LLM 호출 전)
+	if (!isFinancialInput(input)) {
+		return { success: false, error: OOD_ERROR_MESSAGE };
 	}
 
 	// 병렬로 카테고리 + 계정 조회
