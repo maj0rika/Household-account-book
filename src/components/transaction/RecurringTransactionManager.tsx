@@ -45,7 +45,7 @@ export function RecurringTransactionManager() {
 	const [isPending, startTransition] = useTransition();
 	const [allApplied, setAllApplied] = useState(false);
 	const [applyMessage, setApplyMessage] = useState<string | null>(null);
-	const [collapsed, setCollapsed] = useState(false);
+	const [collapsed, setCollapsed] = useState(true);
 
 	// 폼 상태
 	const [type, setType] = useState<"expense" | "income">("expense");
@@ -55,7 +55,12 @@ export function RecurringTransactionManager() {
 	const [dayOfMonth, setDayOfMonth] = useState("1");
 
 	const loadData = () => {
-		getRecurringTransactions().then((data) => setItems(data as RecurringItem[]));
+		getRecurringTransactions().then((data) => {
+			const list = data as RecurringItem[];
+			setItems(list);
+			// 고정 거래가 없으면 펼쳐서 추가 유도, 있으면 접힌 채 유지
+			if (list.length === 0) setCollapsed(false);
+		});
 		getUserCategories().then((data) => setCategories(data as Category[]));
 		checkRecurringApplied(getCurrentMonth()).then(({ total, applied }) => {
 			setAllApplied(total > 0 && total === applied);
