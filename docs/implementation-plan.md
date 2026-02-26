@@ -11,6 +11,7 @@
 전체 구현을 **Phase** 단위로 나누고, 각 Phase 완료 시 히스토리를 기록한다.
 
 ### Phase 1: 프로젝트 초기화 ✅
+
 - [x] Next.js 15 + TypeScript 프로젝트 생성
 - [x] Tailwind CSS 4 설정
 - [x] shadcn/ui 초기화
@@ -20,6 +21,7 @@
 - [x] 환경변수 템플릿 (.env.example)
 
 ### Phase 2: DB + ORM 셋업 ✅
+
 - [x] Supabase 프로젝트 생성
 - [x] Drizzle ORM 설정 (drizzle.config.ts)
 - [x] DB 스키마 정의 (users, categories, transactions, budgets)
@@ -27,6 +29,7 @@
 - [x] 시드 데이터 (기본 카테고리)
 
 ### Phase 3: 인증 ✅
+
 - [x] Better Auth 설정 (Drizzle 스키마 매핑 포함)
 - [x] 이메일/비밀번호 가입 + 로그인
 - [ ] Google 소셜 로그인 (GOOGLE_CLIENT_ID 미설정 — 추후)
@@ -34,6 +37,7 @@
 - [x] 로그인/회원가입 페이지 UI
 
 ### Phase 4: LLM 파서 (핵심 기능) ✅
+
 - [x] 파싱 결과 타입 정의 (ParsedTransaction, ParseResponse)
 - [x] 프롬프트 템플릿 작성 (카테고리 동적 삽입, 한국어 금액/상대 날짜 규칙)
 - [x] LLM 클라이언트 팩토리 (OpenAI SDK 기반, baseURL로 openai/kimi 전환)
@@ -43,6 +47,7 @@
 - [x] 카테고리 미매칭 시 새 카테고리 추가 권유 플로우 (LLM이 기존 카테고리에 해당 없다고 판단하면 → 파싱 결과에 suggestedCategory 포함 → UI에서 "새 카테고리 추가" 안내)
 
 ### Phase 5: 핵심 UI (모바일 퍼스트) ✅
+
 - [x] DB 스키마 마이그레이션 (users 제거, authUsers로 FK 통합)
 - [x] shadcn/ui 컴포넌트 설치 (button, input, card, dialog, drawer 등 11개)
 - [x] 거래 CRUD Server Actions (생성, 조회, 삭제, 월별 요약)
@@ -55,6 +60,7 @@
 - [x] 회원가입 시 기본 카테고리 자동 생성 (databaseHooks)
 
 ### Phase 6: 대시보드 + 통계 ✅
+
 - [x] 월 선택 네비게이션 (이전/다음 월, URL searchParams)
 - [x] 카테고리별 지출 도넛 차트 (Recharts)
 - [x] 주간 미니 바 차트 (최근 7일 일별 지출)
@@ -65,6 +71,7 @@
 ---
 
 ### Phase 7: 메시지/은행 내역 연동 ✅
+
 카카오톡/SMS 은행 알림 메시지를 붙여넣으면 AI가 자동 파싱하는 기능.
 
 - [x] LLM 프롬프트 확장 (은행/카드 알림 메시지 파싱 규칙)
@@ -73,12 +80,14 @@
 - [x] 여러 줄 메시지 배치 파싱 → 다건 거래 생성
 
 ### Phase 8: 통계 페이지 ✅
+
 - [x] `/statistics` 페이지 생성
 - [x] 월별 수입/지출 추이 바 차트 (최근 6개월)
 - [x] 카테고리별 지출 랭킹 (건수, 비율 포함)
 - [x] 월 네비게이션 + 월별 요약 카드
 
 ### Phase 9: 예산 페이지 ✅
+
 - [x] `/budget` 페이지 생성
 - [x] 예산 CRUD (전체 + 카테고리별, upsert)
 - [x] 예산 대비 지출 진행률 바 (초과 시 빨간색)
@@ -86,6 +95,7 @@
 - [x] 예산 수정 기능 (기존 예산 금액 변경/삭제)
 
 ### Phase 10: 설정 페이지 ✅
+
 - [x] `/settings` 페이지 생성
 - [x] 프로필 표시 (이름, 이메일)
 - [x] 로그아웃
@@ -93,6 +103,7 @@
 - [x] 다크모드 토글
 
 ### Phase 11: UX 고도화 (프롬프트/파싱/네비게이션) ✅
+
 - [x] 고정거래 프롬프트 입력 (LLM 인식 → recurring_transactions 자동 등록)
 - [x] 파싱 결과 편집 (날짜/금액/카테고리/설명/타입/고정여부 수정 가능)
 - [x] 거래 목록 고정거래 뱃지 표시 (isRecurring 필드 + 🔄 아이콘)
@@ -101,6 +112,7 @@
 - [x] 이미지 파싱 (OpenAI Vision, base64 전송, 영수증/카드내역 인식)
 
 ### Phase 12: 디자인 폴리싱 ✅
+
 - [x] Glassmorphism 탭바/네비게이션
 - [x] Framer Motion 애니메이션 (리스트 추가, Bottom Sheet, 차트 업데이트)
 - [x] Mesh Gradient 대시보드 카드
@@ -109,6 +121,7 @@
 - [x] 스켈레톤 로딩 (페이지별 loading.tsx)
 
 ### Phase 12: Capacitor (네이티브 앱)
+
 - [ ] Capacitor 설치 + 설정
 - [ ] Next.js 정적 export 설정
 - [ ] API Route 래핑 (Server Actions → fetch 호출)
@@ -117,6 +130,7 @@
 - [ ] Share Extension (메시지 공유 → 자동 파싱)
 
 ### Phase 13: 배포
+
 - [ ] Vercel 연동 (웹 배포)
 - [ ] 환경변수 설정 (Vercel Dashboard)
 - [ ] 도메인 연결 (선택)
@@ -127,6 +141,7 @@
 ## v1.1 확장 기능
 
 ### Phase 14: N분의 1 정산 (더치페이) 🆕
+
 내가 카드로 전체 결제 후, 친구들에게 각자 몫을 청구/추적.
 
 - [ ] DB 스키마: settlements, settlement_members 테이블
@@ -136,17 +151,20 @@
 - [ ] 카카오페이/토스 딥링크 연동 (송금 요청 URL)
 
 ### Phase 15: 예산 알림
+
 - [ ] 카테고리별/전체 월 예산 설정
 - [ ] 예산 초과 시 알림 (웹 + 푸시)
 - [ ] 예산 대비 지출 진행률 바
 
 ### Phase 16: 거래 검색/필터 ✅
+
 - [x] 키워드/카테고리/유형 검색 (클라이언트 사이드 필터링)
 - [x] 카테고리 다중 선택
 - [x] 필터 조합 (AND)
 - [x] 검색 결과 내 통계 (건수, 합계)
 
 ### Phase 18A: 자산/부채 관리 ✅
+
 - [x] DB 스키마: accounts 테이블 (자산/부채 통합)
 - [x] transactions.accountId FK 추가 (nullable, 하위 호환)
 - [x] 계정 CRUD Server Actions
@@ -155,11 +173,13 @@
 - [x] 네비게이션에 자산 탭 추가
 
 ### Phase 17: AI 학습 개선 + 음성 입력
+
 - [ ] 사용자 수정 피드백 반영 (파싱 정확도 향상)
 - [ ] 음성 입력 (Web Speech API / Capacitor 마이크)
 - [ ] 영수증 사진 OCR → 파싱
 
 ### Phase 18B: 자산/부채 API 연동
+
 - [ ] bankapi.co.kr 연동 (5대 은행 잔액 자동 조회)
 - [ ] Codef API 검토 (더 많은 은행 지원)
 - [ ] 잔액 자동 동기화
@@ -174,12 +194,14 @@
 **파일 네이밍**: `YYYY-MM-DD-NN-<주제>.md` (같은 날 여러 건이면 NN으로 순번)
 
 **기록 시점**:
+
 1. Phase 시작 시
 2. Phase 완료 시
 3. 설계 변경 시
 4. 주요 이슈 발생/해결 시
 
 **히스토리 템플릿**:
+
 ```markdown
 ---
 date: YYYY-MM-DD
@@ -190,15 +212,19 @@ type: start | progress | complete | change | issue
 # [제목]
 
 ## 변경 내용
+
 - 무엇을 했는지
 
 ## 변경된 파일
+
 - path/to/file.ts
 
 ## 결정 사항
+
 - 왜 이렇게 했는지
 
 ## 다음 할 일
+
 - 다음 작업
 ```
 
@@ -208,32 +234,60 @@ type: start | progress | complete | change | issue
 
 ## 히스토리 로그
 
-| 날짜 | 구분 | 제목 | 링크 |
-|------|------|------|------|
-| 2026-02-24 | 설계 | 프로젝트 설계 완료 (브레인스토밍) | [brainstorm](./brainstorms/2026-02-24-household-account-book-brainstorm.md) |
-| 2026-02-24 | 계획 | 구현 계획서 작성 | 이 문서 |
-| 2026-02-24 | 완료 | Phase 1 프로젝트 초기화 완료 | [history](./history/2026-02-24-02-phase1-initialization-complete.md) |
-| 2026-02-24 | 진행 | Phase 2 DB + ORM 진행 | [history](./history/2026-02-24-03-phase2-db-orm-progress.md) |
-| 2026-02-24 | 진행 | Phase 3 인증 진행 | [history](./history/2026-02-24-04-phase3-auth-progress.md) |
-| 2026-02-24 | 완료 | Phase 2 DB + ORM 완료 (Supabase 연동) | [history](./history/2026-02-24-04-phase2-db-orm-complete.md) |
-| 2026-02-24 | 완료 | Phase 3 인증 완료 | [history](./history/2026-02-24-05-phase3-auth-complete.md) |
-| 2026-02-25 | 완료 | Phase 4 LLM 파서 구현 완료 | [history](./history/2026-02-25-01-phase4-llm-parser-complete.md) |
-| 2026-02-25 | 완료 | Phase 5 핵심 UI 구현 완료 | — |
-| 2026-02-25 | 완료 | Phase 6 대시보드 + 통계 구현 완료 | — |
-| 2026-02-25 | 완료 | Phase 7 메시지/은행 내역 연동 완료 | [history](./history/2026-02-25-02-phase7-bank-message-complete.md) |
-| 2026-02-25 | 완료 | Phase 8~10 통계/예산/설정 페이지 구현 (LNB 전체 접근 가능) | — |
-| 2026-02-25 | 완료 | 디자인 시스템 수립 + 시드 스크립트 개선 + 인증 접근 제어 | — |
-| 2026-02-25 | 완료 | Phase 11 UX 고도화 (고정거래 프롬프트, 파싱편집, Sidebar토글, 이미지파싱) | — |
-| 2026-02-25 | 완료 | Phase 12 디자인 폴리싱 (Motion, Mesh Gradient, Pretendard, Skeleton) | — |
-| 2026-02-25 | 계획 | v2 TODO + 페이즈 계획 수립 | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
-| 2026-02-25 | 결정 | v2 요구사항 의사결정 반영 (월점프/차트필터/리다이렉트/암호화 범위) | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
-| 2026-02-25 | 결정 | 추가 확정: 자산 선택 1회 기본+설정 변경, 중복판정 2A, Kimi 임계치 100자, soft 제한 | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
-| 2026-02-25 | 진행 | v2 Phase 1 1차 구현 (월점프/주간필터/아코디언/금액포맷/차트상세) | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
-| 2026-02-25 | TODO | 리스크 후속 항목 추가 (월 전환 vs 주간 필터 정합성) | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
-| 2026-02-25 | 완료 | 리스크 보완: 월 전환과 주간 필터 범위 정합성 개선(TX-09) | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
-| 2026-02-25 | 진행 | v2 Phase 2 1차 구현 (prefetch/dynamic import/skeleton/top-down loading) | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
-| 2026-02-25 | 진행 | v2 Phase 3 구현 (AI 중복방지/모델 라우팅/가변 timeout/단계형 UX) | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
-| 2026-02-25 | 결정 | 모델 라우팅 우선순위 확정: Fireworks 3회 룰 > 100자 Kimi 룰 | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
-| 2026-02-25 | 결정 | Phase4 착수 전 보안 범위 조정: 자산 name + balance 암호화 | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
-| 2026-02-25 | 완료 | 페이즈 잔여 마무리: TX-08 리다이렉트/포커스, PF-04 섹션별 pending 2차 | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
-| 2026-02-25 | 결정 | 암호화 범위 확대: 자산 + 거래/수입/지출 데이터 민감정보 암호화 | [roadmap-v2](./roadmap-v2-todo-phase-plan.md) |
+| 날짜       | 구분 | 제목                                                                               | 링크                                                                        |
+| ---------- | ---- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| 2026-02-24 | 설계 | 프로젝트 설계 완료 (브레인스토밍)                                                  | [brainstorm](./brainstorms/2026-02-24-household-account-book-brainstorm.md) |
+| 2026-02-24 | 계획 | 구현 계획서 작성                                                                   | 이 문서                                                                     |
+| 2026-02-24 | 완료 | Phase 1 프로젝트 초기화 완료                                                       | [history](./history/2026-02-24-02-phase1-initialization-complete.md)        |
+| 2026-02-24 | 진행 | Phase 2 DB + ORM 진행                                                              | [history](./history/2026-02-24-03-phase2-db-orm-progress.md)                |
+| 2026-02-24 | 진행 | Phase 3 인증 진행                                                                  | [history](./history/2026-02-24-04-phase3-auth-progress.md)                  |
+| 2026-02-24 | 완료 | Phase 2 DB + ORM 완료 (Supabase 연동)                                              | [history](./history/2026-02-24-04-phase2-db-orm-complete.md)                |
+| 2026-02-24 | 완료 | Phase 3 인증 완료                                                                  | [history](./history/2026-02-24-05-phase3-auth-complete.md)                  |
+| 2026-02-25 | 완료 | Phase 4 LLM 파서 구현 완료                                                         | [history](./history/2026-02-25-01-phase4-llm-parser-complete.md)            |
+| 2026-02-25 | 완료 | Phase 5 핵심 UI 구현 완료                                                          | —                                                                           |
+| 2026-02-25 | 완료 | Phase 6 대시보드 + 통계 구현 완료                                                  | —                                                                           |
+| 2026-02-25 | 완료 | Phase 7 메시지/은행 내역 연동 완료                                                 | [history](./history/2026-02-25-02-phase7-bank-message-complete.md)          |
+| 2026-02-25 | 완료 | Phase 8~10 통계/예산/설정 페이지 구현 (LNB 전체 접근 가능)                         | —                                                                           |
+| 2026-02-25 | 완료 | 디자인 시스템 수립 + 시드 스크립트 개선 + 인증 접근 제어                           | —                                                                           |
+| 2026-02-25 | 완료 | Phase 11 UX 고도화 (고정거래 프롬프트, 파싱편집, Sidebar토글, 이미지파싱)          | —                                                                           |
+| 2026-02-25 | 완료 | Phase 12 디자인 폴리싱 (Motion, Mesh Gradient, Pretendard, Skeleton)               | —                                                                           |
+| 2026-02-25 | 계획 | v2 TODO + 페이즈 계획 수립                                                         | [roadmap-v2](./roadmap-v2-todo-phase-plan.md)                               |
+| 2026-02-25 | 결정 | v2 요구사항 의사결정 반영 (월점프/차트필터/리다이렉트/암호화 범위)                 | [roadmap-v2](./roadmap-v2-todo-phase-plan.md)                               |
+| 2026-02-25 | 결정 | 추가 확정: 자산 선택 1회 기본+설정 변경, 중복판정 2A, Kimi 임계치 100자, soft 제한 | [roadmap-v2](./roadmap-v2-todo-phase-plan.md)                               |
+| 2026-02-25 | 진행 | v2 Phase 1 1차 구현 (월점프/주간필터/아코디언/금액포맷/차트상세)                   | [roadmap-v2](./roadmap-v2-todo-phase-plan.md)                               |
+| 2026-02-25 | TODO | 리스크 후속 항목 추가 (월 전환 vs 주간 필터 정합성)                                | [roadmap-v2](./roadmap-v2-todo-phase-plan.md)                               |
+| 2026-02-25 | 완료 | 리스크 보완: 월 전환과 주간 필터 범위 정합성 개선(TX-09)                           | [roadmap-v2](./roadmap-v2-todo-phase-plan.md)                               |
+| 2026-02-25 | 진행 | v2 Phase 2 1차 구현 (prefetch/dynamic import/skeleton/top-down loading)            | [roadmap-v2](./roadmap-v2-todo-phase-plan.md)                               |
+| 2026-02-25 | 진행 | v2 Phase 3 구현 (AI 중복방지/모델 라우팅/가변 timeout/단계형 UX)                   | [roadmap-v2](./roadmap-v2-todo-phase-plan.md)                               |
+| 2026-02-25 | 결정 | 모델 라우팅 우선순위 확정: Fireworks 3회 룰 > 100자 Kimi 룰                        | [roadmap-v2](./roadmap-v2-todo-phase-plan.md)                               |
+| 2026-02-25 | 결정 | Phase4 착수 전 보안 범위 조정: 자산 name + balance 암호화                          | [roadmap-v2](./roadmap-v2-todo-phase-plan.md)                               |
+| 2026-02-25 | 완료 | 페이즈 잔여 마무리: TX-08 리다이렉트/포커스, PF-04 섹션별 pending 2차              | [roadmap-v2](./roadmap-v2-todo-phase-plan.md)                               |
+| 2026-02-25 | 결정 | 암호화 범위 확대: 자산 + 거래/수입/지출 데이터 민감정보 암호화                     | [roadmap-v2](./roadmap-v2-todo-phase-plan.md)                               |
+| 2026-02-26 | 완료 | 디자인 시스템 전수검사 리뷰 및 모바일 사용성(터치 영역) 보완                       | [history](./history/2026-02-26-05-design-system-inspection.md)              |
+| 2026-02-26 | 완료 | 2차: 디자인 시스템 전수검사 모바일 터치 사용성(Select, Switch) 보완                | [history](./history/2026-02-26-06-design-system-inspection-2nd.md)          |
+
+## [완료] 2차 디자인 시스템 전수검사 (추가 컴포넌트 터치 최적화)
+
+### Phase 1: PM (요구사항 분석 및 작업 분해)
+
+**목표**: 1차에서 누락된 부차적 UI 컴포넌트들의 터치 증대(최소 44px 접근성) 및 조작 편의성 보완
+
+### Phase 2: UX/UI (경험 설계)
+
+- 모바일 환경에서의 오터치 방지를 위한 핵심 폼 요소 조작 여유 공간 확보 (h-11, h-6/w-11)
+- 시각적인 밸런스를 고려해 썸네일스케일스 병행 조정
+
+### Phase 3: BE (건너뜀)
+
+### Phase 4: FE (구현)
+
+- `src/components/ui/select.tsx` 수정 (`h-11`, `min-h-11` 반영)
+- `src/components/ui/switch.tsx` 수정 (`h-6 w-11`, `size-5` 반영, `border-2` 반영)
+
+### Phase 5: Infra (검증)
+
+- 타입스크립트 및 프로덕션 빌드 체크 통과
+
+### Phase 6: Record (기록)
+
+- `docs/history/2026-02-26-06-design-system-inspection-2nd.md` 생성

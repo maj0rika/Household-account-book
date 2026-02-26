@@ -73,7 +73,9 @@ function FilterBar({
 		const newType = filters.type === type ? null : type;
 		// 유형 변경 시 해당 유형에 속하지 않는 카테고리 자동 해제
 		const newCategoryIds = newType
-			? filters.categoryIds.filter((id) => categories.find((c) => c.id === id)?.type === newType)
+			? filters.categoryIds.filter(
+					(id) => categories.find((c) => c.id === id)?.type === newType,
+				)
 			: filters.categoryIds;
 		onFiltersChange({ ...filters, type: newType, categoryIds: newCategoryIds });
 	};
@@ -90,11 +92,12 @@ function FilterBar({
 		onFiltersChange(INITIAL_FILTERS);
 	};
 
-	const displayCategories = filters.type === "income"
-		? categories.filter((c) => c.type === "income")
-		: filters.type === "expense"
-			? categories.filter((c) => c.type === "expense")
-			: categories;
+	const displayCategories =
+		filters.type === "income"
+			? categories.filter((c) => c.type === "income")
+			: filters.type === "expense"
+				? categories.filter((c) => c.type === "expense")
+				: categories;
 
 	return (
 		<div className="px-4 py-2">
@@ -135,16 +138,24 @@ function FilterBar({
 					{filters.query && (
 						<Badge variant="secondary" className="gap-1 text-xs">
 							&quot;{filters.query}&quot;
-							<button type="button" onClick={handleClearQuery}>
-								<X className="h-2.5 w-2.5" />
+							<button
+								type="button"
+								onClick={handleClearQuery}
+								className="p-1 -mr-1 rounded-full hover:bg-muted"
+							>
+								<X className="h-3 w-3" />
 							</button>
 						</Badge>
 					)}
 					{filters.type && (
 						<Badge variant="secondary" className="gap-1 text-xs">
 							{filters.type === "income" ? "수입" : "지출"}
-							<button type="button" onClick={() => onFiltersChange({ ...filters, type: null })}>
-								<X className="h-2.5 w-2.5" />
+							<button
+								type="button"
+								onClick={() => onFiltersChange({ ...filters, type: null })}
+								className="p-1 -mr-1 rounded-full hover:bg-muted"
+							>
+								<X className="h-3 w-3" />
 							</button>
 						</Badge>
 					)}
@@ -153,11 +164,19 @@ function FilterBar({
 						return (
 							<Badge key={catId} variant="secondary" className="gap-1 text-xs">
 								{cat ? `${cat.icon} ${cat.name}` : "카테고리"}
-								<button type="button" onClick={() => onFiltersChange({
-									...filters,
-									categoryIds: filters.categoryIds.filter((id) => id !== catId),
-								})}>
-									<X className="h-2.5 w-2.5" />
+								<button
+									type="button"
+									onClick={() =>
+										onFiltersChange({
+											...filters,
+											categoryIds: filters.categoryIds.filter(
+												(id) => id !== catId,
+											),
+										})
+									}
+									className="p-1 -mr-1 rounded-full hover:bg-muted"
+								>
+									<X className="h-3 w-3" />
 								</button>
 							</Badge>
 						);
@@ -207,13 +226,19 @@ function FilterBar({
 
 						{/* 카테고리 필터 */}
 						<div>
-							<p className="mb-1.5 text-xs font-medium text-muted-foreground">카테고리</p>
+							<p className="mb-1.5 text-xs font-medium text-muted-foreground">
+								카테고리
+							</p>
 							<div className="flex flex-wrap gap-1.5">
 								{displayCategories.map((cat) => (
 									<Button
 										key={cat.id}
 										size="sm"
-										variant={filters.categoryIds.includes(cat.id) ? "default" : "outline"}
+										variant={
+											filters.categoryIds.includes(cat.id)
+												? "default"
+												: "outline"
+										}
 										className="h-7 gap-1 text-xs"
 										onClick={() => handleCategoryToggle(cat.id)}
 									>
@@ -250,11 +275,7 @@ export function FilterableTransactionList({
 
 	return (
 		<>
-			<FilterBar
-				categories={categories}
-				filters={filters}
-				onFiltersChange={setFilters}
-			/>
+			<FilterBar categories={categories} filters={filters} onFiltersChange={setFilters} />
 			{hasActiveFilters && (
 				<div className="px-4 py-1.5 text-xs text-muted-foreground">
 					검색 결과 {filteredTransactions.length}건
@@ -262,7 +283,10 @@ export function FilterableTransactionList({
 						<>
 							{" · "}총{" "}
 							{filteredTransactions
-								.reduce((sum, t) => sum + (t.type === "expense" ? -t.amount : t.amount), 0)
+								.reduce(
+									(sum, t) => sum + (t.type === "expense" ? -t.amount : t.amount),
+									0,
+								)
 								.toLocaleString()}
 							원
 						</>
