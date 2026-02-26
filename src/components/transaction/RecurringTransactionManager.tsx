@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, getCurrentMonth, formatCurrencyInput, parseCurrencyInput } from "@/lib/format";
+import { useDeferredLoading } from "@/hooks/useDeferredLoading";
 import {
 	getRecurringTransactions,
 	createRecurringTransaction,
@@ -41,6 +42,7 @@ export function RecurringTransactionManager() {
 	const [categories, setCategories] = useState<Category[]>([]);
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [isPending, startTransition] = useTransition();
+	const { showSpinner, startLoading, stopLoading } = useDeferredLoading(200);
 	const [allApplied, setAllApplied] = useState(false);
 	const [applyMessage, setApplyMessage] = useState<string | null>(null);
 	const [collapsed, setCollapsed] = useState(true);
@@ -74,43 +76,58 @@ export function RecurringTransactionManager() {
 	const handleCreate = () => {
 		if (!description.trim() || !amount) return;
 		startTransition(async () => {
-			const result = await createRecurringTransaction({
-				type,
-				categoryId: categoryId || null,
-				description: description.trim(),
-				amount: Number(amount),
-				dayOfMonth: Number(dayOfMonth),
-			});
-			if (result.success) {
-				setDialogOpen(false);
-				setDescription("");
-				setAmount("");
-				setCategoryId("");
-				setDayOfMonth("1");
-				loadData();
+			startLoading();
+			try {
+				const result = await createRecurringTransaction({
+					type,
+					categoryId: categoryId || null,
+					description: description.trim(),
+					amount: Number(amount),
+					dayOfMonth: Number(dayOfMonth),
+				});
+				if (result.success) {
+					setDialogOpen(false);
+					setDescription("");
+					setAmount("");
+					setCategoryId("");
+					setDayOfMonth("1");
+					loadData();
+				}
+			} finally {
+				stopLoading();
 			}
 		});
 	};
 
 	const handleDelete = (id: string) => {
 		startTransition(async () => {
-			await deleteRecurringTransaction(id);
-			loadData();
+			startLoading();
+			try {
+				await deleteRecurringTransaction(id);
+				loadData();
+			} finally {
+				stopLoading();
+			}
 		});
 	};
 
 	const handleApply = () => {
 		startTransition(async () => {
-			const result = await applyRecurringTransactions(getCurrentMonth());
-			if (result.success) {
-				if (result.count === 0 && result.alreadyApplied > 0) {
-					setApplyMessage("이번 달 고정 거래가 이미 모두 적용되어 있습니다.");
-					setAllApplied(true);
-				} else if (result.count > 0) {
-					setApplyMessage(`${result.count}건이 새로 적용되었습니다.`);
-					setAllApplied(result.alreadyApplied + result.count === items.length);
+			startLoading();
+			try {
+				const result = await applyRecurringTransactions(getCurrentMonth());
+				if (result.success) {
+					if (result.count === 0 && result.alreadyApplied > 0) {
+						setApplyMessage("이번 달 고정 거래가 이미 모두 적용되어 있습니다.");
+						setAllApplied(true);
+					} else if (result.count > 0) {
+						setApplyMessage(`${result.count}건이 새로 적용되었습니다.`);
+						setAllApplied(result.alreadyApplied + result.count === items.length);
+					}
+					setTimeout(() => setApplyMessage(null), 3000);
 				}
-				setTimeout(() => setApplyMessage(null), 3000);
+			} finally {
+				stopLoading();
 			}
 		});
 	};
@@ -236,7 +253,7 @@ export function RecurringTransactionManager() {
 					<DialogFooter>
 						<Button variant="outline" onClick={() => setDialogOpen(false)}>취소</Button>
 						<Button onClick={handleCreate} disabled={!description.trim() || !amount || Number(amount) <= 0 || isPending}>
-							{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+							{showSpinner ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
 							저장
 						</Button>
 					</DialogFooter>

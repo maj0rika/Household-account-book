@@ -15,6 +15,7 @@ import {
 	DialogFooter,
 } from "@/components/ui/dialog";
 import { addCategory, deleteCategory } from "@/server/actions/settings";
+import { useDeferredLoading } from "@/hooks/useDeferredLoading";
 import type { Category } from "@/types";
 
 const ICONS = ["🍚", "☕", "🚗", "🏠", "🎮", "👕", "💊", "📚", "🎁", "💼", "💰", "📱", "✂️", "🎬", "🏋️", "📦"];
@@ -26,6 +27,7 @@ interface CategoryManagerProps {
 export function CategoryManager({ categories }: CategoryManagerProps) {
 	const [open, setOpen] = useState(false);
 	const [isPending, startTransition] = useTransition();
+	const { showSpinner, startLoading, stopLoading } = useDeferredLoading(200);
 
 	const [type, setType] = useState<"expense" | "income">("expense");
 	const [name, setName] = useState("");
@@ -38,18 +40,28 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
 		if (!name.trim()) return;
 
 		startTransition(async () => {
-			const result = await addCategory({ name: name.trim(), icon, type });
-			if (result.success) {
-				setOpen(false);
-				setName("");
-				setIcon("📦");
+			startLoading();
+			try {
+				const result = await addCategory({ name: name.trim(), icon, type });
+				if (result.success) {
+					setOpen(false);
+					setName("");
+					setIcon("📦");
+				}
+			} finally {
+				stopLoading();
 			}
 		});
 	};
 
 	const handleDelete = (id: string) => {
 		startTransition(async () => {
-			await deleteCategory(id);
+			startLoading();
+			try {
+				await deleteCategory(id);
+			} finally {
+				stopLoading();
+			}
 		});
 	};
 
@@ -151,7 +163,7 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
 					<DialogFooter>
 						<Button variant="outline" onClick={() => setOpen(false)}>취소</Button>
 						<Button onClick={handleAdd} disabled={isPending || !name.trim()}>
-							{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+							{showSpinner ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
 							추가
 						</Button>
 					</DialogFooter>
