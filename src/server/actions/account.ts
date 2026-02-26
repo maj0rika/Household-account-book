@@ -127,15 +127,9 @@ export async function updateAccount(
 	}
 }
 
-export interface AccountBatchItem {
-	action: "create" | "update";
-	accountId?: string;
-	name: string;
-	type: "asset" | "debt";
-	subType: string;
-	icon: string;
-	balance: number;
-}
+export type AccountBatchItem =
+	| { action: "create"; name: string; type: "asset" | "debt"; subType: string; icon: string; balance: number }
+	| { action: "update"; accountId: string; name: string; type: "asset" | "debt"; subType: string; icon: string; balance: number };
 
 export async function upsertParsedAccountsBatch(
 	items: AccountBatchItem[],
@@ -143,13 +137,13 @@ export async function upsertParsedAccountsBatch(
 	try {
 		const userId = await getAuthUserId();
 
+		if (items.length === 0) {
+			return { success: false, error: "저장할 항목이 없습니다." };
+		}
+
 		await db.transaction(async (tx) => {
 			for (const item of items) {
 				if (item.action === "update") {
-					if (!item.accountId) {
-						throw new Error("업데이트 대상 계정 ID가 없습니다.");
-					}
-
 					const result = await tx
 						.update(accounts)
 						.set({
@@ -161,7 +155,7 @@ export async function upsertParsedAccountsBatch(
 						})
 						.where(and(eq(accounts.id, item.accountId), eq(accounts.userId, userId)));
 
-					if (result.rowCount === 0) {
+					if (!result.rowCount || result.rowCount === 0) {
 						throw new Error("수정할 계정을 찾을 수 없습니다.");
 					}
 				} else {

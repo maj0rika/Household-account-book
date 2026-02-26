@@ -61,7 +61,7 @@ function resolveTextProvider(input: string, sessionId: string): LLMProvider | nu
 	if (process.env.OPENAI_API_KEY) return "openai";
 	if (process.env.KIMI_API_KEY) return "kimi";
 
-	// 최후 폴백: 이용 가능한 provider가 firewoks뿐이면 제한 이후에도 사용
+	// 최후 폴백: 이용 가능한 provider가 fireworks뿐이면 제한 이후에도 사용
 	if (process.env.FIREWORKS_API_KEY) return "fireworks";
 
 	return null;
@@ -187,8 +187,11 @@ export async function parseUnifiedInput(input: string): Promise<UnifiedParseResp
 		incrementFireworksUsage(session.session.id);
 	}
 
-	if (!result.success && result.error.includes("LLM 응답 시간 초과")) {
-		return { success: false, error: mapTimeoutErrorMessage(timeoutMs, false) };
+	if (!result.success) {
+		// LLMTimeoutError가 에러 메시지에 래핑되어 있을 수 있으므로, 타임아웃 에러를 사용자 친화적 메시지로 변환
+		if (result.error.includes("LLM 응답 시간 초과") || result.error.includes("LLMTimeoutError")) {
+			return { success: false, error: mapTimeoutErrorMessage(timeoutMs, false) };
+		}
 	}
 
 	return result;
@@ -237,8 +240,10 @@ export async function parseUnifiedImageInput(
 		incrementFireworksUsage(session.session.id);
 	}
 
-	if (!result.success && result.error.includes("LLM 응답 시간 초과")) {
-		return { success: false, error: mapTimeoutErrorMessage(timeoutMs, true) };
+	if (!result.success) {
+		if (result.error.includes("LLM 응답 시간 초과") || result.error.includes("LLMTimeoutError")) {
+			return { success: false, error: mapTimeoutErrorMessage(timeoutMs, true) };
+		}
 	}
 
 	return result;

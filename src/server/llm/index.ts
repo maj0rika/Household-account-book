@@ -11,6 +11,14 @@ import type {
 } from "./types";
 import type { Account } from "@/types";
 
+// 커스텀 에러 클래스 — 문자열 비교 대신 instanceof 사용 (M6)
+export class LLMTimeoutError extends Error {
+	constructor(message = "LLM 응답 시간 초과") {
+		super(message);
+		this.name = "LLMTimeoutError";
+	}
+}
+
 const VALID_ACCOUNT_TYPES = new Set(["asset", "debt"]);
 const VALID_SUB_TYPES = new Set(["bank", "cash", "savings", "investment", "credit_card", "loan", "other"]);
 
@@ -126,13 +134,13 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 	return Promise.race([
 		promise,
 		new Promise<never>((_, reject) =>
-			setTimeout(() => reject(new Error("LLM 응답 시간 초과")), ms),
+			setTimeout(() => reject(new LLMTimeoutError()), ms),
 		),
 	]);
 }
 
 function resolveTimeoutMs(timeoutMs?: number, fallback = 30000): number {
-	if (!timeoutMs || Number.isNaN(timeoutMs)) return fallback;
+	if (timeoutMs == null || Number.isNaN(timeoutMs)) return fallback;
 	return Math.max(15000, Math.min(timeoutMs, 120000));
 }
 
