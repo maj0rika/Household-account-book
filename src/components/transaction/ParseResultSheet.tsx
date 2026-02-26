@@ -28,6 +28,7 @@ import {
 	DrawerFooter,
 } from "@/components/ui/drawer";
 import { formatCurrency, formatSignedCurrency, formatCurrencyInput, parseCurrencyInput } from "@/lib/format";
+import { useDeferredLoading } from "@/hooks/useDeferredLoading";
 import { createTransactions } from "@/server/actions/transaction";
 import { addCategory } from "@/server/actions/settings";
 import type { ParsedTransaction } from "@/server/llm/types";
@@ -368,6 +369,7 @@ export function ParseResultSheet({
 	const [items, setItems] = useState<ParsedTransaction[]>(initialItems);
 	const [localCategories, setLocalCategories] = useState<Category[]>(initialCategories);
 	const [isPending, startTransition] = useTransition();
+	const { showSpinner, startLoading, stopLoading } = useDeferredLoading(200);
 	const [pendingCategoryKeys, setPendingCategoryKeys] = useState<Set<string>>(new Set());
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -462,6 +464,7 @@ export function ParseResultSheet({
 		setErrorMessage(null);
 
 		startTransition(async () => {
+			startLoading();
 			try {
 				const result = await createTransactions(items, originalInput);
 				if (result.success) {
@@ -481,6 +484,8 @@ export function ParseResultSheet({
 			} catch (error) {
 				console.error("[ParseResultSheet] 거래 저장 실패", error);
 				setErrorMessage("거래 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+			} finally {
+				stopLoading();
 			}
 		});
 	};
@@ -544,7 +549,7 @@ export function ParseResultSheet({
 						<p className="mb-1 whitespace-pre-wrap text-xs text-destructive">{errorMessage}</p>
 					)}
 					<Button onClick={handleSave} disabled={items.length === 0 || isPending || hasPendingCategoryAdds}>
-						{isPending ? (
+						{showSpinner ? (
 							<>
 								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 								저장 중...

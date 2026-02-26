@@ -25,6 +25,7 @@ import {
 	DrawerFooter,
 } from "@/components/ui/drawer";
 import { formatCurrency, formatCurrencyInput, parseCurrencyInput } from "@/lib/format";
+import { useDeferredLoading } from "@/hooks/useDeferredLoading";
 import { upsertParsedAccountsBatch } from "@/server/actions/account";
 import type { ParsedAccount } from "@/server/llm/types";
 import type { Account } from "@/types";
@@ -276,6 +277,7 @@ export function AccountParseResultSheet({
 }: AccountParseResultSheetProps) {
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
+	const { showSpinner, startLoading, stopLoading } = useDeferredLoading(200);
 	const [matchedItems, setMatchedItems] = useState<MatchedItem[]>([]);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -311,6 +313,7 @@ export function AccountParseResultSheet({
 		setErrorMessage(null);
 
 		startTransition(async () => {
+			startLoading();
 			try {
 				const result = await upsertParsedAccountsBatch(
 					matchedItems.map((item) => {
@@ -354,6 +357,8 @@ export function AccountParseResultSheet({
 			} catch (error) {
 				console.error("[AccountParseResultSheet] 자산/부채 저장 실패", error);
 				setErrorMessage("자산/부채 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+			} finally {
+				stopLoading();
 			}
 		});
 	};
@@ -408,7 +413,7 @@ export function AccountParseResultSheet({
 						<p className="mb-1 whitespace-pre-wrap text-xs text-destructive">{errorMessage}</p>
 					)}
 					<Button onClick={handleSave} disabled={matchedItems.length === 0 || isPending}>
-						{isPending ? (
+						{showSpinner ? (
 							<>
 								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 								저장 중...
