@@ -104,7 +104,7 @@ export function Sidebar() {
 								onClick={openManualInput}
 								title={collapsed ? item.label : undefined}
 								className={cn(
-									"relative flex items-center rounded-lg transition-colors text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+									"relative flex items-center rounded-lg transition-[color,background-color,transform] active:scale-[0.97] active:duration-75 text-muted-foreground hover:bg-accent/50 hover:text-foreground",
 									collapsed ? "justify-center p-2" : "gap-3 px-3 py-2",
 								)}
 							>
@@ -123,7 +123,7 @@ export function Sidebar() {
 							prefetch
 							title={collapsed ? item.label : undefined}
 							className={cn(
-								"relative flex items-center rounded-lg transition-colors",
+								"relative flex items-center rounded-lg transition-[color,background-color,transform] active:scale-[0.97] active:duration-75",
 								collapsed ? "justify-center p-2" : "gap-3 px-3 py-2",
 								isActive
 									? "text-accent-foreground font-medium"

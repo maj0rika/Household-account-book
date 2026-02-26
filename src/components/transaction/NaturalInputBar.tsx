@@ -87,8 +87,13 @@ function buildStatusStages(isLongTask: boolean): string[] {
 	];
 }
 
+const DRAFT_STORAGE_KEY = "draft-natural-input";
+
 export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
-	const [input, setInput] = useState("");
+	const [input, setInput] = useState(() => {
+		if (typeof window === "undefined") return "";
+		return sessionStorage.getItem(DRAFT_STORAGE_KEY) ?? "";
+	});
 	const [error, setError] = useState<string | null>(null);
 	const [imagePreview, setImagePreview] = useState<string | null>(null);
 	const [imageData, setImageData] = useState<{ base64: string; mimeType: string } | null>(null);
@@ -169,6 +174,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 			if (result.success) {
 				onParsed(result, submission.input || "이미지 파싱");
 				setInput("");
+				sessionStorage.removeItem(DRAFT_STORAGE_KEY);
 				clearImage();
 				lastSubmissionRef.current = null;
 				if (textareaRef.current) {
@@ -340,7 +346,9 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 							ref={textareaRef}
 							value={input}
 							onChange={(e) => {
-								setInput(e.target.value);
+								const val = e.target.value;
+								setInput(val);
+								sessionStorage.setItem(DRAFT_STORAGE_KEY, val);
 								resizeTextarea(e.target);
 								if (error) setError(null);
 							}}

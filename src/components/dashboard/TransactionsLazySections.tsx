@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useRenderPerf } from "@/hooks/useRenderPerf";
 import type { DailyExpense, Category, CategoryBreakdown, Transaction, Account } from "@/types";
 
 function SectionLoading({ title, rows = 3 }: { title: string; rows?: number }) {
@@ -72,6 +73,7 @@ export function TransactionsLazySections({
 	accounts,
 	listSectionId,
 }: TransactionsLazySectionsProps) {
+	useRenderPerf("transactions-lazy-sections");
 	return (
 		<div style={{ contentVisibility: "auto", containIntrinsicBlockSize: "700px" }}>
 			<Separator className="my-2" />

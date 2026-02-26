@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { Repeat } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatSignedCurrency } from "@/lib/format";
@@ -9,7 +10,7 @@ interface TransactionItemContentProps {
 	tx: Transaction;
 }
 
-export function TransactionItemContent({ tx }: TransactionItemContentProps) {
+export const TransactionItemContent = memo(function TransactionItemContent({ tx }: TransactionItemContentProps) {
 	return (
 		<>
 			<span className="text-xl">{tx.category?.icon ?? "💳"}</span>
@@ -37,4 +38,4 @@ export function TransactionItemContent({ tx }: TransactionItemContentProps) {
 			</span>
 		</>
 	);
-}
+});

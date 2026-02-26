@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatMonth, getCurrentMonth } from "@/lib/format";
+import { perfStart } from "@/lib/perf";
 
 export function MonthNavigator({ month }: { month: string }) {
 	const router = useRouter();
@@ -29,7 +30,8 @@ export function MonthNavigator({ month }: { month: string }) {
 
 	const currentMonthLabel = useMemo(() => formatMonth(month), [month]);
 
-	const pushWithMonth = (targetMonth: string) => {
+	const pushWithMonth = useCallback((targetMonth: string) => {
+		const end = perfStart("action:month-navigate");
 		const params = new URLSearchParams(searchParams.toString());
 		if (targetMonth === currentMonth) {
 			params.delete("month");
@@ -40,7 +42,9 @@ export function MonthNavigator({ month }: { month: string }) {
 		params.delete("focusDate");
 		const query = params.toString();
 		router.push(query ? `?${query}` : "?");
-	};
+		// startTransition 완료 시점에 측정 종료는 불가하므로, push 호출 자체 시간 측정
+		end();
+	}, [searchParams, currentMonth, router]);
 
 	const navigate = (direction: -1 | 1) => {
 		const [year, m] = month.split("-").map(Number);

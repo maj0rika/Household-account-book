@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, memo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 
 import { Separator } from "@/components/ui/separator";
@@ -9,7 +9,7 @@ import { TransactionItemContent } from "@/components/transaction/TransactionItem
 import { TransactionEditSheet } from "@/components/transaction/TransactionEditSheet";
 import type { Transaction, Category, Account } from "@/types";
 
-function TransactionItem({
+const TransactionItem = memo(function TransactionItem({
 	tx,
 	onEdit,
 }: {
@@ -30,7 +30,7 @@ function TransactionItem({
 			<TransactionItemContent tx={tx} />
 		</motion.button>
 	);
-}
+});
 
 export function TransactionList({
 	transactions,
@@ -42,6 +42,11 @@ export function TransactionList({
 	accounts?: Account[];
 }) {
 	const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+
+	// 콜백 안정화 — TransactionItem의 memo가 효과를 발휘하도록
+	const handleEdit = useCallback((tx: Transaction) => {
+		setEditingTx(tx);
+	}, []);
 
 	if (transactions.length === 0) {
 		return (
@@ -72,7 +77,7 @@ export function TransactionList({
 								<TransactionItem
 									key={tx.id}
 									tx={tx}
-									onEdit={setEditingTx}
+									onEdit={handleEdit}
 								/>
 							))}
 							<Separator />
