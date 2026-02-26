@@ -49,7 +49,7 @@ export function StatisticsLazySections({
 	month,
 }: StatisticsLazySectionsProps) {
 	return (
-		<div style={{ contentVisibility: "auto", containIntrinsicSize: "500px" }}>
+		<div style={{ contentVisibility: "auto", containIntrinsicBlockSize: "500px" }}>
 			<div className="px-4 py-2">
 				<MonthlyTrendChart data={trend} />
 			</div>

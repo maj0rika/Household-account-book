@@ -73,7 +73,7 @@ export function TransactionsLazySections({
 	listSectionId,
 }: TransactionsLazySectionsProps) {
 	return (
-		<div style={{ contentVisibility: "auto", containIntrinsicSize: "700px" }}>
+		<div style={{ contentVisibility: "auto", containIntrinsicBlockSize: "700px" }}>
 			<Separator className="my-2" />
 			<WeeklyBarChart data={dailyExpenses} weekDates={weekDates} selectedDate={focusDate} />
 			<Separator className="my-2" />

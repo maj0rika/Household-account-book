@@ -118,6 +118,7 @@ export function MonthNavigator({ month }: { month: string }) {
 							id="jump-month"
 							type="month"
 							value={jumpMonth}
+							max={currentMonth}
 							onChange={(e) => setJumpMonth(e.target.value)}
 						/>
 					</div>
