@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/format";
+import { useDeferredLoading } from "@/hooks/useDeferredLoading";
 import { deleteAccount } from "@/server/actions/account";
 import { AccountFormSheet } from "@/components/assets/AccountFormSheet";
 import type { Account } from "@/types";
@@ -86,6 +87,7 @@ function getSubTypeLabel(subType: string): string {
 
 export function AccountList({ accounts }: { accounts: Account[] }) {
 	const [isPending, startTransition] = useTransition();
+	const { showSpinner, startLoading, stopLoading } = useDeferredLoading(200);
 	const [editingAccount, setEditingAccount] = useState<Account | null>(null);
 	const [addingType, setAddingType] = useState<"asset" | "debt" | null>(null);
 
@@ -94,7 +96,12 @@ export function AccountList({ accounts }: { accounts: Account[] }) {
 
 	const handleDelete = (id: string) => {
 		startTransition(async () => {
-			await deleteAccount(id);
+			startLoading();
+			try {
+				await deleteAccount(id);
+			} finally {
+				stopLoading();
+			}
 		});
 	};
 
@@ -106,15 +113,18 @@ export function AccountList({ accounts }: { accounts: Account[] }) {
 					<h3 className="text-sm font-semibold text-muted-foreground">
 						자산 ({assets.length})
 					</h3>
-					<Button
-						variant="ghost"
-						size="sm"
-						className="h-7 gap-1 text-xs text-primary"
-						onClick={() => setAddingType("asset")}
-					>
-						<Plus className="h-3.5 w-3.5" />
-						추가
-					</Button>
+					<div className="flex items-center gap-2">
+						{showSpinner && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+						<Button
+							variant="ghost"
+							size="sm"
+							className="h-7 gap-1 text-xs text-primary"
+							onClick={() => setAddingType("asset")}
+						>
+							<Plus className="h-3.5 w-3.5" />
+							추가
+						</Button>
+					</div>
 				</div>
 				<AnimatePresence mode="popLayout">
 					{assets.length === 0 ? (

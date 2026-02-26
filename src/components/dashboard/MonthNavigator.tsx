@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition, useCallback } from "react";
+import { useMemo, useState, useTransition, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
@@ -17,11 +17,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatMonth, getCurrentMonth } from "@/lib/format";
 import { perfStart } from "@/lib/perf";
+import { useDeferredLoading } from "@/hooks/useDeferredLoading";
 
 export function MonthNavigator({ month }: { month: string }) {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const [isPending, startTransition] = useTransition();
+	const { showSpinner, startLoading, stopLoading } = useDeferredLoading(200);
 	const [jumpOpen, setJumpOpen] = useState(false);
 	const [jumpMonth, setJumpMonth] = useState(month);
 
@@ -29,6 +31,11 @@ export function MonthNavigator({ month }: { month: string }) {
 	const isCurrentMonth = month === currentMonth;
 
 	const currentMonthLabel = useMemo(() => formatMonth(month), [month]);
+
+	useEffect(() => {
+		if (isPending) startLoading();
+		else stopLoading();
+	}, [isPending, startLoading, stopLoading]);
 
 	const pushWithMonth = useCallback((targetMonth: string) => {
 		const end = perfStart("action:month-navigate");
@@ -92,7 +99,7 @@ export function MonthNavigator({ month }: { month: string }) {
 						disabled={isPending}
 					>
 						<span className="text-sm font-semibold">{currentMonthLabel}</span>
-						{isPending && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+						{showSpinner && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
 					</Button>
 
 					<Button
@@ -105,7 +112,7 @@ export function MonthNavigator({ month }: { month: string }) {
 						<ChevronRight className="h-4 w-4" />
 					</Button>
 				</div>
-				{isPending && (
+				{showSpinner && (
 					<p className="text-[11px] text-muted-foreground">월 데이터를 불러오는 중...</p>
 				)}
 			</div>
@@ -129,7 +136,7 @@ export function MonthNavigator({ month }: { month: string }) {
 					<DialogFooter>
 						<Button variant="outline" onClick={() => setJumpOpen(false)} disabled={isPending}>취소</Button>
 						<Button onClick={handleJumpApply} disabled={!jumpMonth || isPending}>
-							{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+							{showSpinner ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
 							이동
 						</Button>
 					</DialogFooter>
