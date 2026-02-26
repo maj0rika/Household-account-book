@@ -36,7 +36,7 @@ export function UnifiedInputSection() {
 					getAccounts(),
 				]);
 				if (!mounted) return;
-				setCategories(cats as Category[]);
+				setCategories(cats);
 				setExistingAccounts(accs);
 			} catch (error) {
 				console.error("[UnifiedInputSection] 초기 데이터 로드 실패", error);
@@ -57,6 +57,8 @@ export function UnifiedInputSection() {
 	const prevAccountOpen = useRef(accountSheetOpen);
 
 	useEffect(() => {
+		let mounted = true;
+
 		if (prevTxOpen.current && !txSheetOpen) {
 			void (async () => {
 				try {
@@ -64,8 +66,9 @@ export function UnifiedInputSection() {
 						getAccounts(),
 						getUserCategories(),
 					]);
+					if (!mounted) return;
 					setExistingAccounts(accs);
-					setCategories(cats as Category[]);
+					setCategories(cats);
 				} catch (error) {
 					console.error("[UnifiedInputSection] 거래 시트 종료 후 동기화 실패", error);
 				}
@@ -78,13 +81,20 @@ export function UnifiedInputSection() {
 			}
 		}
 		prevTxOpen.current = txSheetOpen;
+
+		return () => {
+			mounted = false;
+		};
 	}, [txSheetOpen, deferAccountSheet, parsedAccounts.length]);
 
 	useEffect(() => {
+		let mounted = true;
+
 		if (prevAccountOpen.current && !accountSheetOpen) {
 			void (async () => {
 				try {
 					const accs = await getAccounts();
+					if (!mounted) return;
 					setExistingAccounts(accs);
 				} catch (error) {
 					console.error("[UnifiedInputSection] 자산 시트 종료 후 동기화 실패", error);
@@ -92,6 +102,10 @@ export function UnifiedInputSection() {
 			})();
 		}
 		prevAccountOpen.current = accountSheetOpen;
+
+		return () => {
+			mounted = false;
+		};
 	}, [accountSheetOpen]);
 
 	const handleParsed = (result: UnifiedParseResult, input: string) => {

@@ -170,6 +170,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 				onParsed(result, submission.input || "이미지 파싱");
 				setInput("");
 				clearImage();
+				lastSubmissionRef.current = null;
 				if (textareaRef.current) {
 					textareaRef.current.value = "";
 					resizeTextarea(textareaRef.current);
