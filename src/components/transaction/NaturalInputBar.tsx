@@ -88,6 +88,41 @@ function buildStatusStages(isLongTask: boolean): string[] {
 }
 
 const DRAFT_STORAGE_KEY = "draft-natural-input";
+const SUPPORTED_IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+
+function readFileAsDataUrl(file: File): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(reader.result as string);
+		reader.onerror = () => reject(new Error("이미지 읽기에 실패했습니다."));
+		reader.readAsDataURL(file);
+	});
+}
+
+function loadImage(dataUrl: string): Promise<HTMLImageElement> {
+	return new Promise((resolve, reject) => {
+		const img = new window.Image();
+		img.onload = () => resolve(img);
+		img.onerror = () => reject(new Error("이미지 디코딩에 실패했습니다."));
+		img.src = dataUrl;
+	});
+}
+
+async function compressToJpeg(dataUrl: string, maxDim = 1600, quality = 0.82): Promise<string> {
+	const img = await loadImage(dataUrl);
+	const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+	const width = Math.max(1, Math.round(img.width * scale));
+	const height = Math.max(1, Math.round(img.height * scale));
+
+	const canvas = document.createElement("canvas");
+	canvas.width = width;
+	canvas.height = height;
+	const ctx = canvas.getContext("2d");
+	if (!ctx) throw new Error("이미지 변환 컨텍스트를 생성하지 못했습니다.");
+
+	ctx.drawImage(img, 0, 0, width, height);
+	return canvas.toDataURL("image/jpeg", quality);
+}
 
 export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 	const [input, setInput] = useState(() => {
@@ -196,7 +231,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 		}
 	}, [onParsed, clearImage, resizeTextarea, startStatusTicker, stopStatusTicker]);
 
-	const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+	const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0];
 		if (!file) return;
 
@@ -205,20 +240,44 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 			return;
 		}
 
-		if (file.size > 5 * 1024 * 1024) {
-			setError("이미지 크기는 5MB 이하여야 합니다.");
+		// 원본 업로드 제한 (너무 큰 파일은 브라우저 메모리/인코딩 비용이 큼)
+		if (file.size > 12 * 1024 * 1024) {
+			setError("이미지 크기는 12MB 이하여야 합니다.");
 			return;
 		}
 
-		const reader = new FileReader();
-		reader.onload = () => {
-			const result = reader.result as string;
-			setImagePreview(result);
-			const base64 = result.split(",")[1];
-			setImageData({ base64, mimeType: file.type });
+		try {
+			let dataUrl = await readFileAsDataUrl(file);
+			let mimeType = file.type;
+
+			// HEIC/HEIF 등 비호환 포맷 또는 큰 이미지는 JPEG로 변환/압축
+			const shouldConvert = !SUPPORTED_IMAGE_MIME.has(file.type) || file.size > 1.5 * 1024 * 1024;
+			if (shouldConvert) {
+				dataUrl = await compressToJpeg(dataUrl, 1600, 0.82);
+				mimeType = "image/jpeg";
+			}
+
+			let base64 = dataUrl.split(",")[1] ?? "";
+
+			// 여전히 크면 한 번 더 압축
+			if (base64.length > 2_600_000) {
+				dataUrl = await compressToJpeg(dataUrl, 1280, 0.72);
+				mimeType = "image/jpeg";
+				base64 = dataUrl.split(",")[1] ?? "";
+			}
+
+			if (!base64) {
+				setError("이미지 인코딩에 실패했습니다. 다른 이미지를 시도해 주세요.");
+				return;
+			}
+
+			setImagePreview(dataUrl);
+			setImageData({ base64, mimeType });
 			setError(null);
-		};
-		reader.readAsDataURL(file);
+		} catch (err) {
+			console.error("[NaturalInputBar] 이미지 처리 실패", err);
+			setError("이미지 처리 중 오류가 발생했습니다. JPG/PNG 이미지로 다시 시도해 주세요.");
+		}
 	};
 
 	const handleSubmit = useCallback(() => {
