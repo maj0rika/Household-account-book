@@ -16,6 +16,7 @@ import {
 	DialogFooter,
 } from "@/components/ui/dialog";
 import { createSingleTransaction, getUserCategories } from "@/server/actions/transaction";
+import { formatCurrencyInput, parseCurrencyInput } from "@/lib/format";
 import type { Category } from "@/types";
 
 interface ManualInputDialogProps {
@@ -159,8 +160,8 @@ export function ManualInputDialog({ open, onOpenChange }: ManualInputDialogProps
 							type="text"
 							inputMode="numeric"
 							placeholder="9,000"
-							value={amount ? Number(amount).toLocaleString("ko-KR") : ""}
-							onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ""))}
+							value={formatCurrencyInput(amount)}
+							onChange={(e) => setAmount(parseCurrencyInput(e.target.value))}
 						/>
 					</div>
 				</div>

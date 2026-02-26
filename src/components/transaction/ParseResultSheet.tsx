@@ -25,7 +25,7 @@ import {
 	DrawerDescription,
 	DrawerFooter,
 } from "@/components/ui/drawer";
-import { formatCurrency, formatSignedCurrency } from "@/lib/format";
+import { formatCurrency, formatSignedCurrency, formatCurrencyInput, parseCurrencyInput } from "@/lib/format";
 import { createTransactions } from "@/server/actions/transaction";
 import { addCategory } from "@/server/actions/settings";
 import type { ParsedTransaction } from "@/server/llm/types";
@@ -116,8 +116,9 @@ function EditableItem({
 	return (
 		<div className="border-b border-border last:border-b-0">
 			{/* 요약 행 */}
-			<div
-				className="flex cursor-pointer items-center gap-2 py-2.5"
+			<button
+				type="button"
+				className="flex w-full cursor-pointer items-center gap-2 py-2.5 text-left"
 				onClick={() => setExpanded((prev) => !prev)}
 			>
 				<span className="shrink-0 p-0.5 text-muted-foreground">
@@ -150,7 +151,7 @@ function EditableItem({
 				>
 					<X className="h-3.5 w-3.5" />
 				</Button>
-			</div>
+			</button>
 
 			{/* 카테고리 추천 배너 */}
 			{item.suggestedCategory && (
@@ -202,9 +203,9 @@ function EditableItem({
 								<Input
 									type="text"
 									inputMode="numeric"
-									value={item.amount > 0 ? item.amount.toLocaleString("ko-KR") : ""}
+									value={formatCurrencyInput(String(item.amount))}
 									onChange={(e) => {
-										const digits = e.target.value.replace(/[^\d]/g, "");
+										const digits = parseCurrencyInput(e.target.value);
 										onUpdate(index, { ...item, amount: digits ? Number(digits) : 0 });
 									}}
 									className="h-8 text-sm"

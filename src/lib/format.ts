@@ -11,6 +11,60 @@ export function formatSignedCurrency(amount: number, type: "income" | "expense")
 	return `${sign}${KRW.format(amount)}원`;
 }
 
+// 금액 입력 포맷팅 유틸리티 (M4, M11 수정 — 중앙화)
+export function formatCurrencyInput(rawDigits: string): string {
+	if (!rawDigits) return "";
+	const num = Number(rawDigits);
+	if (Number.isNaN(num)) return "";
+	if (num === 0) return "0";
+	return num.toLocaleString("ko-KR");
+}
+
+export function parseCurrencyInput(formatted: string): string {
+	return formatted.replace(/[^\d]/g, "");
+}
+
+// 타임존 안전 날짜 유틸리티 (H5 수정 — KST 기준)
+export function getKSTDate(): Date {
+	const now = new Date();
+	// UTC 기준에서 KST(+9) 오프셋 적용
+	const kstOffset = 9 * 60 * 60 * 1000;
+	const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+	return new Date(utc + kstOffset);
+}
+
+export function formatDateLocal(date: Date): string {
+	const y = date.getFullYear();
+	const m = String(date.getMonth() + 1).padStart(2, "0");
+	const d = String(date.getDate()).padStart(2, "0");
+	return `${y}-${m}-${d}`;
+}
+
+// month 파라미터 검증 유틸리티
+export function isValidMonth(month: string): boolean {
+	const match = month.match(/^(\d{4})-(\d{2})$/);
+	if (!match) return false;
+	const m = Number(match[2]);
+	return m >= 1 && m <= 12;
+}
+
+// URL 쿼리 파라미터 유틸리티 (L7 수정 — 중앙화)
+export function buildSearchQuery(
+	searchParams: URLSearchParams,
+	updates: Record<string, string | null>,
+): string {
+	const params = new URLSearchParams(searchParams.toString());
+	for (const [key, value] of Object.entries(updates)) {
+		if (value === null) {
+			params.delete(key);
+		} else {
+			params.set(key, value);
+		}
+	}
+	const query = params.toString();
+	return query ? `?${query}` : "?";
+}
+
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
 
 export function formatRelativeDate(dateStr: string): string {
@@ -55,9 +109,9 @@ export function groupTransactionsByDate(transactions: Transaction[]): Transactio
 }
 
 export function getCurrentMonth(): string {
-	const now = new Date();
-	const year = now.getFullYear();
-	const month = String(now.getMonth() + 1).padStart(2, "0");
+	const kst = getKSTDate();
+	const year = kst.getFullYear();
+	const month = String(kst.getMonth() + 1).padStart(2, "0");
 	return `${year}-${month}`;
 }
 

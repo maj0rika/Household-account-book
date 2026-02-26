@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from "recharts";
 import { motion } from "motion/react";
 
+import { getKSTDate, formatDateLocal } from "@/lib/format";
 import type { DailyExpense } from "@/types";
 
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
@@ -26,11 +27,13 @@ export function WeeklyBarChart({ data, weekDates, selectedDate }: WeeklyBarChart
 	const [isPending, startTransition] = useTransition();
 
 	const dataMap = new Map(data.map((d) => [d.date, d.amount]));
+	const todayStr = formatDateLocal(getKSTDate());
 	const chartData = weekDates.map((date) => ({
 		date,
 		label: formatDayLabel(date),
 		amount: dataMap.get(date) ?? 0,
 		isSelected: selectedDate === date,
+		isToday: date === todayStr,
 	}));
 
 	const maxAmount = Math.max(...chartData.map((d) => d.amount), 1);
@@ -81,8 +84,8 @@ export function WeeklyBarChart({ data, weekDates, selectedDate }: WeeklyBarChart
 							{chartData.map((entry) => (
 								<Cell
 									key={entry.date}
-									fill={entry.isSelected ? "var(--primary)" : "var(--muted)"}
-									style={{ cursor: "pointer", opacity: isPending ? 0.75 : 1 }}
+									fill={entry.isSelected || entry.isToday ? "var(--primary)" : "var(--muted)"}
+									style={{ cursor: "pointer", opacity: isPending ? 0.75 : entry.isToday && !entry.isSelected ? 0.6 : 1 }}
 									onClick={() => handleSelectDay(entry.date)}
 								/>
 							))}

@@ -16,7 +16,7 @@ import {
 	DialogFooter,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency, getCurrentMonth } from "@/lib/format";
+import { formatCurrency, getCurrentMonth, formatCurrencyInput, parseCurrencyInput } from "@/lib/format";
 import {
 	getRecurringTransactions,
 	createRecurringTransaction,
@@ -35,17 +35,6 @@ interface RecurringItem {
 	dayOfMonth: number;
 	categoryId: string | null;
 	isActive: boolean;
-}
-
-function extractDigits(value: string): string {
-	return value.replace(/[^\d]/g, "");
-}
-
-function formatNumericInput(value: string): string {
-	if (!value) return "";
-	const num = Number(value);
-	if (!num) return "";
-	return num.toLocaleString("ko-KR");
 }
 
 export function RecurringTransactionManager() {
@@ -237,8 +226,8 @@ export function RecurringTransactionManager() {
 								type="text"
 								inputMode="numeric"
 								placeholder="1,500,000"
-								value={formatNumericInput(amount)}
-								onChange={(e) => setAmount(extractDigits(e.target.value))}
+								value={formatCurrencyInput(amount)}
+								onChange={(e) => setAmount(parseCurrencyInput(e.target.value))}
 							/>
 						</div>
 					</div>

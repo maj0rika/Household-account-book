@@ -9,7 +9,7 @@ import {
 	getUserCategories,
 } from "@/server/actions/transaction";
 import { autoApplyRecurringTransactions } from "@/server/actions/recurring";
-import { getCurrentMonth } from "@/lib/format";
+import { getCurrentMonth, isValidMonth, formatDateLocal, getKSTDate } from "@/lib/format";
 import { MonthlySummaryCard } from "@/components/dashboard/MonthlySummaryCard";
 import { MonthNavigator } from "@/components/dashboard/MonthNavigator";
 import { InteractiveCalendar } from "@/components/dashboard/InteractiveCalendar";
@@ -22,19 +22,12 @@ interface Props {
 	searchParams: Promise<{ month?: string; focusDate?: string; saved?: string; focus?: string }>;
 }
 
-function formatDateLocal(date: Date): string {
-	const y = date.getFullYear();
-	const m = String(date.getMonth() + 1).padStart(2, "0");
-	const d = String(date.getDate()).padStart(2, "0");
-	return `${y}-${m}-${d}`;
-}
-
 function getWeeklyRangeByMonth(month: string): { weekDates: string[]; startDate: string; endDateExclusive: string } {
 	const [year, monthNum] = month.split("-").map(Number);
 	const monthStart = new Date(year, monthNum - 1, 1);
 	const monthEnd = new Date(year, monthNum, 0);
 
-	const today = new Date();
+	const today = getKSTDate();
 	today.setHours(0, 0, 0, 0);
 
 	const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === monthNum;
@@ -164,7 +157,8 @@ async function TransactionsInsightsSection({
 
 export default async function TransactionsPage({ searchParams }: Props) {
 	const params = await searchParams;
-	const month = params.month ?? getCurrentMonth();
+	const rawMonth = params.month ?? getCurrentMonth();
+	const month = isValidMonth(rawMonth) ? rawMonth : getCurrentMonth();
 
 	// 고정 거래 자동 적용 (오늘 날짜 기준, 중복 방지 내장)
 	await autoApplyRecurringTransactions();

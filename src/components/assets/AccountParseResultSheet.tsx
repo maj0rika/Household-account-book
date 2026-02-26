@@ -24,7 +24,7 @@ import {
 	DrawerDescription,
 	DrawerFooter,
 } from "@/components/ui/drawer";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatCurrencyInput, parseCurrencyInput } from "@/lib/format";
 import { upsertParsedAccountsBatch } from "@/server/actions/account";
 import type { ParsedAccount } from "@/server/llm/types";
 import type { Account } from "@/types";
@@ -82,8 +82,9 @@ function EditableAccountItem({
 	return (
 		<div className="border-b border-border last:border-b-0">
 			{/* 요약 행 */}
-			<div
-				className="flex cursor-pointer items-center gap-2 py-2.5"
+			<button
+				type="button"
+				className="flex w-full cursor-pointer items-center gap-2 py-2.5 text-left"
 				onClick={() => setExpanded((prev) => !prev)}
 			>
 				<span className="shrink-0 p-0.5 text-muted-foreground">
@@ -138,7 +139,7 @@ function EditableAccountItem({
 				>
 					<X className="h-3.5 w-3.5" />
 				</Button>
-			</div>
+			</button>
 
 			{/* 매칭 정보 배너 */}
 			{matchedAccount && action === "update" && (
@@ -235,13 +236,13 @@ function EditableAccountItem({
 							<Input
 								type="text"
 								inputMode="numeric"
-								value={parsed.balance > 0 ? parsed.balance.toLocaleString("ko-KR") : ""}
+								value={formatCurrencyInput(String(parsed.balance))}
 								onChange={(e) =>
 									onUpdate(index, {
 										...item,
 										parsed: {
 											...parsed,
-											balance: Number(e.target.value.replace(/[^\d]/g, "")) || 0,
+											balance: Number(parseCurrencyInput(e.target.value)) || 0,
 										},
 									})
 								}
@@ -299,7 +300,7 @@ export function AccountParseResultSheet({
 		setMatchedItems((prev) => {
 			const next = prev.filter((_, i) => i !== index);
 			if (next.length === 0) {
-				onOpenChange(false);
+				queueMicrotask(() => onOpenChange(false));
 			}
 			return next;
 		});
@@ -312,15 +313,27 @@ export function AccountParseResultSheet({
 		startTransition(async () => {
 			try {
 				const result = await upsertParsedAccountsBatch(
-					matchedItems.map((item) => ({
-						action: item.action,
-						accountId: item.matchedAccount?.id,
-						name: item.parsed.name,
-						type: item.parsed.type,
-						subType: item.parsed.subType,
-						icon: item.parsed.icon,
-						balance: item.parsed.balance,
-					})),
+					matchedItems.map((item) => {
+						if (item.action === "update" && item.matchedAccount) {
+							return {
+								action: "update" as const,
+								accountId: item.matchedAccount.id,
+								name: item.parsed.name,
+								type: item.parsed.type,
+								subType: item.parsed.subType,
+								icon: item.parsed.icon,
+								balance: item.parsed.balance,
+							};
+						}
+						return {
+							action: "create" as const,
+							name: item.parsed.name,
+							type: item.parsed.type,
+							subType: item.parsed.subType,
+							icon: item.parsed.icon,
+							balance: item.parsed.balance,
+						};
+					}),
 				);
 
 				if (result.success) {

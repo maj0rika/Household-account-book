@@ -22,6 +22,7 @@ import {
 	DrawerFooter,
 } from "@/components/ui/drawer";
 import { updateTransaction, deleteTransaction } from "@/server/actions/transaction";
+import { formatCurrencyInput, parseCurrencyInput } from "@/lib/format";
 import type { Transaction, Category } from "@/types";
 
 interface TransactionEditSheetProps {
@@ -104,8 +105,8 @@ export function TransactionEditSheet({ open, onOpenChange, transaction: tx, cate
 							<Input
 								type="text"
 								inputMode="numeric"
-								value={amount ? Number(amount).toLocaleString("ko-KR") : ""}
-								onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ""))}
+								value={formatCurrencyInput(amount)}
+								onChange={(e) => setAmount(parseCurrencyInput(e.target.value))}
 								className="h-9"
 							/>
 						</div>
