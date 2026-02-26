@@ -15,6 +15,7 @@
 		"db:seed:user": "tsx src/server/db/seed.ts -- --email",
 		"db:reset": "tsx src/server/db/reset.ts",
 		"db:init": "npm run db:reset && npm run db:migrate && npm run db:seed",
+		"db:encrypt-existing": "tsx scripts/encrypt-existing-data.ts",
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"cap:build": "next build && npx cap sync",

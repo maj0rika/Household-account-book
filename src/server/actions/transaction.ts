@@ -7,6 +7,7 @@ import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { transactions, categories, recurringTransactions } from "@/server/db/schema";
 import type { ParsedTransaction } from "@/server/llm/types";
+import { encryptNullable, decryptNullable } from "@/server/lib/crypto";
 import type { Transaction, MonthlySummary, CategoryBreakdown, DailyExpense, Category } from "@/types";
 
 async function getAuthUserId(): Promise<string> {
@@ -129,7 +130,7 @@ export async function createTransactions(
 				type: item.type,
 				amount: item.amount,
 				description: item.description,
-				originalInput,
+				originalInput: encryptNullable(originalInput),
 				date: item.date,
 				isRecurring: false,
 			}));
@@ -213,9 +214,9 @@ export async function createTransactions(
 						type: item.type,
 						amount: item.amount,
 						description: item.description,
-						originalInput,
+						originalInput: encryptNullable(originalInput),
 						date: item.date,
-						memo: "고정 거래 자동 생성",
+						memo: encryptNullable("고정 거래 자동 생성"),
 						isRecurring: true,
 					})),
 				);
@@ -305,9 +306,9 @@ export async function getTransactions(month: string, filters?: TransactionFilter
 		type: row.type,
 		amount: row.amount,
 		description: row.description,
-		originalInput: row.originalInput,
+		originalInput: decryptNullable(row.originalInput),
 		date: row.date,
-		memo: row.memo,
+		memo: decryptNullable(row.memo),
 		isRecurring: row.isRecurring,
 		createdAt: row.createdAt,
 		updatedAt: row.updatedAt,
@@ -396,7 +397,7 @@ export async function updateTransaction(
 				...(data.description !== undefined && { description: data.description }),
 				...(data.amount !== undefined && { amount: data.amount }),
 				...(data.date !== undefined && { date: data.date }),
-				...(data.memo !== undefined && { memo: data.memo }),
+				...(data.memo !== undefined && { memo: encryptNullable(data.memo) }),
 				updatedAt: new Date(),
 			})
 			.where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
@@ -445,7 +446,7 @@ export async function createSingleTransaction(data: {
 			amount: data.amount,
 			description: data.description,
 			date: data.date,
-			memo: data.memo ?? null,
+			memo: encryptNullable(data.memo ?? null),
 		});
 
 		return { success: true };

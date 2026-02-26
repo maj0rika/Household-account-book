@@ -3,6 +3,7 @@ import "dotenv/config";
 import { eq, and } from "drizzle-orm";
 
 import { DEFAULT_CATEGORIES } from "@/lib/constants";
+import { encryptNullable } from "@/server/lib/crypto";
 
 import { db } from "./index";
 import {
@@ -141,7 +142,7 @@ const seed = async (): Promise<void> => {
 				amount: tx.amount,
 				description: tx.description,
 				date: tx.date,
-				memo: "시드 데이터",
+				memo: encryptNullable("시드 데이터"),
 			});
 		}
 	}

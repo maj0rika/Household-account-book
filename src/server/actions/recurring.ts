@@ -6,6 +6,7 @@ import { eq, and, gte, lt } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { recurringTransactions, transactions } from "@/server/db/schema";
+import { encryptNullable } from "@/server/lib/crypto";
 
 async function getAuthUserId(): Promise<string> {
 	const session = await auth.api.getSession({
@@ -108,7 +109,7 @@ export async function applyRecurringTransactions(
 			.where(
 				and(
 					eq(transactions.userId, userId),
-					eq(transactions.memo, "고정 거래 자동 생성"),
+					eq(transactions.isRecurring, true),
 					gte(transactions.date, startDate),
 					lt(transactions.date, nextMonth),
 				),
@@ -129,7 +130,7 @@ export async function applyRecurringTransactions(
 					amount: r.amount,
 					description: r.description,
 					date,
-					memo: "고정 거래 자동 생성",
+					memo: encryptNullable("고정 거래 자동 생성"),
 					isRecurring: true,
 				};
 			})
@@ -188,7 +189,7 @@ export async function checkRecurringApplied(
 			.where(
 				and(
 					eq(transactions.userId, userId),
-					eq(transactions.memo, "고정 거래 자동 생성"),
+					eq(transactions.isRecurring, true),
 					gte(transactions.date, startDate),
 					lt(transactions.date, nextMonth),
 				),
@@ -250,7 +251,7 @@ export async function autoApplyRecurringTransactions(): Promise<number> {
 		const dueItems = recurring.filter((r) => Math.min(r.dayOfMonth, daysInMonth) <= today);
 		if (dueItems.length === 0) return 0;
 
-		// 이번 달 "고정 거래 자동 생성" 메모가 달린 기존 거래 조회
+		// 이번 달 고정 거래로 생성된 기존 거래 조회
 		const existingRows = await db
 			.select({
 				description: transactions.description,
@@ -262,7 +263,7 @@ export async function autoApplyRecurringTransactions(): Promise<number> {
 			.where(
 				and(
 					eq(transactions.userId, userId),
-					eq(transactions.memo, "고정 거래 자동 생성"),
+					eq(transactions.isRecurring, true),
 					gte(transactions.date, startDate),
 					lt(transactions.date, nextMonth),
 				),
@@ -284,7 +285,7 @@ export async function autoApplyRecurringTransactions(): Promise<number> {
 					amount: r.amount,
 					description: r.description,
 					date,
-					memo: "고정 거래 자동 생성",
+					memo: encryptNullable("고정 거래 자동 생성"),
 					isRecurring: true,
 				};
 			})
