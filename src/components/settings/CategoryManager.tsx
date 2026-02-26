@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Plus, Trash2, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -25,7 +24,6 @@ interface CategoryManagerProps {
 }
 
 export function CategoryManager({ categories }: CategoryManagerProps) {
-	const router = useRouter();
 	const [open, setOpen] = useState(false);
 	const [isPending, startTransition] = useTransition();
 
@@ -45,7 +43,6 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
 				setOpen(false);
 				setName("");
 				setIcon("📦");
-				router.refresh();
 			}
 		});
 	};
@@ -53,7 +50,6 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
 	const handleDelete = (id: string) => {
 		startTransition(async () => {
 			await deleteCategory(id);
-			router.refresh();
 		});
 	};
 

@@ -469,7 +469,6 @@ export function ParseResultSheet({
 
 					// 혼합 입력은 자산 단계로 이어지므로 현재 흐름 유지
 					if (splitMeta) {
-						router.refresh();
 						return;
 					}
 

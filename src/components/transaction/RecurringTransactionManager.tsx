@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Check, Trash2, Loader2, Plus, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -38,7 +37,6 @@ interface RecurringItem {
 }
 
 export function RecurringTransactionManager() {
-	const router = useRouter();
 	const [items, setItems] = useState<RecurringItem[]>([]);
 	const [categories, setCategories] = useState<Category[]>([]);
 	const [dialogOpen, setDialogOpen] = useState(false);
@@ -112,7 +110,6 @@ export function RecurringTransactionManager() {
 					setApplyMessage(`${result.count}건이 새로 적용되었습니다.`);
 					setAllApplied(result.alreadyApplied + result.count === items.length);
 				}
-				router.refresh();
 				setTimeout(() => setApplyMessage(null), 3000);
 			}
 		});

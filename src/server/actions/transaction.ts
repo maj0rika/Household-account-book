@@ -9,6 +9,7 @@ import { transactions, categories, recurringTransactions, accounts } from "@/ser
 import type { ParsedTransaction } from "@/server/llm/types";
 import { encryptNullable, decryptNullable } from "@/server/lib/crypto";
 import type { Transaction, MonthlySummary, CategoryBreakdown, DailyExpense, Category } from "@/types";
+import { revalidateTransactionPages } from "@/lib/cache-keys";
 
 // db.transaction 콜백의 tx 타입
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -277,6 +278,7 @@ export async function createTransactions(
 			}
 		}
 
+		revalidateTransactionPages();
 		return { success: true, count: savedCount };
 	} catch (e) {
 		return { success: false, error: e instanceof Error ? e.message : "저장에 실패했습니다." };
@@ -439,6 +441,7 @@ export async function deleteTransaction(
 			await reverseAccountBalance(tx, existing.accountId, existing.type, existing.amount);
 		});
 
+		revalidateTransactionPages();
 		return { success: true };
 	} catch (e) {
 		return { success: false, error: e instanceof Error ? e.message : "삭제에 실패했습니다." };
@@ -500,6 +503,7 @@ export async function updateTransaction(
 			await adjustAccountBalance(tx, newAccountId, newType, newAmount);
 		});
 
+		revalidateTransactionPages();
 		return { success: true };
 	} catch (e) {
 		return { success: false, error: e instanceof Error ? e.message : "수정에 실패했습니다." };
@@ -554,6 +558,7 @@ export async function createSingleTransaction(data: {
 			await adjustAccountBalance(tx, data.accountId, data.type, data.amount);
 		});
 
+		revalidateTransactionPages();
 		return { success: true };
 	} catch (e) {
 		return { success: false, error: e instanceof Error ? e.message : "저장에 실패했습니다." };

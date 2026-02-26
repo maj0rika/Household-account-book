@@ -6,6 +6,7 @@ import { and, eq, gte, lt, sql, isNull } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { budgets, transactions, categories } from "@/server/db/schema";
+import { revalidateBudgetPages } from "@/lib/cache-keys";
 
 async function getAuthUserId(): Promise<string> {
 	const session = await auth.api.getSession({
@@ -137,6 +138,7 @@ export async function upsertBudget(data: {
 			});
 		}
 
+		revalidateBudgetPages();
 		return { success: true };
 	} catch (e) {
 		return { success: false, error: e instanceof Error ? e.message : "예산 저장에 실패했습니다." };
@@ -156,6 +158,7 @@ export async function deleteBudget(
 			.delete(budgets)
 			.where(and(eq(budgets.id, id), eq(budgets.userId, userId)));
 
+		revalidateBudgetPages();
 		return { success: true };
 	} catch (e) {
 		return { success: false, error: e instanceof Error ? e.message : "예산 삭제에 실패했습니다." };

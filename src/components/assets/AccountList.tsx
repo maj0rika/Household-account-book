@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -86,7 +85,6 @@ function getSubTypeLabel(subType: string): string {
 }
 
 export function AccountList({ accounts }: { accounts: Account[] }) {
-	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 	const [editingAccount, setEditingAccount] = useState<Account | null>(null);
 	const [addingType, setAddingType] = useState<"asset" | "debt" | null>(null);
@@ -97,7 +95,6 @@ export function AccountList({ accounts }: { accounts: Account[] }) {
 	const handleDelete = (id: string) => {
 		startTransition(async () => {
 			await deleteAccount(id);
-			router.refresh();
 		});
 	};
 

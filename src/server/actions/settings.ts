@@ -6,6 +6,7 @@ import { and, eq } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { categories } from "@/server/db/schema";
+import { revalidateCategoryPages } from "@/lib/cache-keys";
 
 async function getAuthUserId(): Promise<string> {
 	const session = await auth.api.getSession({
@@ -40,6 +41,7 @@ export async function addCategory(data: {
 			isDefault: false,
 		});
 
+		revalidateCategoryPages();
 		return { success: true };
 	} catch (e) {
 		const msg = e instanceof Error ? e.message : "카테고리 추가에 실패했습니다.";
@@ -60,6 +62,7 @@ export async function deleteCategory(
 			.delete(categories)
 			.where(and(eq(categories.id, id), eq(categories.userId, userId)));
 
+		revalidateCategoryPages();
 		return { success: true };
 	} catch (e) {
 		return { success: false, error: e instanceof Error ? e.message : "카테고리 삭제에 실패했습니다." };

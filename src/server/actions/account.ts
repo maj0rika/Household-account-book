@@ -6,6 +6,7 @@ import { and, eq, desc, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { accounts } from "@/server/db/schema";
+import { revalidateAccountPages } from "@/lib/cache-keys";
 import type { Account, AccountSummary } from "@/types";
 
 async function getAuthUserId(): Promise<string> {
@@ -90,6 +91,7 @@ export async function createAccount(data: {
 			})
 			.returning({ id: accounts.id });
 
+		revalidateAccountPages();
 		return { success: true, id: row.id };
 	} catch (e) {
 		return { success: false, error: e instanceof Error ? e.message : "계정 생성에 실패했습니다." };
@@ -121,6 +123,7 @@ export async function updateAccount(
 			})
 			.where(and(eq(accounts.id, id), eq(accounts.userId, userId)));
 
+		revalidateAccountPages();
 		return { success: true };
 	} catch (e) {
 		return { success: false, error: e instanceof Error ? e.message : "계정 수정에 실패했습니다." };
@@ -171,6 +174,7 @@ export async function upsertParsedAccountsBatch(
 			}
 		});
 
+		revalidateAccountPages();
 		return { success: true, count: items.length };
 	} catch (e) {
 		return {
@@ -192,6 +196,7 @@ export async function deleteAccount(
 			.set({ isActive: false, updatedAt: new Date() })
 			.where(and(eq(accounts.id, id), eq(accounts.userId, userId)));
 
+		revalidateAccountPages();
 		return { success: true };
 	} catch (e) {
 		return { success: false, error: e instanceof Error ? e.message : "계정 삭제에 실패했습니다." };

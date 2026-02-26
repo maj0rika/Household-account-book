@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Plus, Loader2, Trash2, Pencil } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -25,7 +24,6 @@ interface BudgetFormProps {
 }
 
 export function BudgetForm({ month, budgets, categories }: BudgetFormProps) {
-	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 
 	// 추가 Dialog
@@ -57,7 +55,6 @@ export function BudgetForm({ month, budgets, categories }: BudgetFormProps) {
 				setAddOpen(false);
 				setAmount("");
 				setCategoryId("__total__");
-				router.refresh();
 			}
 		});
 	};
@@ -83,7 +80,6 @@ export function BudgetForm({ month, budgets, categories }: BudgetFormProps) {
 				setEditOpen(false);
 				setEditTarget(null);
 				setEditAmount("");
-				router.refresh();
 			}
 		});
 	};
@@ -91,7 +87,6 @@ export function BudgetForm({ month, budgets, categories }: BudgetFormProps) {
 	const handleDelete = (budgetId: string) => {
 		startTransition(async () => {
 			await deleteBudget(budgetId);
-			router.refresh();
 		});
 	};
 

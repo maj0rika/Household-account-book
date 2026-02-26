@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -38,7 +37,6 @@ interface ManualInputDialogProps {
 const NO_ACCOUNT = "__none__";
 
 export function ManualInputDialog({ open, onOpenChange }: ManualInputDialogProps) {
-	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 	const [categories, setCategories] = useState<Category[]>([]);
 	const [accountList, setAccountList] = useState<Account[]>([]);
@@ -89,7 +87,6 @@ export function ManualInputDialog({ open, onOpenChange }: ManualInputDialogProps
 			if (result.success) {
 				onOpenChange(false);
 				resetForm();
-				router.refresh();
 			}
 		});
 	};

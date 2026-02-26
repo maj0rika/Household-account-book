@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -49,7 +48,6 @@ interface AccountFormSheetProps {
 }
 
 export function AccountFormSheet({ open, onOpenChange, mode, account, defaultType }: AccountFormSheetProps) {
-	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 
 	const [name, setName] = useState(account?.name ?? "");
@@ -80,7 +78,6 @@ export function AccountFormSheet({ open, onOpenChange, mode, account, defaultTyp
 				});
 				if (result.success) {
 					onOpenChange(false);
-					router.refresh();
 				}
 			} else if (account) {
 				const result = await updateAccount(account.id, {
@@ -91,7 +88,6 @@ export function AccountFormSheet({ open, onOpenChange, mode, account, defaultTyp
 				});
 				if (result.success) {
 					onOpenChange(false);
-					router.refresh();
 				}
 			}
 		});

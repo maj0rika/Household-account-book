@@ -7,6 +7,7 @@ import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { recurringTransactions, transactions } from "@/server/db/schema";
 import { encryptNullable } from "@/server/lib/crypto";
+import { revalidateRecurringPages } from "@/lib/cache-keys";
 
 async function getAuthUserId(): Promise<string> {
 	const session = await auth.api.getSession({
@@ -47,6 +48,7 @@ export async function createRecurringTransaction(data: {
 			dayOfMonth: data.dayOfMonth,
 		});
 
+		revalidateRecurringPages();
 		return { success: true };
 	} catch (e) {
 		return { success: false, error: e instanceof Error ? e.message : "저장에 실패했습니다." };
@@ -63,6 +65,7 @@ export async function deleteRecurringTransaction(
 			.delete(recurringTransactions)
 			.where(and(eq(recurringTransactions.id, id), eq(recurringTransactions.userId, userId)));
 
+		revalidateRecurringPages();
 		return { success: true };
 	} catch (e) {
 		return { success: false, error: e instanceof Error ? e.message : "삭제에 실패했습니다." };
@@ -144,6 +147,7 @@ export async function applyRecurringTransactions(
 
 		await db.insert(transactions).values(values);
 
+		revalidateRecurringPages();
 		return { success: true, count: values.length, alreadyApplied };
 	} catch (e) {
 		return { success: false, error: e instanceof Error ? e.message : "적용에 실패했습니다." };

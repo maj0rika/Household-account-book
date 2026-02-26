@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Loader2, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -39,7 +38,6 @@ interface TransactionEditSheetProps {
 const NO_ACCOUNT = "__none__";
 
 export function TransactionEditSheet({ open, onOpenChange, transaction: tx, categories, accounts }: TransactionEditSheetProps) {
-	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 
 	const [type, setType] = useState(tx.type);
@@ -68,7 +66,6 @@ export function TransactionEditSheet({ open, onOpenChange, transaction: tx, cate
 			});
 			if (result.success) {
 				onOpenChange(false);
-				router.refresh();
 			}
 		});
 	};
@@ -78,7 +75,6 @@ export function TransactionEditSheet({ open, onOpenChange, transaction: tx, cate
 			const result = await deleteTransaction(tx.id);
 			if (result.success) {
 				onOpenChange(false);
-				router.refresh();
 			}
 		});
 	};
