@@ -21,6 +21,7 @@ import {
 	DrawerFooter,
 } from "@/components/ui/drawer";
 import { createAccount, updateAccount } from "@/server/actions/account";
+import { useDeferredLoading } from "@/hooks/useDeferredLoading";
 import type { Account } from "@/types";
 
 const ASSET_SUB_TYPES = [
@@ -49,6 +50,7 @@ interface AccountFormSheetProps {
 
 export function AccountFormSheet({ open, onOpenChange, mode, account, defaultType }: AccountFormSheetProps) {
 	const [isPending, startTransition] = useTransition();
+	const { showSpinner, startLoading, stopLoading } = useDeferredLoading(200);
 
 	const [name, setName] = useState(account?.name ?? "");
 	const [type, setType] = useState<"asset" | "debt">(account?.type ?? defaultType ?? "asset");
@@ -68,27 +70,32 @@ export function AccountFormSheet({ open, onOpenChange, mode, account, defaultTyp
 		if (!name.trim()) return;
 
 		startTransition(async () => {
-			if (mode === "create") {
-				const result = await createAccount({
-					name: name.trim(),
-					type,
-					subType,
-					icon,
-					balance: Number(balance) || 0,
-				});
-				if (result.success) {
-					onOpenChange(false);
+			startLoading();
+			try {
+				if (mode === "create") {
+					const result = await createAccount({
+						name: name.trim(),
+						type,
+						subType,
+						icon,
+						balance: Number(balance) || 0,
+					});
+					if (result.success) {
+						onOpenChange(false);
+					}
+				} else if (account) {
+					const result = await updateAccount(account.id, {
+						name: name.trim(),
+						icon,
+						balance: Number(balance) || 0,
+						subType,
+					});
+					if (result.success) {
+						onOpenChange(false);
+					}
 				}
-			} else if (account) {
-				const result = await updateAccount(account.id, {
-					name: name.trim(),
-					icon,
-					balance: Number(balance) || 0,
-					subType,
-				});
-				if (result.success) {
-					onOpenChange(false);
-				}
+			} finally {
+				stopLoading();
 			}
 		});
 	};
@@ -185,7 +192,7 @@ export function AccountFormSheet({ open, onOpenChange, mode, account, defaultTyp
 
 				<DrawerFooter>
 					<Button className="w-full" onClick={handleSubmit} disabled={isPending || !name.trim()}>
-						{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+						{showSpinner ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
 						{mode === "create" ? "추가" : "수정 완료"}
 					</Button>
 				</DrawerFooter>

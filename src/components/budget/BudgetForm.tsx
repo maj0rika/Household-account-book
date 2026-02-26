@@ -14,6 +14,7 @@ import {
 	DialogFooter,
 } from "@/components/ui/dialog";
 import { upsertBudget, deleteBudget } from "@/server/actions/budget";
+import { useDeferredLoading } from "@/hooks/useDeferredLoading";
 import type { BudgetWithSpent } from "@/server/actions/budget";
 import type { Category } from "@/types";
 
@@ -25,6 +26,7 @@ interface BudgetFormProps {
 
 export function BudgetForm({ month, budgets, categories }: BudgetFormProps) {
 	const [isPending, startTransition] = useTransition();
+	const { showSpinner, startLoading, stopLoading } = useDeferredLoading(200);
 
 	// 추가 Dialog
 	const [addOpen, setAddOpen] = useState(false);
@@ -46,15 +48,20 @@ export function BudgetForm({ month, budgets, categories }: BudgetFormProps) {
 		if (!numAmount || numAmount <= 0) return;
 
 		startTransition(async () => {
-			const result = await upsertBudget({
-				categoryId: categoryId === "__total__" ? null : categoryId,
-				amount: numAmount,
-				month,
-			});
-			if (result.success) {
-				setAddOpen(false);
-				setAmount("");
-				setCategoryId("__total__");
+			startLoading();
+			try {
+				const result = await upsertBudget({
+					categoryId: categoryId === "__total__" ? null : categoryId,
+					amount: numAmount,
+					month,
+				});
+				if (result.success) {
+					setAddOpen(false);
+					setAmount("");
+					setCategoryId("__total__");
+				}
+			} finally {
+				stopLoading();
 			}
 		});
 	};
@@ -71,22 +78,32 @@ export function BudgetForm({ month, budgets, categories }: BudgetFormProps) {
 		if (!numAmount || numAmount <= 0) return;
 
 		startTransition(async () => {
-			const result = await upsertBudget({
-				categoryId: editTarget.categoryId,
-				amount: numAmount,
-				month,
-			});
-			if (result.success) {
-				setEditOpen(false);
-				setEditTarget(null);
-				setEditAmount("");
+			startLoading();
+			try {
+				const result = await upsertBudget({
+					categoryId: editTarget.categoryId,
+					amount: numAmount,
+					month,
+				});
+				if (result.success) {
+					setEditOpen(false);
+					setEditTarget(null);
+					setEditAmount("");
+				}
+			} finally {
+				stopLoading();
 			}
 		});
 	};
 
 	const handleDelete = (budgetId: string) => {
 		startTransition(async () => {
-			await deleteBudget(budgetId);
+			startLoading();
+			try {
+				await deleteBudget(budgetId);
+			} finally {
+				stopLoading();
+			}
 		});
 	};
 
@@ -176,7 +193,7 @@ export function BudgetForm({ month, budgets, categories }: BudgetFormProps) {
 							취소
 						</Button>
 						<Button onClick={handleSave} disabled={isPending || !amount}>
-							{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+							{showSpinner ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
 							저장
 						</Button>
 					</DialogFooter>
@@ -216,7 +233,7 @@ export function BudgetForm({ month, budgets, categories }: BudgetFormProps) {
 							취소
 						</Button>
 						<Button onClick={handleEditSave} disabled={isPending || !editAmount}>
-							{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+							{showSpinner ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
 							수정
 						</Button>
 					</DialogFooter>
