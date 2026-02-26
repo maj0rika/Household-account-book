@@ -13,7 +13,9 @@ import { Label } from "@/components/ui/label";
 import {
 	Select,
 	SelectContent,
+	SelectGroup,
 	SelectItem,
+	SelectLabel,
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
@@ -29,7 +31,7 @@ import { formatCurrency, formatSignedCurrency, formatCurrencyInput, parseCurrenc
 import { createTransactions } from "@/server/actions/transaction";
 import { addCategory } from "@/server/actions/settings";
 import type { ParsedTransaction } from "@/server/llm/types";
-import type { Category } from "@/types";
+import type { Category, Account } from "@/types";
 
 // 카테고리 타입별 기본 아이콘 매핑
 const CATEGORY_ICON_MAP: Record<string, string> = {
@@ -44,6 +46,9 @@ const CATEGORY_ICON_MAP: Record<string, string> = {
 	"저축": "🏦",
 	"배달": "🛵",
 };
+
+// 계좌 미선택 센티넬 값
+const NO_ACCOUNT = "__none__";
 
 function getDefaultIcon(categoryName: string, type: "income" | "expense"): string {
 	if (CATEGORY_ICON_MAP[categoryName]) return CATEGORY_ICON_MAP[categoryName];
@@ -86,6 +91,7 @@ interface ParseResultSheetProps {
 	items: ParsedTransaction[];
 	originalInput: string;
 	categories: Category[];
+	accounts?: Account[];
 	splitMeta?: {
 		transactionCount: number;
 		accountCount: number;
@@ -96,6 +102,7 @@ function EditableItem({
 	item,
 	index,
 	categories,
+	accounts = [],
 	onUpdate,
 	onRemove,
 	onAddCategory,
@@ -104,6 +111,7 @@ function EditableItem({
 	item: ParsedTransaction;
 	index: number;
 	categories: Category[];
+	accounts?: Account[];
 	onUpdate: (index: number, updated: ParsedTransaction) => void;
 	onRemove: (index: number) => void;
 	onAddCategory: (index: number, name: string, type: "income" | "expense") => void;
@@ -112,6 +120,8 @@ function EditableItem({
 	const [expanded, setExpanded] = useState(false);
 
 	const filteredCategories = categories.filter((c) => c.type === item.type);
+	const assetAccounts = accounts.filter((a) => a.type === "asset");
+	const debtAccounts = accounts.filter((a) => a.type === "debt");
 
 	return (
 		<div className="border-b border-border last:border-b-0">
@@ -298,6 +308,46 @@ function EditableItem({
 								</div>
 							)}
 						</div>
+
+						{/* 계좌 */}
+						{accounts.length > 0 && (
+							<div className="space-y-1">
+								<Label className="text-xs">계좌 (선택사항)</Label>
+								<Select
+									value={item.accountId ?? NO_ACCOUNT}
+									onValueChange={(value) =>
+										onUpdate(index, { ...item, accountId: value === NO_ACCOUNT ? null : value })
+									}
+								>
+									<SelectTrigger className="h-8 text-sm">
+										<SelectValue placeholder="계좌 선택" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value={NO_ACCOUNT}>선택 안 함</SelectItem>
+										{assetAccounts.length > 0 && (
+											<SelectGroup>
+												<SelectLabel>자산</SelectLabel>
+												{assetAccounts.map((acc) => (
+													<SelectItem key={acc.id} value={acc.id}>
+														{acc.icon} {acc.name}
+													</SelectItem>
+												))}
+											</SelectGroup>
+										)}
+										{debtAccounts.length > 0 && (
+											<SelectGroup>
+												<SelectLabel>부채</SelectLabel>
+												{debtAccounts.map((acc) => (
+													<SelectItem key={acc.id} value={acc.id}>
+														{acc.icon} {acc.name}
+													</SelectItem>
+												))}
+											</SelectGroup>
+										)}
+									</SelectContent>
+								</Select>
+							</div>
+						)}
 					</motion.div>
 				)}
 			</AnimatePresence>
@@ -311,6 +361,7 @@ export function ParseResultSheet({
 	items: initialItems,
 	originalInput,
 	categories: initialCategories,
+	accounts = [],
 	splitMeta,
 }: ParseResultSheetProps) {
 	const router = useRouter();
@@ -462,6 +513,7 @@ export function ParseResultSheet({
 								item={item}
 								index={index}
 								categories={localCategories}
+								accounts={accounts}
 								onUpdate={handleUpdate}
 								onRemove={handleRemove}
 								onAddCategory={handleAddCategory}

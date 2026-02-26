@@ -10,7 +10,9 @@ import { Label } from "@/components/ui/label";
 import {
 	Select,
 	SelectContent,
+	SelectGroup,
 	SelectItem,
+	SelectLabel,
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
@@ -23,26 +25,33 @@ import {
 } from "@/components/ui/drawer";
 import { updateTransaction, deleteTransaction } from "@/server/actions/transaction";
 import { formatCurrencyInput, parseCurrencyInput } from "@/lib/format";
-import type { Transaction, Category } from "@/types";
+import type { Transaction, Category, Account } from "@/types";
 
 interface TransactionEditSheetProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	transaction: Transaction;
 	categories: Category[];
+	accounts: Account[];
 }
 
-export function TransactionEditSheet({ open, onOpenChange, transaction: tx, categories }: TransactionEditSheetProps) {
+// 계좌 미선택을 표현하는 센티넬 값
+const NO_ACCOUNT = "__none__";
+
+export function TransactionEditSheet({ open, onOpenChange, transaction: tx, categories, accounts }: TransactionEditSheetProps) {
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 
 	const [type, setType] = useState(tx.type);
 	const [categoryId, setCategoryId] = useState(tx.categoryId ?? "");
+	const [accountId, setAccountId] = useState(tx.accountId ?? NO_ACCOUNT);
 	const [description, setDescription] = useState(tx.description);
 	const [amount, setAmount] = useState(String(tx.amount));
 	const [date, setDate] = useState(tx.date);
 
 	const filteredCategories = categories.filter((c) => c.type === type);
+	const assetAccounts = accounts.filter((a) => a.type === "asset");
+	const debtAccounts = accounts.filter((a) => a.type === "debt");
 
 	const handleSave = () => {
 		const numAmount = Number(amount);
@@ -52,6 +61,7 @@ export function TransactionEditSheet({ open, onOpenChange, transaction: tx, cate
 			const result = await updateTransaction(tx.id, {
 				type,
 				categoryId: categoryId || null,
+				accountId: accountId === NO_ACCOUNT ? null : accountId,
 				description: description.trim(),
 				amount: numAmount,
 				date,
@@ -151,6 +161,41 @@ export function TransactionEditSheet({ open, onOpenChange, transaction: tx, cate
 							</Select>
 						</div>
 					</div>
+
+					{/* 계좌 */}
+					{accounts.length > 0 && (
+						<div className="space-y-1.5">
+							<Label className="text-xs">계좌 (선택사항)</Label>
+							<Select value={accountId} onValueChange={setAccountId}>
+								<SelectTrigger className="h-9">
+									<SelectValue placeholder="계좌 선택" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value={NO_ACCOUNT}>선택 안 함</SelectItem>
+									{assetAccounts.length > 0 && (
+										<SelectGroup>
+											<SelectLabel>자산</SelectLabel>
+											{assetAccounts.map((acc) => (
+												<SelectItem key={acc.id} value={acc.id}>
+													{acc.icon} {acc.name}
+												</SelectItem>
+											))}
+										</SelectGroup>
+									)}
+									{debtAccounts.length > 0 && (
+										<SelectGroup>
+											<SelectLabel>부채</SelectLabel>
+											{debtAccounts.map((acc) => (
+												<SelectItem key={acc.id} value={acc.id}>
+													{acc.icon} {acc.name}
+												</SelectItem>
+											))}
+										</SelectGroup>
+									)}
+								</SelectContent>
+							</Select>
+						</div>
+					)}
 				</div>
 
 				<DrawerFooter>

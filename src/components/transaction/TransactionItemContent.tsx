@@ -23,8 +23,9 @@ export function TransactionItemContent({ tx }: TransactionItemContentProps) {
 						</Badge>
 					)}
 				</div>
-				<p className="text-xs text-muted-foreground">
+				<p className="truncate text-xs text-muted-foreground">
 					{tx.category?.name ?? "미분류"}
+					{tx.account && ` · ${tx.account.icon}${tx.account.name}`}
 				</p>
 			</div>
 			<span

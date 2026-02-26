@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { DailyExpense, Category, CategoryBreakdown, Transaction } from "@/types";
+import type { DailyExpense, Category, CategoryBreakdown, Transaction, Account } from "@/types";
 
 function SectionLoading({ title, rows = 3 }: { title: string; rows?: number }) {
 	return (
@@ -58,6 +58,7 @@ interface TransactionsLazySectionsProps {
 	month: string;
 	transactions: Transaction[];
 	categories: Category[];
+	accounts: Account[];
 	listSectionId?: string;
 }
 
@@ -68,6 +69,7 @@ export function TransactionsLazySections({
 	month,
 	transactions,
 	categories,
+	accounts,
 	listSectionId,
 }: TransactionsLazySectionsProps) {
 	return (
@@ -80,7 +82,7 @@ export function TransactionsLazySections({
 			<RecurringTransactionManager />
 			<Separator className="my-2" />
 			<div id={listSectionId}>
-				<FilterableTransactionList transactions={transactions} categories={categories} />
+				<FilterableTransactionList transactions={transactions} categories={categories} accounts={accounts} />
 			</div>
 		</div>
 	);

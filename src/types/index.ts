@@ -2,6 +2,7 @@ export interface Transaction {
 	id: string;
 	userId: string;
 	categoryId: string | null;
+	accountId: string | null;
 	type: "income" | "expense";
 	amount: number;
 	description: string;
@@ -16,6 +17,11 @@ export interface Transaction {
 		name: string;
 		icon: string;
 		type: "income" | "expense";
+	} | null;
+	account: {
+		id: string;
+		name: string;
+		icon: string;
 	} | null;
 }
 

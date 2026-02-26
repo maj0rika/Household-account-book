@@ -7,7 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { groupTransactionsByDate } from "@/lib/format";
 import { TransactionItemContent } from "@/components/transaction/TransactionItemContent";
 import { TransactionEditSheet } from "@/components/transaction/TransactionEditSheet";
-import type { Transaction, Category } from "@/types";
+import type { Transaction, Category, Account } from "@/types";
 
 function TransactionItem({
 	tx,
@@ -35,9 +35,11 @@ function TransactionItem({
 export function TransactionList({
 	transactions,
 	categories,
+	accounts = [],
 }: {
 	transactions: Transaction[];
 	categories: Category[];
+	accounts?: Account[];
 }) {
 	const [editingTx, setEditingTx] = useState<Transaction | null>(null);
 
@@ -87,6 +89,7 @@ export function TransactionList({
 					}}
 					transaction={editingTx}
 					categories={categories}
+					accounts={accounts}
 				/>
 			)}
 		</>

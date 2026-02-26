@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { TransactionList } from "@/components/transaction/TransactionList";
-import type { Transaction, Category } from "@/types";
+import type { Transaction, Category, Account } from "@/types";
 
 interface Filters {
 	query: string;
@@ -260,9 +260,11 @@ function FilterBar({
 export function FilterableTransactionList({
 	transactions,
 	categories,
+	accounts = [],
 }: {
 	transactions: Transaction[];
 	categories: Category[];
+	accounts?: Account[];
 }) {
 	const [filters, setFilters] = useState<Filters>(INITIAL_FILTERS);
 
@@ -293,7 +295,7 @@ export function FilterableTransactionList({
 					)}
 				</div>
 			)}
-			<TransactionList transactions={filteredTransactions} categories={categories} />
+			<TransactionList transactions={filteredTransactions} categories={categories} accounts={accounts} />
 		</>
 	);
 }

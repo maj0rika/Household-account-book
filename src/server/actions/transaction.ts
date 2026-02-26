@@ -5,10 +5,49 @@ import { and, eq, gte, lt, lte, ilike, sql, desc, type SQL } from "drizzle-orm";
 
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
-import { transactions, categories, recurringTransactions } from "@/server/db/schema";
+import { transactions, categories, recurringTransactions, accounts } from "@/server/db/schema";
 import type { ParsedTransaction } from "@/server/llm/types";
 import { encryptNullable, decryptNullable } from "@/server/lib/crypto";
 import type { Transaction, MonthlySummary, CategoryBreakdown, DailyExpense, Category } from "@/types";
+
+// db.transaction 콜백의 tx 타입
+type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+// 계좌 잔액 변동: income → +amount, expense → -amount
+async function adjustAccountBalance(
+	tx: DbTransaction,
+	accountId: string | null | undefined,
+	type: "income" | "expense",
+	amount: number,
+) {
+	if (!accountId) return;
+	const delta = type === "income" ? amount : -amount;
+	await tx
+		.update(accounts)
+		.set({
+			balance: sql`${accounts.balance} + ${delta}`,
+			updatedAt: new Date(),
+		})
+		.where(eq(accounts.id, accountId));
+}
+
+// 계좌 잔액 역산 (삭제/수정 시 이전 거래 되돌리기)
+async function reverseAccountBalance(
+	tx: DbTransaction,
+	accountId: string | null | undefined,
+	type: "income" | "expense",
+	amount: number,
+) {
+	if (!accountId) return;
+	const delta = type === "income" ? -amount : amount;
+	await tx
+		.update(accounts)
+		.set({
+			balance: sql`${accounts.balance} + ${delta}`,
+			updatedAt: new Date(),
+		})
+		.where(eq(accounts.id, accountId));
+}
 
 async function getAuthUserId(): Promise<string> {
 	const session = await auth.api.getSession({
@@ -127,6 +166,7 @@ export async function createTransactions(
 			.map((item) => ({
 				userId,
 				categoryId: categoryMap.get(categoryKey(item.type, item.category)) ?? null,
+				accountId: item.accountId ?? null,
 				type: item.type,
 				amount: item.amount,
 				description: item.description,
@@ -192,6 +232,10 @@ export async function createTransactions(
 
 			if (regularValues.length > 0) {
 				await tx.insert(transactions).values(regularValues);
+				// 연결 계좌 잔액 반영
+				for (const item of regularValues) {
+					await adjustAccountBalance(tx, item.accountId, item.type, item.amount);
+				}
 			}
 
 			if (dedupedRecurring.length > 0) {
@@ -281,6 +325,7 @@ export async function getTransactions(month: string, filters?: TransactionFilter
 			id: transactions.id,
 			userId: transactions.userId,
 			categoryId: transactions.categoryId,
+			accountId: transactions.accountId,
 			type: transactions.type,
 			amount: transactions.amount,
 			description: transactions.description,
@@ -292,9 +337,12 @@ export async function getTransactions(month: string, filters?: TransactionFilter
 			categoryName: categories.name,
 			categoryIcon: categories.icon,
 			categoryType: categories.type,
+			accountName: accounts.name,
+			accountIcon: accounts.icon,
 		})
 		.from(transactions)
 		.leftJoin(categories, eq(transactions.categoryId, categories.id))
+		.leftJoin(accounts, eq(transactions.accountId, accounts.id))
 		.where(and(...conditions))
 		.orderBy(desc(transactions.date), desc(transactions.createdAt));
 
@@ -302,6 +350,7 @@ export async function getTransactions(month: string, filters?: TransactionFilter
 		id: row.id,
 		userId: row.userId,
 		categoryId: row.categoryId,
+		accountId: row.accountId,
 		type: row.type,
 		amount: row.amount,
 		description: row.description,
@@ -317,6 +366,13 @@ export async function getTransactions(month: string, filters?: TransactionFilter
 					name: row.categoryName,
 					icon: row.categoryIcon!,
 					type: row.categoryType!,
+				}
+			: null,
+		account: row.accountName
+			? {
+					id: row.accountId!,
+					name: row.accountName,
+					icon: row.accountIcon!,
 				}
 			: null,
 	}));
@@ -360,13 +416,28 @@ export async function deleteTransaction(
 	try {
 		const userId = await getAuthUserId();
 
-		const result = await db
-			.delete(transactions)
+		// 삭제 전 거래 정보 조회 (계좌 잔액 역산용)
+		const [existing] = await db
+			.select({
+				accountId: transactions.accountId,
+				type: transactions.type,
+				amount: transactions.amount,
+			})
+			.from(transactions)
 			.where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
 
-		if (!result.rowCount || result.rowCount === 0) {
+		if (!existing) {
 			return { success: false, error: "거래를 찾을 수 없습니다." };
 		}
+
+		await db.transaction(async (tx) => {
+			await tx
+				.delete(transactions)
+				.where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
+
+			// 연결 계좌 잔액 역산
+			await reverseAccountBalance(tx, existing.accountId, existing.type, existing.amount);
+		});
 
 		return { success: true };
 	} catch (e) {
@@ -379,6 +450,7 @@ export async function updateTransaction(
 	data: {
 		type?: "income" | "expense";
 		categoryId?: string | null;
+		accountId?: string | null;
 		description?: string;
 		amount?: number;
 		date?: string;
@@ -388,18 +460,45 @@ export async function updateTransaction(
 	try {
 		const userId = await getAuthUserId();
 
-		await db
-			.update(transactions)
-			.set({
-				...(data.type !== undefined && { type: data.type }),
-				...(data.categoryId !== undefined && { categoryId: data.categoryId }),
-				...(data.description !== undefined && { description: data.description }),
-				...(data.amount !== undefined && { amount: data.amount }),
-				...(data.date !== undefined && { date: data.date }),
-				...(data.memo !== undefined && { memo: encryptNullable(data.memo) }),
-				updatedAt: new Date(),
+		// 이전 거래 정보 조회 (계좌 잔액 조정용)
+		const [existing] = await db
+			.select({
+				accountId: transactions.accountId,
+				type: transactions.type,
+				amount: transactions.amount,
 			})
+			.from(transactions)
 			.where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
+
+		if (!existing) {
+			return { success: false, error: "거래를 찾을 수 없습니다." };
+		}
+
+		const newType = data.type ?? existing.type;
+		const newAmount = data.amount ?? existing.amount;
+		const newAccountId = data.accountId !== undefined ? data.accountId : existing.accountId;
+
+		await db.transaction(async (tx) => {
+			// 거래 업데이트
+			await tx
+				.update(transactions)
+				.set({
+					...(data.type !== undefined && { type: data.type }),
+					...(data.categoryId !== undefined && { categoryId: data.categoryId }),
+					...(data.accountId !== undefined && { accountId: data.accountId }),
+					...(data.description !== undefined && { description: data.description }),
+					...(data.amount !== undefined && { amount: data.amount }),
+					...(data.date !== undefined && { date: data.date }),
+					...(data.memo !== undefined && { memo: encryptNullable(data.memo) }),
+					updatedAt: new Date(),
+				})
+				.where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
+
+			// 이전 계좌 역산
+			await reverseAccountBalance(tx, existing.accountId, existing.type, existing.amount);
+			// 새 계좌 반영
+			await adjustAccountBalance(tx, newAccountId, newType, newAmount);
+		});
 
 		return { success: true };
 	} catch (e) {
@@ -430,6 +529,7 @@ export async function getUserCategories(): Promise<Category[]> {
 export async function createSingleTransaction(data: {
 	type: "income" | "expense";
 	categoryId: string | null;
+	accountId?: string | null;
 	description: string;
 	amount: number;
 	date: string;
@@ -438,14 +538,20 @@ export async function createSingleTransaction(data: {
 	try {
 		const userId = await getAuthUserId();
 
-		await db.insert(transactions).values({
-			userId,
-			categoryId: data.categoryId,
-			type: data.type,
-			amount: data.amount,
-			description: data.description,
-			date: data.date,
-			memo: encryptNullable(data.memo ?? null),
+		await db.transaction(async (tx) => {
+			await tx.insert(transactions).values({
+				userId,
+				categoryId: data.categoryId,
+				accountId: data.accountId ?? null,
+				type: data.type,
+				amount: data.amount,
+				description: data.description,
+				date: data.date,
+				memo: encryptNullable(data.memo ?? null),
+			});
+
+			// 연결 계좌 잔액 반영
+			await adjustAccountBalance(tx, data.accountId, data.type, data.amount);
 		});
 
 		return { success: true };

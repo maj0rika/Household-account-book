@@ -13,7 +13,7 @@ import {
 import { formatCurrency, formatRelativeDate } from "@/lib/format";
 import { TransactionItemContent } from "@/components/transaction/TransactionItemContent";
 import { TransactionEditSheet } from "@/components/transaction/TransactionEditSheet";
-import type { Transaction, Category } from "@/types";
+import type { Transaction, Category, Account } from "@/types";
 
 interface DayTransactionSheetProps {
 	open: boolean;
@@ -21,6 +21,7 @@ interface DayTransactionSheetProps {
 	date: string; // YYYY-MM-DD
 	transactions: Transaction[];
 	categories: Category[];
+	accounts?: Account[];
 }
 
 const itemVariants = {
@@ -32,7 +33,7 @@ const itemVariants = {
 	}),
 };
 
-export function DayTransactionSheet({ open, onOpenChange, date, transactions, categories }: DayTransactionSheetProps) {
+export function DayTransactionSheet({ open, onOpenChange, date, transactions, categories, accounts = [] }: DayTransactionSheetProps) {
 	const [editingTx, setEditingTx] = useState<Transaction | null>(null);
 
 	const dayLabel = formatRelativeDate(date);
@@ -98,6 +99,7 @@ export function DayTransactionSheet({ open, onOpenChange, date, transactions, ca
 					}}
 					transaction={editingTx}
 					categories={categories}
+					accounts={accounts}
 				/>
 			)}
 		</>

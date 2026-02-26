@@ -8,6 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+	Select,
+	SelectContent,
+	SelectGroup,
+	SelectItem,
+	SelectLabel,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import {
 	Dialog,
 	DialogContent,
 	DialogHeader,
@@ -16,39 +25,49 @@ import {
 	DialogFooter,
 } from "@/components/ui/dialog";
 import { createSingleTransaction, getUserCategories } from "@/server/actions/transaction";
+import { getAccounts } from "@/server/actions/account";
 import { formatCurrencyInput, parseCurrencyInput } from "@/lib/format";
-import type { Category } from "@/types";
+import type { Category, Account } from "@/types";
 
 interface ManualInputDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 }
 
+// 계좌 미선택을 표현하는 센티넬 값
+const NO_ACCOUNT = "__none__";
+
 export function ManualInputDialog({ open, onOpenChange }: ManualInputDialogProps) {
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 	const [categories, setCategories] = useState<Category[]>([]);
+	const [accountList, setAccountList] = useState<Account[]>([]);
 
 	const today = new Date().toISOString().split("T")[0];
 	const [type, setType] = useState<"expense" | "income">("expense");
 	const [categoryId, setCategoryId] = useState("");
+	const [accountId, setAccountId] = useState(NO_ACCOUNT);
 	const [description, setDescription] = useState("");
 	const [amount, setAmount] = useState("");
 	const [date, setDate] = useState(today);
 
 	useEffect(() => {
 		if (open) {
-			getUserCategories().then((cats) => {
+			Promise.all([getUserCategories(), getAccounts()]).then(([cats, accs]) => {
 				setCategories(cats as Category[]);
+				setAccountList(accs);
 			});
 		}
 	}, [open]);
 
 	const filteredCategories = categories.filter((c) => c.type === type);
+	const assetAccounts = accountList.filter((a) => a.type === "asset");
+	const debtAccounts = accountList.filter((a) => a.type === "debt");
 
 	const resetForm = () => {
 		setType("expense");
 		setCategoryId("");
+		setAccountId(NO_ACCOUNT);
 		setDescription("");
 		setAmount("");
 		setDate(today);
@@ -62,6 +81,7 @@ export function ManualInputDialog({ open, onOpenChange }: ManualInputDialogProps
 			const result = await createSingleTransaction({
 				type,
 				categoryId: categoryId || null,
+				accountId: accountId === NO_ACCOUNT ? null : accountId,
 				description: description.trim(),
 				amount: numAmount,
 				date,
@@ -164,6 +184,41 @@ export function ManualInputDialog({ open, onOpenChange }: ManualInputDialogProps
 							onChange={(e) => setAmount(parseCurrencyInput(e.target.value))}
 						/>
 					</div>
+
+					{/* 계좌 */}
+					{accountList.length > 0 && (
+						<div className="grid gap-2">
+							<Label>계좌 (선택사항)</Label>
+							<Select value={accountId} onValueChange={setAccountId}>
+								<SelectTrigger className="h-9">
+									<SelectValue placeholder="계좌 선택" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value={NO_ACCOUNT}>선택 안 함</SelectItem>
+									{assetAccounts.length > 0 && (
+										<SelectGroup>
+											<SelectLabel>자산</SelectLabel>
+											{assetAccounts.map((acc) => (
+												<SelectItem key={acc.id} value={acc.id}>
+													{acc.icon} {acc.name}
+												</SelectItem>
+											))}
+										</SelectGroup>
+									)}
+									{debtAccounts.length > 0 && (
+										<SelectGroup>
+											<SelectLabel>부채</SelectLabel>
+											{debtAccounts.map((acc) => (
+												<SelectItem key={acc.id} value={acc.id}>
+													{acc.icon} {acc.name}
+												</SelectItem>
+											))}
+										</SelectGroup>
+									)}
+								</SelectContent>
+							</Select>
+						</div>
+					)}
 				</div>
 
 				<DialogFooter>

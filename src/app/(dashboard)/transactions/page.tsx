@@ -8,6 +8,7 @@ import {
 	getMonthlyCalendarData,
 	getUserCategories,
 } from "@/server/actions/transaction";
+import { getAccounts } from "@/server/actions/account";
 import { autoApplyRecurringTransactions } from "@/server/actions/recurring";
 import { getCurrentMonth, isValidMonth, formatDateLocal, getKSTDate } from "@/lib/format";
 import { MonthlySummaryCard } from "@/components/dashboard/MonthlySummaryCard";
@@ -58,6 +59,7 @@ function getWeeklyRangeByMonth(month: string): { weekDates: string[]; startDate:
 
 const getTransactionsCached = cache(async (month: string) => getTransactions(month));
 const getUserCategoriesCached = cache(async () => getUserCategories());
+const getAccountsCached = cache(async () => getAccounts());
 
 function SummaryFallback() {
 	return (
@@ -131,9 +133,10 @@ async function TransactionsInsightsSection({
 }) {
 	const { weekDates, startDate, endDateExclusive } = getWeeklyRangeByMonth(month);
 
-	const [transactions, categories, categoryBreakdown, dailyExpenses] = await Promise.all([
+	const [transactions, categories, accounts, categoryBreakdown, dailyExpenses] = await Promise.all([
 		getTransactionsCached(month),
 		getUserCategoriesCached(),
+		getAccountsCached(),
 		getCategoryBreakdown(month),
 		getDailyExpenses(startDate, endDateExclusive),
 	]);
@@ -146,6 +149,7 @@ async function TransactionsInsightsSection({
 			month={month}
 			transactions={transactions}
 			categories={categories}
+			accounts={accounts}
 			listSectionId="transactions-list-section"
 		/>
 	);

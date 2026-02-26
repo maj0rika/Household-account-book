@@ -8,6 +8,7 @@ export interface ParsedTransaction {
 	isRecurring?: boolean; // 고정 거래 여부
 	dayOfMonth?: number; // 고정 거래 매월 날짜 (1~31)
 	suggestedCategory?: string; // 기존 카테고리에 매칭 불가 시 LLM이 제안하는 새 카테고리명
+	accountId?: string | null; // 연결 계좌 ID (자산-거래 연동)
 }
 
 // --- 자산/부채 파싱 타입 ---

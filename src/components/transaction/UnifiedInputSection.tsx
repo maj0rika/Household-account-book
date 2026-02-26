@@ -143,6 +143,7 @@ export function UnifiedInputSection() {
 				items={parsedTransactions}
 				originalInput={originalInput}
 				categories={categories}
+				accounts={existingAccounts}
 				splitMeta={splitMeta}
 			/>
 			<AccountParseResultSheet
