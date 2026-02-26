@@ -13,6 +13,18 @@ interface Props {
 	searchParams: Promise<{ month?: string; category?: string }>;
 }
 
+function MonthNavigatorFallback() {
+	return (
+		<div className="flex flex-col items-center justify-center gap-1 py-3">
+			<div className="flex items-center justify-center gap-2">
+				<Skeleton className="h-8 w-8 rounded-md" />
+				<Skeleton className="h-8 w-[148px] rounded-md" />
+				<Skeleton className="h-8 w-8 rounded-md" />
+			</div>
+		</div>
+	);
+}
+
 function SummaryFallback() {
 	return (
 		<div className="space-y-2 px-4 py-2">
@@ -73,7 +85,7 @@ export default async function StatisticsPage({ searchParams }: Props) {
 
 	return (
 		<div className="pb-28 md:pb-24">
-			<Suspense>
+			<Suspense fallback={<MonthNavigatorFallback />}>
 				<MonthNavigator month={month} />
 			</Suspense>
 
