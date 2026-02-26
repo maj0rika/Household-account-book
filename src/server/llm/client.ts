@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 
-export type LLMProvider = "openai" | "kimi" | "fireworks";
+export type LLMProvider = "kimi" | "fireworks";
 
 interface LLMConfig {
 	client: OpenAI;
@@ -10,11 +10,6 @@ interface LLMConfig {
 }
 
 const configs: Record<LLMProvider, () => LLMConfig> = {
-	openai: () => ({
-		client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
-		model: "gpt-4o-mini",
-		temperature: 0.1,
-	}),
 	kimi: () => ({
 		client: new OpenAI({
 			apiKey: process.env.KIMI_API_KEY,
@@ -40,12 +35,12 @@ const configs: Record<LLMProvider, () => LLMConfig> = {
 const cache = new Map<LLMProvider, LLMConfig>();
 
 export function getLLMConfig(provider?: LLMProvider): LLMConfig {
-	const resolved = provider || (process.env.LLM_PROVIDER as LLMProvider) || "openai";
+	const resolved = provider || (process.env.LLM_PROVIDER as LLMProvider) || "kimi";
 
 	if (cache.has(resolved)) return cache.get(resolved)!;
 
 	if (!configs[resolved]) {
-		throw new Error(`Unknown LLM provider: ${resolved}. Use "openai", "kimi", or "fireworks".`);
+		throw new Error(`Unknown LLM provider: ${resolved}. Use "kimi" or "fireworks".`);
 	}
 
 	const config = configs[resolved]();

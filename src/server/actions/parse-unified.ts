@@ -45,20 +45,12 @@ function incrementFireworksUsage(sessionId: string): void {
 }
 
 function resolveTextProvider(input: string, sessionId: string): LLMProvider | null {
-	const textLength = input.trim().length;
-
 	// 정책 우선순위 #1: 기존 3회 룰 (신규/초기 사용자 체감 속도)
 	if (canUseFireworks(sessionId)) {
 		return "fireworks";
 	}
 
-	// 정책 우선순위 #2: 3회 이후 짧은 입력(<=100자)은 Kimi 우선
-	if (textLength <= 100 && process.env.KIMI_API_KEY) {
-		return "kimi";
-	}
-
-	// 긴 입력은 고성능 모델 우선
-	if (process.env.OPENAI_API_KEY) return "openai";
+	// 정책 우선순위 #2: 긴 입력도 고성능 Kimi로 처리
 	if (process.env.KIMI_API_KEY) return "kimi";
 
 	// 최후 폴백: 이용 가능한 provider가 fireworks뿐이면 제한 이후에도 사용
@@ -71,8 +63,7 @@ function resolveImageProvider(sessionId: string): LLMProvider | null {
 	// 정책 우선순위 #1: 기존 3회 룰
 	if (canUseFireworks(sessionId)) return "fireworks";
 
-	// 이미지/긴 입력은 OpenAI 우선
-	if (process.env.OPENAI_API_KEY) return "openai";
+	// 이미지/긴 입력은 Kimi 우선
 	if (process.env.KIMI_API_KEY) return "kimi";
 
 	// 최후 폴백
@@ -105,7 +96,7 @@ function mapTimeoutErrorMessage(timeoutMs: number, isImage: boolean): string {
 }
 
 function mapProviderConfigErrorMessage(): string {
-	return "AI 파서 설정이 비어 있어요. 관리자에게 OPENAI/KIMI/FIREWORKS 키 설정을 요청해 주세요.";
+	return "AI 파서 설정이 비어 있어요. 관리자에게 KIMI/FIREWORKS 키 설정을 요청해 주세요.";
 }
 
 async function getUserLLMCategories(userId: string): Promise<LLMCategory[]> {
@@ -170,9 +161,7 @@ export async function parseUnifiedInput(input: string): Promise<UnifiedParseResp
 	]);
 
 	// 은행 메시지 전처리
-	const processedInput = isBankMessage(input)
-		? preprocessBankMessage(input)
-		: input;
+	const processedInput = isBankMessage(input) ? preprocessBankMessage(input) : input;
 
 	const result = await parseUnifiedText(
 		processedInput,
@@ -189,7 +178,10 @@ export async function parseUnifiedInput(input: string): Promise<UnifiedParseResp
 
 	if (!result.success) {
 		// LLMTimeoutError가 에러 메시지에 래핑되어 있을 수 있으므로, 타임아웃 에러를 사용자 친화적 메시지로 변환
-		if (result.error.includes("LLM 응답 시간 초과") || result.error.includes("LLMTimeoutError")) {
+		if (
+			result.error.includes("LLM 응답 시간 초과") ||
+			result.error.includes("LLMTimeoutError")
+		) {
 			return { success: false, error: mapTimeoutErrorMessage(timeoutMs, false) };
 		}
 	}
@@ -241,7 +233,10 @@ export async function parseUnifiedImageInput(
 	}
 
 	if (!result.success) {
-		if (result.error.includes("LLM 응답 시간 초과") || result.error.includes("LLMTimeoutError")) {
+		if (
+			result.error.includes("LLM 응답 시간 초과") ||
+			result.error.includes("LLMTimeoutError")
+		) {
 			return { success: false, error: mapTimeoutErrorMessage(timeoutMs, true) };
 		}
 	}

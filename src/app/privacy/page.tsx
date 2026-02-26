@@ -26,7 +26,10 @@ export default function PrivacyPage() {
 					<ul className="mt-2 list-disc space-y-1 pl-5">
 						<li>필수 항목: 이메일 주소, 비밀번호(암호화 저장)</li>
 						<li>Google 로그인 시: 이메일 주소, 이름, 프로필 이미지</li>
-						<li>서비스 이용 과정에서 생성되는 정보: 거래 내역(수입/지출), 카테고리, 자산 정보, 예산 설정</li>
+						<li>
+							서비스 이용 과정에서 생성되는 정보: 거래 내역(수입/지출), 카테고리, 자산
+							정보, 예산 설정
+						</li>
 					</ul>
 				</Section>
 
@@ -41,15 +44,15 @@ export default function PrivacyPage() {
 
 				<Section title="3. 개인정보의 보유 및 이용 기간">
 					<p>
-						회원 탈퇴 시 개인정보는 즉시 삭제됩니다.
-						단, 관련 법령에 따라 보존이 필요한 경우 해당 기간 동안 보관합니다.
+						회원 탈퇴 시 개인정보는 즉시 삭제됩니다. 단, 관련 법령에 따라 보존이 필요한
+						경우 해당 기간 동안 보관합니다.
 					</p>
 				</Section>
 
 				<Section title="4. 개인정보의 제3자 제공">
 					<p>
-						본 서비스는 원칙적으로 이용자의 개인정보를 제3자에게 제공하지 않습니다.
-						단, 다음의 경우 예외로 합니다.
+						본 서비스는 원칙적으로 이용자의 개인정보를 제3자에게 제공하지 않습니다. 단,
+						다음의 경우 예외로 합니다.
 					</p>
 					<ul className="mt-2 list-disc space-y-1 pl-5">
 						<li>이용자가 사전에 동의한 경우</li>
@@ -62,7 +65,10 @@ export default function PrivacyPage() {
 					<ul className="mt-2 list-disc space-y-1 pl-5">
 						<li>Supabase (데이터베이스 호스팅) — 거래 데이터 저장</li>
 						<li>Vercel (웹 호스팅) — 서비스 배포 및 운영</li>
-						<li>OpenAI / Moonshot AI — 거래 내역 자동 분류 (입력 텍스트만 전송, 개인 식별 정보 미포함)</li>
+						<li>
+							Moonshot AI — 거래 내역 자동 분류 (입력 텍스트만 전송, 개인 식별 정보
+							미포함)
+						</li>
 						<li>Google OAuth — 소셜 로그인 인증</li>
 					</ul>
 				</Section>
@@ -89,9 +95,7 @@ export default function PrivacyPage() {
 				</Section>
 
 				<Section title="8. 연락처">
-					<p>
-						개인정보 관련 문의사항은 아래로 연락해 주세요.
-					</p>
+					<p>개인정보 관련 문의사항은 아래로 연락해 주세요.</p>
 					<p className="mt-2 font-medium">이메일: neu5563@naver.com</p>
 				</Section>
 			</div>

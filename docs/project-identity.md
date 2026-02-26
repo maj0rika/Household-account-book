@@ -14,7 +14,7 @@
 
 - 로컬 실행에 필요한 `.env.local` 키 목록 제공
 - DB 연결 문자열(`DATABASE_URL`) 발급/설정 가이드
-- 외부 API 키(`OPENAI_API_KEY` 등) 발급 경로 안내
+- 외부 API 키 발급 경로 안내
 - 마이그레이션/시드 실행 절차 안내
 - 최소 검증 명령(`lint`, `test`, `build`) 안내
 
@@ -23,9 +23,8 @@
 아래 값은 사용자가 발급 후 `.env.local`에 채워서 전달해야 한다.
 
 - `DATABASE_URL`: Supabase Postgres 연결 문자열
-- `OPENAI_API_KEY`: OpenAI API 키
-- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`: Google OAuth 사용 시
 - `KIMI_API_KEY`: KIMI 사용 시
+- `FIREWORKS_API_KEY`: Fireworks 사용 시
 
 ## 실전 셋업 가이드
 
@@ -42,35 +41,33 @@ npm run db:seed
 ```
 
 공식 문서:
+
 - https://supabase.com/docs/guides/database/connecting-to-postgres
 - https://supabase.com/docs/guides/api/api-keys
 
-### 2) OpenAI 키 설정
-
-1. OpenAI Platform에서 API Key를 발급받는다.
-2. `.env.local`의 `OPENAI_API_KEY`에 입력한다.
-3. 개발 기본값은 `LLM_PROVIDER=openai`를 사용한다.
-
-공식 문서:
-- https://platform.openai.com/api-keys
-- https://platform.openai.com/docs/quickstart
-
-### 3) Google OAuth (선택)
+### 2) Google OAuth (선택)
 
 1. Google Cloud Console에서 OAuth Client를 생성한다.
 2. `.env.local`에 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`을 입력한다.
 3. 인증 기능 구현 단계(Phase 3)에서 사용한다.
 
 공식 문서:
+
 - https://developers.google.com/workspace/guides/create-credentials
 
-### 4) KIMI 키 (선택)
+### 3) KIMI 키 (선택)
 
 1. KIMI 제공 콘솔에서 API Key를 발급받는다.
 2. `.env.local`에 `KIMI_API_KEY`를 입력한다.
 3. 프로바이더 전환 시 `LLM_PROVIDER=kimi`로 변경한다.
 
 참고: KIMI 콘솔에서 발급받은 서버용 키만 사용한다.
+
+### 4) Fireworks 키 (선택)
+
+1. Fireworks 제공 콘솔에서 API Key를 발급받는다.
+2. `.env.local`에 `FIREWORKS_API_KEY`를 입력한다.
+3. 우선순위에 따라 `LLM_PROVIDER=fireworks`로 자동 적용될 수 있다.
 
 ## .env.local 템플릿
 
