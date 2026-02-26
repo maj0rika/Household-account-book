@@ -26,6 +26,7 @@ import {
 import { createSingleTransaction, getUserCategories } from "@/server/actions/transaction";
 import { getAccounts } from "@/server/actions/account";
 import { formatCurrencyInput, parseCurrencyInput } from "@/lib/format";
+import { useDeferredLoading } from "@/hooks/useDeferredLoading";
 import type { Category, Account } from "@/types";
 
 interface ManualInputDialogProps {
@@ -38,6 +39,7 @@ const NO_ACCOUNT = "__none__";
 
 export function ManualInputDialog({ open, onOpenChange }: ManualInputDialogProps) {
 	const [isPending, startTransition] = useTransition();
+	const { showSpinner, startLoading, stopLoading } = useDeferredLoading(200);
 	const [categories, setCategories] = useState<Category[]>([]);
 	const [accountList, setAccountList] = useState<Account[]>([]);
 
@@ -76,17 +78,22 @@ export function ManualInputDialog({ open, onOpenChange }: ManualInputDialogProps
 		if (!description.trim() || !amount || numAmount <= 0) return;
 
 		startTransition(async () => {
-			const result = await createSingleTransaction({
-				type,
-				categoryId: categoryId || null,
-				accountId: accountId === NO_ACCOUNT ? null : accountId,
-				description: description.trim(),
-				amount: numAmount,
-				date,
-			});
-			if (result.success) {
-				onOpenChange(false);
-				resetForm();
+			startLoading();
+			try {
+				const result = await createSingleTransaction({
+					type,
+					categoryId: categoryId || null,
+					accountId: accountId === NO_ACCOUNT ? null : accountId,
+					description: description.trim(),
+					amount: numAmount,
+					date,
+				});
+				if (result.success) {
+					onOpenChange(false);
+					resetForm();
+				}
+			} finally {
+				stopLoading();
 			}
 		});
 	};
@@ -226,7 +233,7 @@ export function ManualInputDialog({ open, onOpenChange }: ManualInputDialogProps
 						onClick={handleSave}
 						disabled={!description.trim() || !amount || Number(amount) <= 0 || isPending}
 					>
-						{isPending ? (
+						{showSpinner ? (
 							<>
 								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 								저장 중...

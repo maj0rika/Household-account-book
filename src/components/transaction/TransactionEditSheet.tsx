@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/drawer";
 import { updateTransaction, deleteTransaction } from "@/server/actions/transaction";
 import { formatCurrencyInput, parseCurrencyInput } from "@/lib/format";
+import { useDeferredLoading } from "@/hooks/useDeferredLoading";
 import type { Transaction, Category, Account } from "@/types";
 
 interface TransactionEditSheetProps {
@@ -39,6 +40,7 @@ const NO_ACCOUNT = "__none__";
 
 export function TransactionEditSheet({ open, onOpenChange, transaction: tx, categories, accounts }: TransactionEditSheetProps) {
 	const [isPending, startTransition] = useTransition();
+	const { showSpinner, startLoading, stopLoading } = useDeferredLoading(200);
 
 	const [type, setType] = useState(tx.type);
 	const [categoryId, setCategoryId] = useState(tx.categoryId ?? "");
@@ -56,25 +58,35 @@ export function TransactionEditSheet({ open, onOpenChange, transaction: tx, cate
 		if (!numAmount || numAmount <= 0 || !description.trim()) return;
 
 		startTransition(async () => {
-			const result = await updateTransaction(tx.id, {
-				type,
-				categoryId: categoryId || null,
-				accountId: accountId === NO_ACCOUNT ? null : accountId,
-				description: description.trim(),
-				amount: numAmount,
-				date,
-			});
-			if (result.success) {
-				onOpenChange(false);
+			startLoading();
+			try {
+				const result = await updateTransaction(tx.id, {
+					type,
+					categoryId: categoryId || null,
+					accountId: accountId === NO_ACCOUNT ? null : accountId,
+					description: description.trim(),
+					amount: numAmount,
+					date,
+				});
+				if (result.success) {
+					onOpenChange(false);
+				}
+			} finally {
+				stopLoading();
 			}
 		});
 	};
 
 	const handleDelete = () => {
 		startTransition(async () => {
-			const result = await deleteTransaction(tx.id);
-			if (result.success) {
-				onOpenChange(false);
+			startLoading();
+			try {
+				const result = await deleteTransaction(tx.id);
+				if (result.success) {
+					onOpenChange(false);
+				}
+			} finally {
+				stopLoading();
 			}
 		});
 	};
@@ -206,7 +218,7 @@ export function TransactionEditSheet({ open, onOpenChange, transaction: tx, cate
 							삭제
 						</Button>
 						<Button className="flex-1" onClick={handleSave} disabled={isPending}>
-							{isPending ? (
+							{showSpinner ? (
 								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 							) : null}
 							수정 완료
