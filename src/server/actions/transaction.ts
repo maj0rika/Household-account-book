@@ -63,7 +63,7 @@ function isRecurringDuplicate(
 export async function createTransactions(
 	items: ParsedTransaction[],
 	originalInput: string,
-): Promise<{ success: true; count: number } | { success: false; error: string }> {
+): Promise<{ success: true; count: number; message?: string } | { success: false; error: string }> {
 	try {
 		const userId = await getAuthUserId();
 		if (items.length === 0) {
@@ -72,10 +72,11 @@ export async function createTransactions(
 
 		const normalizedItems = items.map((item) => {
 			const normalizedCategory = normalizeCategoryName(item.category || defaultCategoryName(item.type));
+			const finalCategory = normalizedCategory || defaultCategoryName(item.type);
 			return {
 				...item,
-				category: normalizedCategory || defaultCategoryName(item.type),
-				description: item.description.trim() || item.category,
+				category: finalCategory,
+				description: item.description.trim() || finalCategory,
 			};
 		});
 
@@ -150,45 +151,44 @@ export async function createTransactions(
 				};
 			});
 
-		// AI 자동 파싱 중복 방지: 기존 고정거래 + 현재 요청 내 중복 제거
-		const existingRecurring = await db
-			.select({
-				type: recurringTransactions.type,
-				amount: recurringTransactions.amount,
-				description: recurringTransactions.description,
-				categoryId: recurringTransactions.categoryId,
-				dayOfMonth: recurringTransactions.dayOfMonth,
-			})
-			.from(recurringTransactions)
-			.where(and(eq(recurringTransactions.userId, userId), eq(recurringTransactions.isActive, true)));
+		// 트랜잭션 내부에서 중복 판정 + 삽입을 원자적으로 수행 (TOCTOU 방지)
+		const savedCount = await db.transaction(async (tx) => {
+			// 기존 고정거래 조회 (트랜잭션 내에서 일관된 스냅샷)
+			const existingRecurring = await tx
+				.select({
+					type: recurringTransactions.type,
+					amount: recurringTransactions.amount,
+					description: recurringTransactions.description,
+					categoryId: recurringTransactions.categoryId,
+					dayOfMonth: recurringTransactions.dayOfMonth,
+				})
+				.from(recurringTransactions)
+				.where(and(eq(recurringTransactions.userId, userId), eq(recurringTransactions.isActive, true)));
 
-		const dedupedRecurring: typeof recurringCandidates = [];
-		const existingSignatures: ExistingRecurringSignature[] = existingRecurring.map((row) => ({
-			type: row.type,
-			amount: row.amount,
-			description: row.description,
-			categoryId: row.categoryId,
-			dayOfMonth: row.dayOfMonth,
-		}));
+			const existingSignatures: ExistingRecurringSignature[] = existingRecurring.map((row) => ({
+				type: row.type,
+				amount: Number(row.amount),
+				description: row.description,
+				categoryId: row.categoryId,
+				dayOfMonth: row.dayOfMonth,
+			}));
 
-		for (const candidate of recurringCandidates) {
-			const signature: ExistingRecurringSignature = {
-				type: candidate.type,
-				amount: candidate.amount,
-				description: candidate.description,
-				categoryId: candidate.categoryId,
-				dayOfMonth: candidate.dayOfMonth,
-			};
+			const dedupedRecurring: typeof recurringCandidates = [];
+			for (const candidate of recurringCandidates) {
+				const signature: ExistingRecurringSignature = {
+					type: candidate.type,
+					amount: candidate.amount,
+					description: candidate.description,
+					categoryId: candidate.categoryId,
+					dayOfMonth: candidate.dayOfMonth,
+				};
 
-			if (isRecurringDuplicate(signature, existingSignatures)) {
-				continue;
+				if (!isRecurringDuplicate(signature, existingSignatures)) {
+					dedupedRecurring.push(candidate);
+					existingSignatures.push(signature);
+				}
 			}
 
-			dedupedRecurring.push(candidate);
-			existingSignatures.push(signature);
-		}
-
-		await db.transaction(async (tx) => {
 			if (regularValues.length > 0) {
 				await tx.insert(transactions).values(regularValues);
 			}
@@ -220,9 +220,19 @@ export async function createTransactions(
 					})),
 				);
 			}
+
+			return regularValues.length + dedupedRecurring.length;
 		});
 
-		return { success: true, count: regularValues.length + dedupedRecurring.length };
+		// 모든 항목이 중복으로 제거된 경우 사용자에게 원인 안내
+		if (savedCount === 0) {
+			const skippedRecurring = recurringCandidates.length - 0;
+			if (skippedRecurring > 0) {
+				return { success: true, count: 0, message: `고정 거래 ${skippedRecurring}건이 이미 등록되어 있어 건너뛰었습니다.` };
+			}
+		}
+
+		return { success: true, count: savedCount };
 	} catch (e) {
 		return { success: false, error: e instanceof Error ? e.message : "저장에 실패했습니다." };
 	}
@@ -354,7 +364,7 @@ export async function deleteTransaction(
 			.delete(transactions)
 			.where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
 
-		if (result.rowCount === 0) {
+		if (!result.rowCount || result.rowCount === 0) {
 			return { success: false, error: "거래를 찾을 수 없습니다." };
 		}
 
