@@ -208,6 +208,59 @@
     radial-gradient(ellipse at 50% 90%, oklch(0.60 0.15 165 / 5%) 0%, transparent 50%);
 }
 
+/* 커스텀 스플래시 화면 */
+.splash-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: oklch(0.985 0.002 155);
+  opacity: 1;
+  transition: opacity 400ms ease-out;
+}
+.dark .splash-overlay {
+  background: oklch(0.145 0.015 155);
+}
+.splash-overlay[data-phase="fadeout"] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.splash-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  animation: splash-enter 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.splash-icon {
+  filter: drop-shadow(0 4px 12px oklch(0.55 0.17 155 / 30%));
+}
+
+.splash-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: oklch(0.55 0.17 155);
+}
+.dark .splash-title {
+  color: oklch(0.70 0.18 155);
+}
+
+@keyframes splash-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 /* reduced-motion 존중 */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

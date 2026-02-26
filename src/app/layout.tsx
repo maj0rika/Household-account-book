@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
+import { AppSplashScreen } from "@/components/common/SplashScreen";
 
 const geistSans = Geist({
 	variable: "--font-geist-sans",
@@ -62,6 +63,7 @@ export default function RootLayout({
 			<body
 				className={`${pretendard.variable} ${geistSans.variable} ${geistMono.variable} antialiased`}
 			>
+				<AppSplashScreen />
 				{children}
 			</body>
 		</html>

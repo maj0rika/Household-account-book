@@ -29,6 +29,7 @@
 		"@capacitor/android": "^8.1.0",
 		"@capacitor/core": "^8.1.0",
 		"@capacitor/ios": "^8.1.0",
+		"@capacitor/splash-screen": "^8.0.1",
 		"better-auth": "^1.4.19",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
