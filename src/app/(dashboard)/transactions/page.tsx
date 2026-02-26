@@ -19,7 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface Props {
-	searchParams: Promise<{ month?: string; focusDate?: string; saved?: string; focus?: string }>;
+	searchParams: Promise<{ month?: string; saved?: string; focus?: string }>;
 }
 
 function getWeeklyRangeByMonth(month: string): { weekDates: string[]; startDate: string; endDateExclusive: string } {
@@ -126,13 +126,10 @@ async function TransactionsCalendarSection({ month }: { month: string }) {
 
 async function TransactionsInsightsSection({
 	month,
-	rawFocusDate,
 }: {
 	month: string;
-	rawFocusDate: string | null;
 }) {
 	const { weekDates, startDate, endDateExclusive } = getWeeklyRangeByMonth(month);
-	const focusDate = rawFocusDate && weekDates.includes(rawFocusDate) ? rawFocusDate : null;
 
 	const [transactions, categories, categoryBreakdown, dailyExpenses] = await Promise.all([
 		getTransactionsCached(month),
@@ -145,7 +142,6 @@ async function TransactionsInsightsSection({
 		<TransactionsLazySections
 			dailyExpenses={dailyExpenses}
 			weekDates={weekDates}
-			focusDate={focusDate}
 			categoryBreakdown={categoryBreakdown}
 			month={month}
 			transactions={transactions}
@@ -160,8 +156,8 @@ export default async function TransactionsPage({ searchParams }: Props) {
 	const rawMonth = params.month ?? getCurrentMonth();
 	const month = isValidMonth(rawMonth) ? rawMonth : getCurrentMonth();
 
-	// 고정 거래 자동 적용 (오늘 날짜 기준, 중복 방지 내장)
-	await autoApplyRecurringTransactions();
+	// 고정 거래 자동 적용 — fire-and-forget (페이지 로드를 블로킹하지 않음)
+	autoApplyRecurringTransactions().catch(() => {});
 
 	const savedMessage = params.saved === "mixed"
 		? "거래/자산 등록이 완료됐어요. 거래 목록으로 이동했어요."
@@ -187,7 +183,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
 			</Suspense>
 
 			<Suspense fallback={<InsightsFallback />}>
-				<TransactionsInsightsSection month={month} rawFocusDate={params.focusDate ?? null} />
+				<TransactionsInsightsSection month={month} />
 			</Suspense>
 		</div>
 	);

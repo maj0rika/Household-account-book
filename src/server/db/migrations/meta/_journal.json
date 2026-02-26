@@ -43,6 +43,13 @@
       "when": 1772007380194,
       "tag": "0005_add-accounts-table",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1772021700000,
+      "tag": "0006_add-performance-indexes",
+      "breakpoints": true
     }
   ]
 }

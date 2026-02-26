@@ -1,6 +1,7 @@
 import {
 	boolean,
 	date,
+	index,
 	integer,
 	pgEnum,
 	pgTable,
@@ -87,37 +88,51 @@ export const categories = pgTable(
 	}),
 );
 
-export const transactions = pgTable("transactions", {
-	id: uuid("id").defaultRandom().primaryKey(),
-	userId: text("user_id")
-		.notNull()
-		.references(() => authUsers.id, { onDelete: "cascade" }),
-	categoryId: uuid("category_id").references(() => categories.id, { onDelete: "set null" }),
-	accountId: uuid("account_id").references(() => accounts.id, { onDelete: "set null" }),
-	type: transactionTypeEnum("type").notNull(),
-	amount: integer("amount").notNull(),
-	description: text("description").notNull(),
-	originalInput: text("original_input"),
-	date: date("date").notNull(),
-	memo: text("memo"),
-	isRecurring: boolean("is_recurring").notNull().default(false),
-	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const transactions = pgTable(
+	"transactions",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => authUsers.id, { onDelete: "cascade" }),
+		categoryId: uuid("category_id").references(() => categories.id, { onDelete: "set null" }),
+		accountId: uuid("account_id").references(() => accounts.id, { onDelete: "set null" }),
+		type: transactionTypeEnum("type").notNull(),
+		amount: integer("amount").notNull(),
+		description: text("description").notNull(),
+		originalInput: text("original_input"),
+		date: date("date").notNull(),
+		memo: text("memo"),
+		isRecurring: boolean("is_recurring").notNull().default(false),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => ({
+		userDateIdx: index("transactions_user_date_idx").on(table.userId, table.date),
+		userTypeDateIdx: index("transactions_user_type_date_idx").on(table.userId, table.type, table.date),
+		categoryIdx: index("transactions_category_idx").on(table.categoryId),
+	}),
+);
 
-export const recurringTransactions = pgTable("recurring_transactions", {
-	id: uuid("id").defaultRandom().primaryKey(),
-	userId: text("user_id")
-		.notNull()
-		.references(() => authUsers.id, { onDelete: "cascade" }),
-	categoryId: uuid("category_id").references(() => categories.id, { onDelete: "set null" }),
-	type: transactionTypeEnum("type").notNull(),
-	amount: integer("amount").notNull(),
-	description: text("description").notNull(),
-	dayOfMonth: integer("day_of_month").notNull(), // 1~31, 매월 이 날짜에 자동 생성
-	isActive: boolean("is_active").notNull().default(true),
-	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const recurringTransactions = pgTable(
+	"recurring_transactions",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => authUsers.id, { onDelete: "cascade" }),
+		categoryId: uuid("category_id").references(() => categories.id, { onDelete: "set null" }),
+		type: transactionTypeEnum("type").notNull(),
+		amount: integer("amount").notNull(),
+		description: text("description").notNull(),
+		dayOfMonth: integer("day_of_month").notNull(), // 1~31, 매월 이 날짜에 자동 생성
+		isActive: boolean("is_active").notNull().default(true),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => ({
+		userActiveIdx: index("recurring_tx_user_active_idx").on(table.userId, table.isActive),
+	}),
+);
 
 export const budgets = pgTable(
 	"budgets",

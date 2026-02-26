@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -9,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { TransactionList } from "@/components/transaction/TransactionList";
-import { formatRelativeDate } from "@/lib/format";
 import type { Transaction, Category } from "@/types";
 
 interface Filters {
@@ -24,12 +22,8 @@ const INITIAL_FILTERS: Filters = {
 	categoryIds: [],
 };
 
-function applyFilters(transactions: Transaction[], filters: Filters, focusDate?: string | null): Transaction[] {
+function applyFilters(transactions: Transaction[], filters: Filters): Transaction[] {
 	let result = transactions;
-
-	if (focusDate) {
-		result = result.filter((t) => t.date === focusDate);
-	}
 
 	if (filters.query) {
 		const q = filters.query.toLowerCase();
@@ -241,32 +235,18 @@ function FilterBar({
 export function FilterableTransactionList({
 	transactions,
 	categories,
-	focusDate,
 }: {
 	transactions: Transaction[];
 	categories: Category[];
-	focusDate?: string | null;
 }) {
-	const router = useRouter();
-	const searchParams = useSearchParams();
 	const [filters, setFilters] = useState<Filters>(INITIAL_FILTERS);
 
 	const filteredTransactions = useMemo(
-		() => applyFilters(transactions, filters, focusDate),
-		[transactions, filters, focusDate],
+		() => applyFilters(transactions, filters),
+		[transactions, filters],
 	);
 
 	const hasActiveFilters = !!filters.query || !!filters.type || filters.categoryIds.length > 0;
-	const hasFocusDate = !!focusDate;
-	const hasAnyFilter = hasActiveFilters || hasFocusDate;
-	const focusDateLabel = focusDate ? formatRelativeDate(focusDate) : "";
-
-	const clearFocusDate = useCallback(() => {
-		const params = new URLSearchParams(searchParams.toString());
-		params.delete("focusDate");
-		const query = params.toString();
-		router.push(query ? `?${query}` : "?");
-	}, [router, searchParams]);
 
 	return (
 		<>
@@ -275,17 +255,7 @@ export function FilterableTransactionList({
 				filters={filters}
 				onFiltersChange={setFilters}
 			/>
-			{hasFocusDate && (
-				<div className="px-4 py-1">
-					<Badge variant="secondary" className="gap-1.5 text-xs">
-						주간지출 선택: {focusDateLabel}
-						<button type="button" onClick={clearFocusDate}>
-							<X className="h-2.5 w-2.5" />
-						</button>
-					</Badge>
-				</div>
-			)}
-			{hasAnyFilter && (
+			{hasActiveFilters && (
 				<div className="px-4 py-1.5 text-xs text-muted-foreground">
 					검색 결과 {filteredTransactions.length}건
 					{filteredTransactions.length > 0 && (

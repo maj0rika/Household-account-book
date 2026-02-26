@@ -284,7 +284,6 @@ export async function getTransactions(month: string, filters?: TransactionFilter
 			type: transactions.type,
 			amount: transactions.amount,
 			description: transactions.description,
-			originalInput: transactions.originalInput,
 			date: transactions.date,
 			memo: transactions.memo,
 			isRecurring: transactions.isRecurring,
@@ -306,7 +305,7 @@ export async function getTransactions(month: string, filters?: TransactionFilter
 		type: row.type,
 		amount: row.amount,
 		description: row.description,
-		originalInput: decryptNullable(row.originalInput),
+		originalInput: null, // 리스트 조회 시 복호화 스킵 (성능)
 		date: row.date,
 		memo: decryptNullable(row.memo),
 		isRecurring: row.isRecurring,

@@ -162,6 +162,11 @@
   :root {
     --bottom-nav-height: calc(3.5rem + env(safe-area-inset-bottom, 0px));
   }
+  /* Recharts SVG 요소에 글로벌 outline 제거 */
+  .recharts-wrapper,
+  .recharts-wrapper * {
+    outline: none !important;
+  }
 }
 
 /* Mesh Gradient 유틸 */

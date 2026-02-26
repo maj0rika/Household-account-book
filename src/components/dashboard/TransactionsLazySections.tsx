@@ -54,7 +54,6 @@ const FilterableTransactionList = dynamic(
 interface TransactionsLazySectionsProps {
 	dailyExpenses: DailyExpense[];
 	weekDates: string[];
-	focusDate: string | null;
 	categoryBreakdown: CategoryBreakdown[];
 	month: string;
 	transactions: Transaction[];
@@ -65,7 +64,6 @@ interface TransactionsLazySectionsProps {
 export function TransactionsLazySections({
 	dailyExpenses,
 	weekDates,
-	focusDate,
 	categoryBreakdown,
 	month,
 	transactions,
@@ -75,14 +73,14 @@ export function TransactionsLazySections({
 	return (
 		<div style={{ contentVisibility: "auto", containIntrinsicBlockSize: "700px" }}>
 			<Separator className="my-2" />
-			<WeeklyBarChart data={dailyExpenses} weekDates={weekDates} selectedDate={focusDate} />
+			<WeeklyBarChart data={dailyExpenses} weekDates={weekDates} transactions={transactions} categories={categories} />
 			<Separator className="my-2" />
 			<CategoryPieChart data={categoryBreakdown} month={month} />
 			<Separator className="my-2" />
 			<RecurringTransactionManager />
 			<Separator className="my-2" />
 			<div id={listSectionId}>
-				<FilterableTransactionList transactions={transactions} categories={categories} focusDate={focusDate} />
+				<FilterableTransactionList transactions={transactions} categories={categories} />
 			</div>
 		</div>
 	);

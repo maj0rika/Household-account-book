@@ -37,55 +37,52 @@ export interface BudgetWithSpent extends Budget {
 export async function getBudgetsWithSpent(month: string): Promise<BudgetWithSpent[]> {
 	const userId = await getAuthUserId();
 
-	// 예산 조회
-	const budgetRows = await db
-		.select({
-			id: budgets.id,
-			categoryId: budgets.categoryId,
-			amount: budgets.amount,
-			month: budgets.month,
-			categoryName: categories.name,
-			categoryIcon: categories.icon,
-		})
-		.from(budgets)
-		.leftJoin(categories, eq(budgets.categoryId, categories.id))
-		.where(
-			and(
-				eq(budgets.userId, userId),
-				eq(budgets.month, month),
-			),
-		);
-
-	if (budgetRows.length === 0) return [];
-
-	// 해당 월 지출 합계 (카테고리별)
 	const startDate = `${month}-01`;
 	const [year, m] = month.split("-").map(Number);
 	const nextMonth = m === 12 ? `${year + 1}-01-01` : `${year}-${String(m + 1).padStart(2, "0")}-01`;
 
-	const spentRows = await db
-		.select({
-			categoryId: transactions.categoryId,
-			total: sql<number>`coalesce(sum(${transactions.amount}), 0)`,
-		})
-		.from(transactions)
-		.where(
-			and(
-				eq(transactions.userId, userId),
-				eq(transactions.type, "expense"),
-				gte(transactions.date, startDate),
-				lt(transactions.date, nextMonth),
+	// 예산 조회와 지출 합계를 병렬로 실행
+	const [budgetRows, spentRows] = await Promise.all([
+		db
+			.select({
+				id: budgets.id,
+				categoryId: budgets.categoryId,
+				amount: budgets.amount,
+				month: budgets.month,
+				categoryName: categories.name,
+				categoryIcon: categories.icon,
+			})
+			.from(budgets)
+			.leftJoin(categories, eq(budgets.categoryId, categories.id))
+			.where(
+				and(
+					eq(budgets.userId, userId),
+					eq(budgets.month, month),
+				),
 			),
-		)
-		.groupBy(transactions.categoryId);
+		db
+			.select({
+				categoryId: transactions.categoryId,
+				total: sql<number>`coalesce(sum(${transactions.amount}), 0)`,
+			})
+			.from(transactions)
+			.where(
+				and(
+					eq(transactions.userId, userId),
+					eq(transactions.type, "expense"),
+					gte(transactions.date, startDate),
+					lt(transactions.date, nextMonth),
+				),
+			)
+			.groupBy(transactions.categoryId),
+	]);
+
+	if (budgetRows.length === 0) return [];
 
 	const spentMap = new Map(spentRows.map((r) => [r.categoryId, Number(r.total)]));
-
-	// 전체 지출 합계 (전체 예산용)
 	const totalSpent = spentRows.reduce((sum, r) => sum + Number(r.total), 0);
 
 	return budgetRows.map((b) => {
-		// categoryId가 null이면 전체 예산
 		const spent = b.categoryId === null ? totalSpent : (spentMap.get(b.categoryId) ?? 0);
 		return {
 			id: b.id,
