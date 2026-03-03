@@ -32,7 +32,7 @@
 
 - [x] Better Auth 설정 (Drizzle 스키마 매핑 포함)
 - [x] 이메일/비밀번호 가입 + 로그인
-- [ ] Google 소셜 로그인 (GOOGLE_CLIENT_ID 미설정 — 추후)
+- [x] ~~Google 소셜 로그인~~ (커스텀 도메인 미사용으로 제거)
 - [x] 인증 미들웨어 (보호된 라우트)
 - [x] 로그인/회원가입 페이지 UI
 
@@ -120,21 +120,21 @@
 - [x] 마이크로 인터랙션 (active:scale, 탭 인디케이터, 호버 효과)
 - [x] 스켈레톤 로딩 (페이지별 loading.tsx)
 
-### Phase 12: Capacitor (네이티브 앱)
+### Phase 12: Capacitor (네이티브 앱) ✅
 
-- [ ] Capacitor 설치 + 설정
-- [ ] Next.js 정적 export 설정
-- [ ] API Route 래핑 (Server Actions → fetch 호출)
-- [ ] iOS 빌드 + 테스트
-- [ ] Android 빌드 + 테스트
-- [ ] Share Extension (메시지 공유 → 자동 파싱)
+- [x] Capacitor 설치 + 설정
+- [x] iOS/Android 플랫폼 추가
+- [x] Vercel 배포 URL을 WebView로 로드하는 방식 (SSR이라 static export 불가)
+- [x] safe-area 적용 (viewport-fit: cover + env(safe-area-inset-*))
+- [x] Android 릴리스 AAB 빌드 완료
+- [ ] Share Extension (메시지 공유 → 자동 파싱) — 추후
 
-### Phase 13: 배포
+### Phase 13: 배포 ✅
 
-- [ ] Vercel 연동 (웹 배포)
-- [ ] 환경변수 설정 (Vercel Dashboard)
-- [ ] 도메인 연결 (선택)
-- [ ] 앱스토어 제출 (iOS + Android)
+- [x] Vercel 연동 (웹 배포)
+- [x] 환경변수 설정 (Vercel Dashboard)
+- [x] Google OAuth 제거 (커스텀 도메인 불필요)
+- [ ] 앱스토어 제출 (iOS + Android) — 진행 중
 
 ---
 
@@ -265,6 +265,9 @@ type: start | progress | complete | change | issue
 | 2026-02-25 | 결정 | 암호화 범위 확대: 자산 + 거래/수입/지출 데이터 민감정보 암호화                     | [roadmap-v2](./roadmap-v2-todo-phase-plan.md)                               |
 | 2026-02-26 | 완료 | 디자인 시스템 전수검사 리뷰 및 모바일 사용성(터치 영역) 보완                       | [history](./history/2026-02-26-05-design-system-inspection.md)              |
 | 2026-02-26 | 완료 | 2차: 디자인 시스템 전수검사 모바일 터치 사용성(Select, Switch) 보완                | [history](./history/2026-02-26-06-design-system-inspection-2nd.md)          |
+| 2026-03-03 | 제거 | Google OAuth 제거 — 커스텀 도메인 미사용으로 인증 검토 통과 불가                   | [history](./history/2026-03-03-01-remove-google-oauth.md)                   |
+| 2026-03-03 | 설정 | Android 패키지 이름 변경 (com.household.app → com.maj0rika.household)              | [history](./history/2026-03-03-02-android-package-rename.md)                |
+| 2026-03-03 | 수정 | 스켈레톤 로딩 디테일 통일 — 모든 탭 풀 스켈레톤 적용                               | [history](./history/2026-03-03-03-skeleton-loading-detail-unify.md)         |
 
 ## [완료] 2차 디자인 시스템 전수검사 (추가 컴포넌트 터치 최적화)
 
