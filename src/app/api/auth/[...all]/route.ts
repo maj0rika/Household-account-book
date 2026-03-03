@@ -19,8 +19,6 @@ export async function POST(req: Request) {
 						error: "Auth error with empty body",
 						status: response.status,
 						url: req.url,
-						hasGoogleId: !!process.env.GOOGLE_CLIENT_ID,
-						hasGoogleSecret: !!process.env.GOOGLE_CLIENT_SECRET,
 						baseURL: process.env.BETTER_AUTH_URL,
 					},
 					{ status: response.status },

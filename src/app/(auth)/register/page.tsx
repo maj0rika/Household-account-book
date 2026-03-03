@@ -12,10 +12,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
-const PROVIDER_LABELS: Record<string, string> = {
-	google: "Google",
-};
-
 export default function RegisterPage() {
 	const router = useRouter();
 	const [name, setName] = useState("");
@@ -31,17 +27,10 @@ export default function RegisterPage() {
 		setErrorMessage(null);
 		setIsAccountConflict(false);
 
-		// 이메일 중복 + provider 확인
+		// 이메일 중복 확인
 		const check = await checkEmailProvider(email);
 		if (check.exists) {
-			if (check.provider !== "credential") {
-				const label = PROVIDER_LABELS[check.provider] ?? check.provider;
-				setErrorMessage(
-					`이미 ${label} 계정으로 가입된 이메일입니다. ${label} 로그인을 이용해주세요.`,
-				);
-			} else {
-				setErrorMessage("이미 가입된 이메일입니다. 로그인을 이용해주세요.");
-			}
+			setErrorMessage("이미 가입된 이메일입니다. 로그인을 이용해주세요.");
 			setIsAccountConflict(true);
 			setIsLoading(false);
 			return;
