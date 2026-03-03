@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.household.app"
+    namespace = "com.maj0rika.household"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.household.app"
+        applicationId "com.maj0rika.household"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

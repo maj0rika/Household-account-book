@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">가계부</string>
     <string name="title_activity_main">가계부</string>
-    <string name="package_name">com.household.app</string>
-    <string name="custom_url_scheme">com.household.app</string>
+    <string name="package_name">com.maj0rika.household</string>
+    <string name="custom_url_scheme">com.maj0rika.household</string>
 </resources>

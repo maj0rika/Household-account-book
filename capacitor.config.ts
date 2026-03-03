@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
-	appId: "com.household.app",
+	appId: "com.maj0rika.household",
 	appName: "가계부",
 	webDir: "public",
 	server: {

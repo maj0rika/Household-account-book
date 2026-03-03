@@ -1,4 +1,4 @@
-package com.household.app;
+package com.maj0rika.household;
 
 import com.getcapacitor.BridgeActivity;
 
