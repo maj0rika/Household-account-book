@@ -128,19 +128,40 @@ function parseUnifiedResponse(parsed: unknown): { intent: "transaction" | "accou
 	throw new Error("LLM 응답 형식을 인식할 수 없습니다.");
 }
 
-// 타임아웃 래퍼
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-	return Promise.race([
-		promise,
-		new Promise<never>((_, reject) =>
-			setTimeout(() => reject(new LLMTimeoutError()), ms),
-		),
-	]);
+// 타임아웃 시 실제 벤더 요청도 abort하여 "늦게 200 완료"되는 유령 응답을 줄인다.
+async function withTimeout<T>(
+	task: (signal: AbortSignal) => Promise<T>,
+	ms: number,
+): Promise<T> {
+	const controller = new AbortController();
+	const timeoutId = setTimeout(() => {
+		controller.abort(new LLMTimeoutError());
+	}, ms);
+
+	try {
+		return await task(controller.signal);
+	} catch (error) {
+		if (controller.signal.aborted) {
+			const reason = controller.signal.reason;
+			if (reason instanceof Error) {
+				throw reason;
+			}
+			throw new LLMTimeoutError();
+		}
+
+		throw error;
+	} finally {
+		clearTimeout(timeoutId);
+	}
 }
 
 function resolveTimeoutMs(timeoutMs?: number, fallback = 30000): number {
 	if (timeoutMs == null || Number.isNaN(timeoutMs)) return fallback;
 	return Math.max(15000, Math.min(timeoutMs, 120000));
+}
+
+function getElapsedMs(startedAt: number): number {
+	return Date.now() - startedAt;
 }
 
 /**
@@ -156,44 +177,61 @@ export async function parseUnifiedText(
 	const { client, model, temperature, extra_body } = getLLMConfig(provider);
 	const today = new Date().toISOString().split("T")[0];
 	const timeoutMs = resolveTimeoutMs(options?.timeoutMs, 30000);
+	const providerName = provider ?? "default";
 
 	const systemPrompt = buildSystemPrompt(categories, today, existingAccounts);
 	const userPrompt = buildUserPrompt(input);
+	const attempt = 1;
+	const startedAt = Date.now();
 
-	for (let attempt = 0; attempt < 2; attempt++) {
-		try {
-			const response = await withTimeout(
-				client.chat.completions.create({
-					model,
-					messages: [
-						{ role: "system", content: systemPrompt },
-						{ role: "user", content: userPrompt },
-					],
-					temperature,
-					...extra_body,
-				}),
-				timeoutMs,
-			);
+	try {
+		// 사용자 1회 요청은 벤더 1회 호출만 수행한다.
+		const response = await withTimeout(
+			(signal) => client.chat.completions.create({
+				model,
+				messages: [
+					{ role: "system", content: systemPrompt },
+					{ role: "user", content: userPrompt },
+				],
+				temperature,
+				...extra_body,
+			}, { signal }),
+			timeoutMs,
+		);
 
-			const content = response.choices[0]?.message?.content;
-			if (!content) {
-				throw new Error("LLM 응답이 비어 있습니다.");
-			}
-
-			const jsonStr = extractJSON(content);
-			const parsed = JSON.parse(jsonStr);
-			const result = parseUnifiedResponse(parsed);
-
-			return { success: true, ...result };
-		} catch (error) {
-			if (attempt === 1) {
-				const message = error instanceof Error ? error.message : "알 수 없는 오류";
-				return { success: false, error: `파싱 실패: ${message}` };
-			}
+		const content = response.choices[0]?.message?.content;
+		if (!content) {
+			throw new Error("LLM 응답이 비어 있습니다.");
 		}
-	}
 
-	return { success: false, error: "파싱 실패: 최대 재시도 횟수를 초과했습니다." };
+		const jsonStr = extractJSON(content);
+		const parsed = JSON.parse(jsonStr);
+		const result = parseUnifiedResponse(parsed);
+
+		console.info("[LLM] text parse success", {
+			provider: providerName,
+			model,
+			attempt,
+			timeoutMs,
+			elapsedMs: getElapsedMs(startedAt),
+			inputLength: input.trim().length,
+		});
+
+		return { success: true, ...result };
+	} catch (error) {
+		console.warn("[LLM] text parse failed", {
+			provider: providerName,
+			model,
+			attempt,
+			timeoutMs,
+			elapsedMs: getElapsedMs(startedAt),
+			inputLength: input.trim().length,
+			error: error instanceof Error ? error.message : String(error),
+		});
+
+		const message = error instanceof Error ? error.message : "알 수 없는 오류";
+		return { success: false, error: `파싱 실패: ${message}` };
+	}
 }
 
 /**
@@ -211,6 +249,7 @@ export async function parseUnifiedImage(
 	const { client, model, temperature, extra_body } = getLLMConfig(provider);
 	const today = new Date().toISOString().split("T")[0];
 	const timeoutMs = resolveTimeoutMs(options?.timeoutMs, 45000);
+	const providerName = provider ?? "default";
 
 	const systemPrompt = buildSystemPrompt(categories, today, existingAccounts);
 
@@ -222,39 +261,55 @@ export async function parseUnifiedImage(
 	];
 
 	userContent.push({ type: "text", text: buildImageUserPrompt(textInput) });
+	const attempt = 1;
+	const startedAt = Date.now();
 
-	for (let attempt = 0; attempt < 2; attempt++) {
-		try {
-			const response = await withTimeout(
-				client.chat.completions.create({
-					model,
-					messages: [
-						{ role: "system", content: systemPrompt },
-						{ role: "user", content: userContent },
-					],
-					temperature,
-					...extra_body,
-				}),
-				timeoutMs,
-			);
+	try {
+		// 사용자 1회 요청은 벤더 1회 호출만 수행한다.
+		const response = await withTimeout(
+			(signal) => client.chat.completions.create({
+				model,
+				messages: [
+					{ role: "system", content: systemPrompt },
+					{ role: "user", content: userContent },
+				],
+				temperature,
+				...extra_body,
+			}, { signal }),
+			timeoutMs,
+		);
 
-			const content = response.choices[0]?.message?.content;
-			if (!content) {
-				throw new Error("LLM 응답이 비어 있습니다.");
-			}
-
-			const jsonStr = extractJSON(content);
-			const parsed = JSON.parse(jsonStr);
-			const result = parseUnifiedResponse(parsed);
-
-			return { success: true, ...result };
-		} catch (error) {
-			if (attempt === 1) {
-				const message = error instanceof Error ? error.message : "알 수 없는 오류";
-				return { success: false, error: `이미지 파싱 실패: ${message}` };
-			}
+		const content = response.choices[0]?.message?.content;
+		if (!content) {
+			throw new Error("LLM 응답이 비어 있습니다.");
 		}
-	}
 
-	return { success: false, error: "이미지 파싱 실패: 최대 재시도 횟수를 초과했습니다." };
+		const jsonStr = extractJSON(content);
+		const parsed = JSON.parse(jsonStr);
+		const result = parseUnifiedResponse(parsed);
+
+		console.info("[LLM] image parse success", {
+			provider: providerName,
+			model,
+			attempt,
+			timeoutMs,
+			elapsedMs: getElapsedMs(startedAt),
+			textLength: textInput.trim().length,
+		});
+
+		return { success: true, ...result };
+	} catch (error) {
+		console.warn("[LLM] image parse failed", {
+			provider: providerName,
+			model,
+			attempt,
+			timeoutMs,
+			elapsedMs: getElapsedMs(startedAt),
+			textLength: textInput.trim().length,
+			error: error instanceof Error ? error.message : String(error),
+		});
+
+		const message = error instanceof Error ? error.message : "알 수 없는 오류";
+		return { success: false, error: `이미지 파싱 실패: ${message}` };
+	}
 }
