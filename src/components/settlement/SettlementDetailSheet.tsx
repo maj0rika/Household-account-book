@@ -31,6 +31,7 @@ import {
 	updateSettlementMemberStatus,
 } from "@/server/actions/settlement";
 import { formatCurrency, formatCurrencyInput, parseCurrencyInput } from "@/lib/format";
+import { getSettlementSourceLabel } from "@/lib/settlement";
 import type { Account, SettlementDetail, SettlementMember } from "@/types";
 
 const NO_ACCOUNT = "__none__";
@@ -151,6 +152,12 @@ export function SettlementDetailSheet({
 		? Math.max(selectedMember.shareAmount - selectedMember.paidAmount, 0)
 		: 0;
 	const transferAmountValue = Number(transferAmount) || 0;
+	const settlementSourceLabel = detail
+		? getSettlementSourceLabel({
+			sourceType: detail.sourceType,
+			sourceService: detail.sourceService,
+		})
+		: null;
 	const canRecordTransfer = detail
 		? detail.role === "organizer"
 			? selectedMember !== null
@@ -265,6 +272,11 @@ export function SettlementDetailSheet({
 											<Badge variant="secondary">
 												{detail.role === "organizer" ? "총무" : "참여자"}
 											</Badge>
+											{settlementSourceLabel && (
+												<Badge variant="outline">
+													{settlementSourceLabel}
+												</Badge>
+											)}
 										</div>
 										<p className="text-sm text-muted-foreground">
 											{detail.role === "organizer" ? "받을 돈" : "보낼 돈"} 기준으로 추적합니다.

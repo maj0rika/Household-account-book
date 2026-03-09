@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/drawer";
 import { SettlementDraftEditor } from "@/components/settlement/SettlementDraftEditor";
 import { formatCurrency, formatSignedCurrency, formatCurrencyInput, parseCurrencyInput } from "@/lib/format";
+import { getSettlementSourceLabel } from "@/lib/settlement";
 import { useDeferredLoading } from "@/hooks/useDeferredLoading";
 import { createTransactions } from "@/server/actions/transaction";
 import { addCategory } from "@/server/actions/settings";
@@ -218,6 +219,10 @@ function EditableItem({
 	const debtAccounts = accounts.filter((a) => a.type === "debt");
 	const settlementPreview = getSettlementPreview(item);
 	const hasSettlement = hasSettlementCandidate(item);
+	const settlementSourceLabel = getSettlementSourceLabel({
+		sourceType: item.settlementSourceType,
+		sourceService: item.settlementSourceService,
+	});
 
 	return (
 		<div className="border-b border-border last:border-b-0">
@@ -250,6 +255,11 @@ function EditableItem({
 						<Badge variant="secondary" className="shrink-0 text-xs">
 							{settlementPreview.label}
 							{settlementPreview.amount > 0 ? ` ${formatCurrency(settlementPreview.amount)}` : ""}
+						</Badge>
+					)}
+					{hasSettlement && settlementTrackingEnabled && settlementSourceLabel && (
+						<Badge variant="outline" className="shrink-0 text-xs">
+							{settlementSourceLabel}
 						</Badge>
 					)}
 					<div className="min-w-0 flex-1">

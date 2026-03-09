@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { formatCurrency, formatCurrencyInput, parseCurrencyInput } from "@/lib/format";
+import { getSettlementSourceLabel } from "@/lib/settlement";
 import type { ParsedTransaction } from "@/server/llm/types";
 
 function hasPositiveNumber(value: number | null | undefined): value is number {
@@ -56,14 +57,6 @@ function getOutstandingAmount(item: ParsedTransaction): number {
 		: myShareAmount;
 }
 
-function getSourceBadge(item: ParsedTransaction): string | null {
-	if (item.settlementSourceService === "kakao") return "카카오 정산";
-	if (item.settlementSourceService === "toss") return "토스 정산";
-	if (item.settlementSourceType === "image") return "이미지 파싱";
-	if (item.settlementSourceType === "manual") return "수동 정산";
-	return null;
-}
-
 interface SettlementDraftEditorProps {
 	item: ParsedTransaction;
 	enabled: boolean;
@@ -85,7 +78,10 @@ export function SettlementDraftEditor({
 	const equalShareAmount = participantCount > 0
 		? Math.round(totalAmount / participantCount)
 		: myShareAmount;
-	const sourceBadge = getSourceBadge(item);
+	const sourceBadge = getSettlementSourceLabel({
+		sourceType: item.settlementSourceType,
+		sourceService: item.settlementSourceService,
+	});
 	const members = item.settlementMembers ?? [];
 
 	const ensureEnabledDraft = (checked: boolean) => {

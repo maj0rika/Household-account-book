@@ -4,6 +4,7 @@ import { memo } from "react";
 import { Repeat } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatSignedCurrency } from "@/lib/format";
+import { getSettlementSourceLabel } from "@/lib/settlement";
 import type { Transaction, SettlementSummary } from "@/types";
 
 interface TransactionItemContentProps {
@@ -22,6 +23,12 @@ export const TransactionItemContent = memo(function TransactionItemContent({
 				? `미수 ${formatCurrency(settlement.outstandingAmount)}`
 				: `보낼 돈 ${formatCurrency(settlement.outstandingAmount)}`
 		: null;
+	const settlementSourceLabel = settlement
+		? getSettlementSourceLabel({
+			sourceType: settlement.sourceType,
+			sourceService: settlement.sourceService,
+		})
+		: null;
 
 	return (
 		<>
@@ -35,7 +42,7 @@ export const TransactionItemContent = memo(function TransactionItemContent({
 							className="shrink-0 px-1.5 py-0 text-[10px]"
 							aria-label="정산 연결 거래"
 						>
-							정산
+							{settlementSourceLabel ?? "정산"}
 						</Badge>
 					)}
 					{tx.isRecurring && (

@@ -205,9 +205,21 @@ ${normalized}
 
 export function buildImageUserPrompt(textInput: string): string {
 	const normalized = textInput.trim();
+	const settlementGuide = `## 이미지 정산 스크린샷 우선 규칙
+- 카카오톡/토스 정산 화면이면 일반 영수증보다 \`정산 포함 거래\`로 우선 해석합니다.
+- 서비스명이 보이면 \`settlementSourceType: "image"\`, \`settlementSourceService: "kakao" | "toss"\`를 채웁니다.
+- \`amount\`와 \`myShareAmount\`는 반드시 **내가 최종 부담하는 금액**으로 넣고, 총 결제 금액은 \`settlementTotalAmount\`에 넣습니다.
+- 화면에 \`보낼 금액\`, \`내 정산금\`, \`송금하기\`가 보이면 참여자 관점으로 보고 \`settlementRole: "participant"\`를 우선 검토합니다.
+- 화면에 \`받을 금액\`, \`정산 요청\`, \`미입금\`, 참여자별 상태가 보이면 총무 관점으로 보고 \`settlementRole: "organizer"\`를 우선 검토합니다.
+- 총액과 인원 수만 명확하고 화면이 균등 정산임을 보여주면 \`myShareAmount = 총액 / 인원수\`로 계산할 수 있습니다.
+- 참여자 이름, 각자 몫, 입금 여부가 보이면 \`settlementMembers\`에 넣고 상태/금액도 함께 채웁니다.
+- 가맹점명이나 모임 제목이 보이면 \`description\`에 사용하고, 없으면 \`카카오 정산\`, \`토스 정산\`, \`N분의 1 정산\`처럼 보수적으로 작성합니다.`;
 
 	if (!normalized) {
-		return "첨부 이미지를 읽고 거래 내역 또는 자산/부채 정보를 추출하세요. 보이는 정보만 사용하고 JSON 객체 하나만 반환하세요.";
+		return `첨부 이미지를 읽고 거래 내역 또는 자산/부채 정보를 추출하세요.
+보이는 정보만 사용하고 JSON 객체 하나만 반환하세요.
+
+${settlementGuide}`;
 	}
 
 	return `첨부 이미지를 우선 읽고, 아래 보조 입력도 함께 참고해 파싱하세요.
@@ -216,5 +228,7 @@ export function buildImageUserPrompt(textInput: string): string {
 ## 보조 입력
 [START]
 ${normalized}
-[END]`;
+[END]
+
+${settlementGuide}`;
 }

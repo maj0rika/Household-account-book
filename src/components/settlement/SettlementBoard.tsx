@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { SettlementDetailSheet } from "@/components/settlement/SettlementDetailSheet";
 import { formatCurrency } from "@/lib/format";
+import { getSettlementSourceLabel } from "@/lib/settlement";
 import type { SettlementDetail, SettlementSummary, Account } from "@/types";
 
 type SettlementFilter = "all" | "receivable" | "payable" | "completed";
@@ -115,19 +116,25 @@ export function SettlementBoard({
 						</p>
 					</div>
 				) : (
-					filteredSettlements.map((settlement) => (
-						<button
-							key={settlement.id}
-							type="button"
-							className="block w-full text-left"
-							onClick={() => {
-								setActiveSettlementId(settlement.id);
-								setDetailOpen(true);
-							}}
-						>
-							<Card className="gap-0 py-0">
-								<CardContent className="space-y-3 p-4">
-									<div className="flex items-start justify-between gap-3">
+					filteredSettlements.map((settlement) => {
+						const sourceLabel = getSettlementSourceLabel({
+							sourceType: settlement.sourceType,
+							sourceService: settlement.sourceService,
+						});
+
+						return (
+							<button
+								key={settlement.id}
+								type="button"
+								className="block w-full text-left"
+								onClick={() => {
+									setActiveSettlementId(settlement.id);
+									setDetailOpen(true);
+								}}
+							>
+								<Card className="gap-0 py-0">
+									<CardContent className="space-y-3 p-4">
+										<div className="flex items-start justify-between gap-3">
 										<div>
 											<div className="flex items-center gap-2">
 												<Badge variant={settlement.status === "completed" ? "default" : "outline"}>
@@ -136,6 +143,11 @@ export function SettlementBoard({
 												<Badge variant="secondary">
 													{settlement.role === "organizer" ? "총무" : "참여자"}
 												</Badge>
+												{sourceLabel && (
+													<Badge variant="outline">
+														{sourceLabel}
+													</Badge>
+												)}
 											</div>
 											<p className="mt-2 text-base font-semibold">{settlement.title}</p>
 											<p className="mt-1 text-xs text-muted-foreground">
@@ -188,10 +200,11 @@ export function SettlementBoard({
 											</p>
 										</div>
 									</div>
-								</CardContent>
-							</Card>
-						</button>
-					))
+									</CardContent>
+								</Card>
+							</button>
+						);
+					})
 				)}
 			</div>
 

@@ -433,6 +433,9 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 									<X className="h-3 w-3" />
 								</button>
 							</div>
+							<p className="mt-2 text-[11px] text-muted-foreground">
+								카카오톡·토스 정산 스크린샷도 자동 파싱합니다.
+							</p>
 						</motion.div>
 					)}
 				</AnimatePresence>
