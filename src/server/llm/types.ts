@@ -5,6 +5,30 @@ export interface ParsedSettlementMember {
 	paidAmount?: number;
 }
 
+export interface ParsedSettlementTransferCandidate {
+	settlementId: string;
+	settlementTitle: string;
+	settlementRole: "organizer" | "participant";
+	memberId?: string | null;
+	memberName?: string | null;
+	outstandingAmount: number;
+}
+
+export interface ParsedSettlementTransfer {
+	date: string; // YYYY-MM-DD
+	direction: "receive" | "send";
+	amount: number;
+	counterpartyName?: string | null;
+	memo?: string | null;
+	sourceType?: "text" | "image" | "manual";
+	sourceService?: "kakao" | "toss" | "unknown";
+	matchedSettlementId?: string | null;
+	matchedSettlementTitle?: string | null;
+	matchedMemberId?: string | null;
+	matchedMemberName?: string | null;
+	candidates?: ParsedSettlementTransferCandidate[];
+}
+
 // --- 거래 파싱 타입 ---
 export interface ParsedTransaction {
 	date: string; // YYYY-MM-DD
@@ -43,6 +67,7 @@ export interface UnifiedParseResult {
 	intent: "transaction" | "account";
 	transactions: ParsedTransaction[];
 	accounts: ParsedAccount[];
+	settlementTransfers: ParsedSettlementTransfer[];
 }
 
 export interface ParseError {

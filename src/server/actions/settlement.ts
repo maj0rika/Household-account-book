@@ -550,3 +550,47 @@ export async function recordSettlementTransfer(
 		};
 	}
 }
+
+export async function recordParsedSettlementTransfersBatch(
+	items: Array<{
+		settlementId: string;
+		memberId?: string | null;
+		accountId?: string | null;
+		direction: SettlementTransfer["direction"];
+		amount: number;
+		occurredAt?: Date;
+		memo?: string | null;
+	}>,
+): Promise<{ success: true; count: number } | { success: false; error: string }> {
+	if (items.length === 0) {
+		return { success: false, error: "기록할 정산 이력이 없습니다." };
+	}
+
+	try {
+		let count = 0;
+
+		for (const item of items) {
+			const result = await recordSettlementTransfer(item.settlementId, {
+				memberId: item.memberId ?? null,
+				accountId: item.accountId ?? null,
+				direction: item.direction,
+				amount: item.amount,
+				occurredAt: item.occurredAt,
+				memo: item.memo ?? null,
+			});
+
+			if (!result.success) {
+				return result;
+			}
+
+			count += 1;
+		}
+
+		return { success: true, count };
+	} catch (error) {
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : "정산 이력 기록에 실패했습니다.",
+		};
+	}
+}

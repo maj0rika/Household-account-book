@@ -9,6 +9,7 @@ import { isBankMessage, preprocessBankMessage } from "@/server/llm/bank-message"
 import { isFinancialInput, OOD_ERROR_MESSAGE } from "@/server/llm/ood-filter";
 import type { LLMCategory } from "@/server/llm/prompt";
 import type { UnifiedParseResponse } from "@/server/llm/types";
+import { matchParsedSettlementTransfers } from "@/server/settlement/transfer-matching";
 import type { Account } from "@/types";
 
 // 세션별 Fireworks 사용 카운터 (인메모리)
@@ -260,10 +261,14 @@ export async function executeTextParse(
 		);
 
 		if (result.success) {
+			const matchedTransfers = await matchParsedSettlementTransfers(userId, result.settlementTransfers);
 			if (provider === "fireworks") {
 				incrementFireworksUsage(sessionId);
 			}
-			return result;
+			return {
+				...result,
+				settlementTransfers: matchedTransfers,
+			};
 		}
 
 		lastResult = result;
@@ -332,10 +337,14 @@ export async function executeImageParse(
 		);
 
 		if (result.success) {
+			const matchedTransfers = await matchParsedSettlementTransfers(userId, result.settlementTransfers);
 			if (provider === "fireworks") {
 				incrementFireworksUsage(sessionId);
 			}
-			return result;
+			return {
+				...result,
+				settlementTransfers: matchedTransfers,
+			};
 		}
 
 		lastResult = result;

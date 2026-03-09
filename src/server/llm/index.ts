@@ -6,6 +6,7 @@ import type { LLMCategory } from "./prompt";
 import type {
 	ParsedTransaction,
 	ParsedAccount,
+	ParsedSettlementTransfer,
 	UnifiedParseResponse,
 } from "./types";
 import type { Account } from "@/types";
@@ -25,6 +26,7 @@ const VALID_SETTLEMENT_STATUSES = new Set(["pending", "partial", "completed"]);
 const VALID_SETTLEMENT_MEMBER_STATUSES = new Set(["pending", "partial", "paid"]);
 const VALID_SETTLEMENT_SOURCE_TYPES = new Set(["text", "image", "manual"]);
 const VALID_SETTLEMENT_SOURCE_SERVICES = new Set(["kakao", "toss", "unknown"]);
+const VALID_SETTLEMENT_TRANSFER_DIRECTIONS = new Set(["receive", "send"]);
 
 function extractJSON(text: string): string {
 	// ```json ... ``` 블록 추출
@@ -188,8 +190,59 @@ function validateAccounts(data: unknown): ParsedAccount[] {
 	});
 }
 
+function validateSettlementTransfers(data: unknown): ParsedSettlementTransfer[] {
+	if (!Array.isArray(data)) return [];
+
+	return data.map((item, i) => {
+		if (!item || typeof item !== "object") {
+			throw new Error(`정산 이력 항목 ${i + 1} 형식이 올바르지 않습니다.`);
+		}
+
+		if (
+			typeof item.date !== "string"
+			|| typeof item.amount !== "number"
+			|| !VALID_SETTLEMENT_TRANSFER_DIRECTIONS.has(item.direction)
+		) {
+			throw new Error(`정산 이력 항목 ${i + 1}에 필수 필드가 누락되었습니다.`);
+		}
+
+		if (item.amount <= 0) {
+			throw new Error(`정산 이력 항목 ${i + 1}의 금액이 유효하지 않습니다: ${item.amount}`);
+		}
+
+		const result: ParsedSettlementTransfer = {
+			date: item.date,
+			direction: item.direction as "receive" | "send",
+			amount: Number(item.amount),
+		};
+
+		if (typeof item.counterpartyName === "string" && item.counterpartyName.trim()) {
+			result.counterpartyName = item.counterpartyName.trim();
+		}
+
+		if (typeof item.memo === "string" && item.memo.trim()) {
+			result.memo = item.memo.trim();
+		}
+
+		if (typeof item.sourceType === "string" && VALID_SETTLEMENT_SOURCE_TYPES.has(item.sourceType)) {
+			result.sourceType = item.sourceType as "text" | "image" | "manual";
+		}
+
+		if (typeof item.sourceService === "string" && VALID_SETTLEMENT_SOURCE_SERVICES.has(item.sourceService)) {
+			result.sourceService = item.sourceService as "kakao" | "toss" | "unknown";
+		}
+
+		return result;
+	});
+}
+
 // 통합 응답 파싱 (객체 or 배열 하위호환)
-function parseUnifiedResponse(parsed: unknown): { intent: "transaction" | "account"; transactions: ParsedTransaction[]; accounts: ParsedAccount[] } {
+function parseUnifiedResponse(parsed: unknown): {
+	intent: "transaction" | "account";
+	transactions: ParsedTransaction[];
+	accounts: ParsedAccount[];
+	settlementTransfers: ParsedSettlementTransfer[];
+} {
 	// 새 통합 포맷: { intent, transactions, accounts }
 	if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
 		const obj = parsed as Record<string, unknown>;
@@ -203,18 +256,19 @@ function parseUnifiedResponse(parsed: unknown): { intent: "transaction" | "accou
 		const intent = (obj.intent === "account" ? "account" : "transaction") as "transaction" | "account";
 		const transactions = validateTransactions(obj.transactions);
 		const accounts = validateAccounts(obj.accounts);
+		const settlementTransfers = validateSettlementTransfers(obj.settlementTransfers);
 
-		if (transactions.length === 0 && accounts.length === 0) {
+		if (transactions.length === 0 && accounts.length === 0 && settlementTransfers.length === 0) {
 			throw new Error("파싱 결과가 비어 있습니다.");
 		}
 
-		return { intent, transactions, accounts };
+		return { intent, transactions, accounts, settlementTransfers };
 	}
 
 	// 하위 호환: 배열 형태 → 거래로 간주
 	if (Array.isArray(parsed)) {
 		const transactions = validateTransactions(parsed);
-		return { intent: "transaction", transactions, accounts: [] };
+		return { intent: "transaction", transactions, accounts: [], settlementTransfers: [] };
 	}
 
 	throw new Error("LLM 응답 형식을 인식할 수 없습니다.");

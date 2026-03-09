@@ -116,6 +116,11 @@ ${accountList}
 - 참여자가 자기 몫만 보내거나 기록하는 경우 \`isSettlement\`, \`settlementRole\`, \`myShareAmount\`를 함께 채웁니다.
 - 참여자 이름이나 각자 몫이 보이면 \`settlementMembers\` 배열에 넣습니다.
 - 카카오톡/토스 정산 화면을 읽은 경우 보이면 \`settlementSourceType\`, \`settlementSourceService\`, \`settlementStatus\`를 함께 채웁니다.
+- 이미 끝난 정산 입금/송금 알림이라면 \`transactions\`에 수입/지출 거래를 만들지 말고 \`settlementTransfers\` 배열에 넣습니다.
+- 예: "민수님이 15000원 입금", "카카오페이 송금 12000원 완료", "토스 n/1 정산 완료" 같은 입력은 기본 거래보다 정산 이력 후보를 우선 검토합니다.
+- \`settlementTransfers\`에서는 \`direction\`을 총무가 받는 경우 \`receive\`, 참여자가 보내는 경우 \`send\`로 넣습니다.
+- \`settlementTransfers.amount\`는 실제 송금/입금된 금액만 넣고, 총액이나 내 최종 소비금액을 다시 넣지 않습니다.
+- 상대 이름이 보이면 \`counterpartyName\`에 넣고, 카카오페이/토스가 보이면 \`sourceService\`를 함께 채웁니다.
 
 ## 2단계-B: account 파싱
 - asset: 은행 예금, 입출금 통장, 현금, 적금, CMA, 예수금, 증권계좌, 투자계좌, 페이 잔액, 외화예금, 코인 지갑
@@ -166,6 +171,17 @@ ${accountList}
       "settlementMembers": []
     }
   ],
+  "settlementTransfers": [
+    {
+      "date": "YYYY-MM-DD",
+      "direction": "receive" | "send",
+      "amount": 숫자,
+      "counterpartyName": null,
+      "memo": null,
+      "sourceType": null,
+      "sourceService": null
+    }
+  ],
   "accounts": [
     {
       "name": "계정명",
@@ -180,7 +196,7 @@ ${accountList}
 - intent가 transaction이면 transactions를 우선 채우고 accounts는 필요 없으면 빈 배열로 둡니다.
 - intent가 account이면 accounts를 우선 채우고 transactions는 필요 없으면 빈 배열로 둡니다.
 - 혼합 입력이면 두 배열을 모두 채웁니다.
-- 거래 또는 계정 입력이라면 관련 배열이 완전히 비지 않도록 최소 1건 이상 추출합니다.
+- 거래, 정산 이력, 또는 계정 입력이라면 관련 배열이 완전히 비지 않도록 최소 1건 이상 추출합니다.
 
 ## OOD
 입력이 거래, 수입, 지출, 자산, 부채와 전혀 관련 없으면 아래 JSON을 반환하세요.

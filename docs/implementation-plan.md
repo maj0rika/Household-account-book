@@ -156,7 +156,7 @@
 - [x] 개별 정산 완료 체크 및 미수금 갱신
 - [x] 정산 상세에서 수금/송금 이력 직접 기록 및 잔액 초과 입력 방지
 - [x] 계좌 기능 사용 시 `가계부 금액`과 `실제 계좌 영향 금액` 분리 설계 검토
-- [ ] 후속: 정산 완료 메시지/입금 알림 자동 파싱
+- [x] 후속: 정산 완료 메시지/입금 알림 자동 파싱
 
 참고 문서: [Phase 14 PM 플래닝](./brainstorms/2026-03-09-n-split-settlement-planning.md), [Phase 14 UX/UI 설계](./brainstorms/2026-03-09-n-split-settlement-uxui.md), [Phase 14 BE 설계](./brainstorms/2026-03-09-n-split-settlement-be-design.md)
 
@@ -194,6 +194,17 @@
 - [ ] Codef API 검토 (더 많은 은행 지원)
 - [ ] 잔액 자동 동기화
 - [ ] 거래 입력 시 계정 선택 → 자동 잔액 갱신
+
+### Phase 18C: 카드 부채 결제주기 + 지출 차감
+
+상세 TODO: [카드 결제일 반영 + 음수 지출 TODO](../todos/001-ready-p1-credit-card-billing-and-negative-expense.md)
+
+- [ ] 카드 계정별 결제일/청구기간 규칙 저장
+- [ ] 카드 사용 거래는 지출 즉시 반영, 실제 출금은 결제일에 자산 계좌에서 처리
+- [ ] 카드 결제 예정 금액/다음 결제일 집계 UI
+- [ ] 카드사/결제일별로 다른 이용기간 계산 규칙 지원
+- [ ] `지출 -금액` 입력 지원 (수입 전환 없이 지출 차감)
+- [ ] 음수 지출이 월 요약/카테고리/예산/계좌 반영에 안전하게 합산되도록 집계 보정
 
 ---
 
@@ -300,6 +311,8 @@ type: start | progress | complete | change | issue
 | 2026-03-09 | 기능 | Phase 14 N분의 1 정산 FE 구현                                                      | [history](./history/2026-03-09-20-phase14-settlement-fe-implementation.md)  |
 | 2026-03-09 | 기능 | Phase 14 정산 이력 직접 기록 UI 및 초과 입력 가드 추가                             | [history](./history/2026-03-09-21-phase14-settlement-transfer-entry.md)     |
 | 2026-03-09 | 기능 | Phase 14 정산 스크린샷 이미지 파싱 보강 및 출처 표시 추가                          | [history](./history/2026-03-09-22-settlement-image-parse-polish.md)         |
+| 2026-03-09 | 기능 | Phase 14 정산 완료 메시지·입금 알림 자동 파싱 및 정산 이력 저장 연결               | [history](./history/2026-03-09-23-settlement-transfer-alert-parse.md)       |
+| 2026-03-09 | 기능 | 카드 부채 결제주기 + 음수 지출 TODO 구체화                                         | [history](./history/2026-03-09-23-credit-card-billing-negative-expense-todo.md) |
 
 ## [완료] 2차 디자인 시스템 전수검사 (추가 컴포넌트 터치 최적화)
 
