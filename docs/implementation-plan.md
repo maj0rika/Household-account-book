@@ -271,6 +271,7 @@ type: start | progress | complete | change | issue
 | 2026-03-09 | 수정 | LLM 프롬프트 고도화 — 수입/지출 판별, 이미지 보조 프롬프트, 입력 예시 문구 개선    | [history](./history/2026-03-09-01-llm-prompt-refinement.md)                 |
 | 2026-03-09 | 기능 | 파싱 엔트리포인트 통합 + 계정 데이터 암호화 (name/balance AES-256-GCM)             | [history](./history/2026-03-09-02-parse-entrypoint-unification-account-encryption.md) |
 
+| 2026-03-09 | 수정 | OOD 선필터 완화 — 명백한 비도메인만 차단하고 나머지는 LLM 2차 필터에 위임          | [history](./history/2026-03-09-03-loose-ood-filter.md)                      |
 ## [완료] 2차 디자인 시스템 전수검사 (추가 컴포넌트 터치 최적화)
 
 ### Phase 1: PM (요구사항 분석 및 작업 분해)
