@@ -270,8 +270,15 @@ type: start | progress | complete | change | issue
 | 2026-03-03 | 수정 | 스켈레톤 로딩 디테일 통일 — 모든 탭 풀 스켈레톤 적용                               | [history](./history/2026-03-03-03-skeleton-loading-detail-unify.md)         |
 | 2026-03-09 | 수정 | LLM 프롬프트 고도화 — 수입/지출 판별, 이미지 보조 프롬프트, 입력 예시 문구 개선    | [history](./history/2026-03-09-01-llm-prompt-refinement.md)                 |
 | 2026-03-09 | 기능 | 파싱 엔트리포인트 통합 + 계정 데이터 암호화 (name/balance AES-256-GCM)             | [history](./history/2026-03-09-02-parse-entrypoint-unification-account-encryption.md) |
-
 | 2026-03-09 | 수정 | OOD 선필터 완화 — 명백한 비도메인만 차단하고 나머지는 LLM 2차 필터에 위임          | [history](./history/2026-03-09-03-loose-ood-filter.md)                      |
+| 2026-03-09 | 수정 | 프롬프트 취소 버튼 아이콘 수정                                                      | [history](./history/2026-03-09-04-prompt-cancel-icon-fix.md)                |
+| 2026-03-09 | 설정 | 개발 환경 정적 캐시 헤더 수정                                                       | [history](./history/2026-03-09-05-dev-cache-header-fix.md)                  |
+| 2026-03-09 | 수정 | 웹 파비콘 충돌 정리                                                                 | [history](./history/2026-03-09-06-favicon-conflict-fix.md)                  |
+| 2026-03-09 | 수정 | Recharts 동적 청크 로드 오류 수정 — 차트 컴포넌트 정적 import로 전환               | [history](./history/2026-03-09-07-recharts-chunk-load-fix.md)               |
+| 2026-03-09 | 수정 | LLM 타임아웃 디버깅 경로 정리 — JSON API 전환, 요청 abort, 서버 로그 추가          | [history](./history/2026-03-09-08-llm-timeout-debugging-fix.md)             |
+| 2026-03-09 | 수정 | LLM 자동 재시도 제거 — 사용자 1회 요청당 벤더 1회 호출로 제한                      | [history](./history/2026-03-09-09-llm-auto-retry-removal.md)                |
+| 2026-03-09 | 성능 | 거래 화면 초기 요청 수 감소 — 초기 서버 액션 제거, 현재 경로 prefetch 제외         | [history](./history/2026-03-09-10-transaction-request-reduction.md)         |
+
 ## [완료] 2차 디자인 시스템 전수검사 (추가 컴포넌트 터치 최적화)
 
 ### Phase 1: PM (요구사항 분석 및 작업 분해)
