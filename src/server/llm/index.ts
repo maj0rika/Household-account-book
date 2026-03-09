@@ -1,10 +1,9 @@
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
 import { getLLMConfig } from "./client";
 import type { LLMProvider } from "./client";
-import { buildSystemPrompt, buildUserPrompt } from "./prompt";
+import { buildSystemPrompt, buildUserPrompt, buildImageUserPrompt } from "./prompt";
 import type { LLMCategory } from "./prompt";
 import type {
-	ParseResponse,
 	ParsedTransaction,
 	ParsedAccount,
 	UnifiedParseResponse,
@@ -222,11 +221,7 @@ export async function parseUnifiedImage(
 		},
 	];
 
-	if (textInput.trim()) {
-		userContent.push({ type: "text", text: textInput.trim() });
-	} else {
-		userContent.push({ type: "text", text: "이 이미지에서 거래 내역 또는 자산/부채 정보를 추출해주세요." });
-	}
+	userContent.push({ type: "text", text: buildImageUserPrompt(textInput) });
 
 	for (let attempt = 0; attempt < 2; attempt++) {
 		try {
@@ -262,27 +257,4 @@ export async function parseUnifiedImage(
 	}
 
 	return { success: false, error: "이미지 파싱 실패: 최대 재시도 횟수를 초과했습니다." };
-}
-
-// --- 하위 호환: 기존 거래 전용 함수 유지 ---
-export async function parseTransactionText(
-	input: string,
-	categories: LLMCategory[],
-	provider?: LLMProvider,
-): Promise<ParseResponse> {
-	const result = await parseUnifiedText(input, categories, [], provider);
-	if (!result.success) return result;
-	return { success: true, transactions: result.transactions };
-}
-
-export async function parseTransactionImage(
-	imageBase64: string,
-	mimeType: string,
-	textInput: string,
-	categories: LLMCategory[],
-	provider?: LLMProvider,
-): Promise<ParseResponse> {
-	const result = await parseUnifiedImage(imageBase64, mimeType, textInput, categories, [], provider);
-	if (!result.success) return result;
-	return { success: true, transactions: result.transactions };
 }

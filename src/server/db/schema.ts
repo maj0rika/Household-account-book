@@ -166,7 +166,7 @@ export const accounts = pgTable("accounts", {
 	type: accountTypeEnum("type").notNull(), // 'asset' | 'debt'
 	subType: text("sub_type").notNull(), // 'bank', 'cash', 'savings', 'investment', 'credit_card', 'loan', 'other'
 	icon: text("icon").notNull().default("🏦"),
-	balance: integer("balance").notNull().default(0), // 현재 잔액 (원)
+	balance: text("balance").notNull().default("0"), // 암호화된 잔액 (원)
 	sortOrder: integer("sort_order").notNull().default(0),
 	isActive: boolean("is_active").notNull().default(true),
 	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

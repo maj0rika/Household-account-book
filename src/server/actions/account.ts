@@ -1,11 +1,12 @@
 "use server";
 
 import { headers } from "next/headers";
-import { and, eq, desc, sql } from "drizzle-orm";
+import { and, eq, desc } from "drizzle-orm";
 
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { accounts } from "@/server/db/schema";
+import { encrypt, decryptString, encryptNumber, decryptNumber } from "@/server/lib/crypto";
 import { revalidateAccountPages } from "@/lib/cache-keys";
 import type { Account, AccountSummary } from "@/types";
 
@@ -31,11 +32,11 @@ export async function getAccounts(): Promise<Account[]> {
 	return rows.map((row) => ({
 		id: row.id,
 		userId: row.userId,
-		name: row.name,
+		name: decryptString(row.name),
 		type: row.type,
 		subType: row.subType,
 		icon: row.icon,
-		balance: row.balance,
+		balance: decryptNumber(row.balance),
 		sortOrder: row.sortOrder,
 		isActive: row.isActive,
 		createdAt: row.createdAt,
@@ -46,20 +47,21 @@ export async function getAccounts(): Promise<Account[]> {
 export async function getAccountSummary(): Promise<AccountSummary> {
 	const userId = await getAuthUserId();
 
-	const result = await db
+	// 암호화된 balance는 DB SUM 불가 → 전체 조회 후 애플리케이션 레벨 합산
+	const rows = await db
 		.select({
 			type: accounts.type,
-			total: sql<number>`coalesce(sum(${accounts.balance}), 0)`,
+			balance: accounts.balance,
 		})
 		.from(accounts)
-		.where(and(eq(accounts.userId, userId), eq(accounts.isActive, true)))
-		.groupBy(accounts.type);
+		.where(and(eq(accounts.userId, userId), eq(accounts.isActive, true)));
 
 	let totalAssets = 0;
 	let totalDebts = 0;
-	for (const row of result) {
-		if (row.type === "asset") totalAssets = Number(row.total);
-		if (row.type === "debt") totalDebts = Number(row.total);
+	for (const row of rows) {
+		const balance = decryptNumber(row.balance);
+		if (row.type === "asset") totalAssets += balance;
+		if (row.type === "debt") totalDebts += balance;
 	}
 
 	return {
@@ -83,11 +85,11 @@ export async function createAccount(data: {
 			.insert(accounts)
 			.values({
 				userId,
-				name: data.name,
+				name: encrypt(data.name),
 				type: data.type,
 				subType: data.subType,
 				icon: data.icon,
-				balance: data.balance,
+				balance: encryptNumber(data.balance),
 			})
 			.returning({ id: accounts.id });
 
@@ -114,9 +116,9 @@ export async function updateAccount(
 		await db
 			.update(accounts)
 			.set({
-				...(data.name !== undefined && { name: data.name }),
+				...(data.name !== undefined && { name: encrypt(data.name) }),
 				...(data.icon !== undefined && { icon: data.icon }),
-				...(data.balance !== undefined && { balance: data.balance }),
+				...(data.balance !== undefined && { balance: encryptNumber(data.balance) }),
 				...(data.subType !== undefined && { subType: data.subType }),
 				...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
 				updatedAt: new Date(),
@@ -150,10 +152,10 @@ export async function upsertParsedAccountsBatch(
 					const result = await tx
 						.update(accounts)
 						.set({
-							name: item.name,
+							name: encrypt(item.name),
 							subType: item.subType,
 							icon: item.icon,
-							balance: item.balance,
+							balance: encryptNumber(item.balance),
 							updatedAt: new Date(),
 						})
 						.where(and(eq(accounts.id, item.accountId), eq(accounts.userId, userId)));
@@ -164,11 +166,11 @@ export async function upsertParsedAccountsBatch(
 				} else {
 					await tx.insert(accounts).values({
 						userId,
-						name: item.name,
+						name: encrypt(item.name),
 						type: item.type,
 						subType: item.subType,
 						icon: item.icon,
-						balance: item.balance,
+						balance: encryptNumber(item.balance),
 					});
 				}
 			}

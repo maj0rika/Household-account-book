@@ -268,6 +268,8 @@ type: start | progress | complete | change | issue
 | 2026-03-03 | 제거 | Google OAuth 제거 — 커스텀 도메인 미사용으로 인증 검토 통과 불가                   | [history](./history/2026-03-03-01-remove-google-oauth.md)                   |
 | 2026-03-03 | 설정 | Android 패키지 이름 변경 (com.household.app → com.maj0rika.household)              | [history](./history/2026-03-03-02-android-package-rename.md)                |
 | 2026-03-03 | 수정 | 스켈레톤 로딩 디테일 통일 — 모든 탭 풀 스켈레톤 적용                               | [history](./history/2026-03-03-03-skeleton-loading-detail-unify.md)         |
+| 2026-03-09 | 수정 | LLM 프롬프트 고도화 — 수입/지출 판별, 이미지 보조 프롬프트, 입력 예시 문구 개선    | [history](./history/2026-03-09-01-llm-prompt-refinement.md)                 |
+| 2026-03-09 | 기능 | 파싱 엔트리포인트 통합 + 계정 데이터 암호화 (name/balance AES-256-GCM)             | [history](./history/2026-03-09-02-parse-entrypoint-unification-account-encryption.md) |
 
 ## [완료] 2차 디자인 시스템 전수검사 (추가 컴포넌트 터치 최적화)
 

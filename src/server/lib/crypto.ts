@@ -68,3 +68,20 @@ export function decryptNullable(value: string | null | undefined): string | null
 export function isEncrypted(value: string): boolean {
 	return value.startsWith(ENCRYPTED_PREFIX);
 }
+
+// 마이그레이션 전 하위호환: 암호화되지 않은 평문 문자열은 그대로 반환
+export function decryptString(ciphertext: string): string {
+	if (!isEncrypted(ciphertext)) return ciphertext;
+	return decrypt(ciphertext);
+}
+
+export function encryptNumber(value: number): string {
+	return encrypt(String(value));
+}
+
+export function decryptNumber(ciphertext: string | number): number {
+	// 마이그레이션 전 하위호환: integer 컬럼에서 숫자가 직접 반환되는 경우
+	if (typeof ciphertext === "number") return ciphertext;
+	if (!isEncrypted(ciphertext)) return Number(ciphertext);
+	return Number(decrypt(ciphertext));
+}

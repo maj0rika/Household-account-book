@@ -7,7 +7,7 @@ import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { transactions, categories, recurringTransactions, accounts } from "@/server/db/schema";
 import type { ParsedTransaction } from "@/server/llm/types";
-import { encryptNullable, decryptNullable } from "@/server/lib/crypto";
+import { encryptNullable, decryptNullable, decryptString, encryptNumber, decryptNumber } from "@/server/lib/crypto";
 import type { Transaction, MonthlySummary, CategoryBreakdown, DailyExpense, Category } from "@/types";
 import { revalidateTransactionPages } from "@/lib/cache-keys";
 
@@ -15,6 +15,7 @@ import { revalidateTransactionPages } from "@/lib/cache-keys";
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 // 계좌 잔액 변동: income → +amount, expense → -amount
+// 암호화된 balance → 조회(FOR UPDATE) → 복호화 → 계산 → 암호화 → 저장
 async function adjustAccountBalance(
 	tx: DbTransaction,
 	accountId: string | null | undefined,
@@ -23,10 +24,16 @@ async function adjustAccountBalance(
 ) {
 	if (!accountId) return;
 	const delta = type === "income" ? amount : -amount;
+	const result = await tx.execute(
+		sql`SELECT balance FROM accounts WHERE id = ${accountId} FOR UPDATE`,
+	);
+	const row = result.rows[0];
+	if (!row) return;
+	const current = decryptNumber(String(row.balance));
 	await tx
 		.update(accounts)
 		.set({
-			balance: sql`${accounts.balance} + ${delta}`,
+			balance: encryptNumber(current + delta),
 			updatedAt: new Date(),
 		})
 		.where(eq(accounts.id, accountId));
@@ -41,10 +48,16 @@ async function reverseAccountBalance(
 ) {
 	if (!accountId) return;
 	const delta = type === "income" ? -amount : amount;
+	const result = await tx.execute(
+		sql`SELECT balance FROM accounts WHERE id = ${accountId} FOR UPDATE`,
+	);
+	const row = result.rows[0];
+	if (!row) return;
+	const current = decryptNumber(String(row.balance));
 	await tx
 		.update(accounts)
 		.set({
-			balance: sql`${accounts.balance} + ${delta}`,
+			balance: encryptNumber(current + delta),
 			updatedAt: new Date(),
 		})
 		.where(eq(accounts.id, accountId));
@@ -373,7 +386,7 @@ export async function getTransactions(month: string, filters?: TransactionFilter
 		account: row.accountName
 			? {
 					id: row.accountId!,
-					name: row.accountName,
+					name: decryptString(row.accountName),
 					icon: row.accountIcon!,
 				}
 			: null,
