@@ -265,6 +265,157 @@ async function syncSettlementStatus(tx: Parameters<Parameters<typeof db.transact
 		.where(eq(settlements.id, settlementId));
 }
 
+type SettlementTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+interface SettlementTransferInput {
+	memberId?: string | null;
+	accountId?: string | null;
+	direction: SettlementTransfer["direction"];
+	amount: number;
+	occurredAt?: Date;
+	memo?: string | null;
+}
+
+async function applySettlementTransferRecord(
+	tx: SettlementTx,
+	userId: string,
+	settlementId: string,
+	data: SettlementTransferInput,
+): Promise<void> {
+	const [settlement] = await tx
+		.select({
+			id: settlements.id,
+			role: settlements.role,
+			totalAmount: settlements.totalAmount,
+			myShareAmount: settlements.myShareAmount,
+		})
+		.from(settlements)
+		.where(and(eq(settlements.id, settlementId), eq(settlements.userId, userId)));
+
+	if (!settlement) {
+		throw new Error("정산 정보를 찾을 수 없습니다.");
+	}
+
+	const memberId = data.memberId ?? null;
+	const [member] = memberId ? await tx
+		.select({
+			id: settlementMembers.id,
+			settlementId: settlementMembers.settlementId,
+			shareAmount: settlementMembers.shareAmount,
+			paidAmount: settlementMembers.paidAmount,
+		})
+		.from(settlementMembers)
+		.innerJoin(settlements, eq(settlementMembers.settlementId, settlements.id))
+		.where(
+			and(
+				eq(settlementMembers.id, memberId),
+				eq(settlementMembers.settlementId, settlementId),
+				eq(settlements.userId, userId),
+			),
+		)
+		: [];
+
+	if (memberId && !member) {
+		throw new Error("정산 멤버를 찾을 수 없습니다.");
+	}
+
+	const amount = Math.max(0, Math.trunc(data.amount));
+	if (amount <= 0) {
+		throw new Error("정산 금액은 1원 이상이어야 합니다.");
+	}
+
+	if (data.direction === "receive" && !member) {
+		throw new Error("수금 기록은 정산 멤버를 선택해야 합니다.");
+	}
+
+	if (settlement.role === "participant" && data.direction !== "send") {
+		throw new Error("참여자 정산은 송금 기록만 남길 수 있습니다.");
+	}
+
+	if (data.direction === "receive" && member) {
+		const [currentMember] = await tx
+			.select({
+				shareAmount: settlementMembers.shareAmount,
+				paidAmount: settlementMembers.paidAmount,
+			})
+			.from(settlementMembers)
+			.where(eq(settlementMembers.id, member.id));
+
+		if (!currentMember) {
+			throw new Error("정산 멤버를 찾을 수 없습니다.");
+		}
+
+		const remainingAmount = Math.max(currentMember.shareAmount - currentMember.paidAmount, 0);
+		if (amount > remainingAmount) {
+			throw new Error("멤버의 남은 정산 금액을 초과해서 수금할 수 없습니다.");
+		}
+	}
+
+	if (data.direction === "send") {
+		const currentMembers = await tx
+			.select({
+				shareAmount: settlementMembers.shareAmount,
+				paidAmount: settlementMembers.paidAmount,
+			})
+			.from(settlementMembers)
+			.where(eq(settlementMembers.settlementId, settlement.id));
+		const currentTransfers = await tx
+			.select({
+				direction: settlementTransfers.direction,
+				amount: settlementTransfers.amount,
+			})
+			.from(settlementTransfers)
+			.where(eq(settlementTransfers.settlementId, settlement.id));
+		const progress = calculateSettlementProgress({
+			role: settlement.role,
+			totalAmount: settlement.totalAmount,
+			myShareAmount: settlement.myShareAmount,
+			members: currentMembers,
+			transfers: currentTransfers,
+		});
+
+		if (amount > progress.outstandingAmount) {
+			throw new Error("남은 정산 금액을 초과해서 송금 기록을 남길 수 없습니다.");
+		}
+	}
+
+	await tx.insert(settlementTransfers).values({
+		settlementId: settlement.id,
+		memberId: member?.id ?? null,
+		accountId: data.accountId ?? null,
+		direction: data.direction,
+		amount,
+		occurredAt: data.occurredAt ?? new Date(),
+		memo: encryptNullable(data.memo ?? null),
+	});
+
+	if (data.accountId) {
+		const delta = data.direction === "receive" ? amount : -amount;
+		await applyAccountDelta(tx, data.accountId, delta);
+	}
+
+	if (data.direction === "receive" && member) {
+		const nextPaidAmount = Math.min(member.paidAmount + amount, member.shareAmount);
+		const nextStatus = nextPaidAmount === 0
+			? "pending"
+			: nextPaidAmount >= member.shareAmount
+				? "paid"
+				: "partial";
+
+		await tx
+			.update(settlementMembers)
+			.set({
+				paidAmount: nextPaidAmount,
+				status: nextStatus,
+				paidAt: nextPaidAmount > 0 ? new Date() : null,
+				updatedAt: new Date(),
+			})
+			.where(eq(settlementMembers.id, member.id));
+	}
+
+	await syncSettlementStatus(tx, settlement.id);
+}
+
 export async function getSettlementDigest(month?: string): Promise<SettlementDigest> {
 	const userId = await getAuthUserId();
 	const { settlementRows, memberMap, transferMap } = await loadSettlementCollections(userId, month);
@@ -396,149 +547,12 @@ export async function updateSettlementMemberStatus(
 
 export async function recordSettlementTransfer(
 	settlementId: string,
-	data: {
-		memberId?: string | null;
-		accountId?: string | null;
-		direction: SettlementTransfer["direction"];
-		amount: number;
-		occurredAt?: Date;
-		memo?: string | null;
-	},
+	data: SettlementTransferInput,
 ): Promise<{ success: true } | { success: false; error: string }> {
 	try {
 		const userId = await getAuthUserId();
-
-		const [settlement] = await db
-			.select({
-				id: settlements.id,
-				role: settlements.role,
-				totalAmount: settlements.totalAmount,
-				myShareAmount: settlements.myShareAmount,
-			})
-			.from(settlements)
-			.where(and(eq(settlements.id, settlementId), eq(settlements.userId, userId)));
-
-		if (!settlement) {
-			return { success: false, error: "정산 정보를 찾을 수 없습니다." };
-		}
-
-		const memberId = data.memberId ?? null;
-		const [member] = memberId ? await db
-			.select({
-				id: settlementMembers.id,
-				settlementId: settlementMembers.settlementId,
-				shareAmount: settlementMembers.shareAmount,
-				paidAmount: settlementMembers.paidAmount,
-			})
-			.from(settlementMembers)
-			.innerJoin(settlements, eq(settlementMembers.settlementId, settlements.id))
-			.where(
-				and(
-					eq(settlementMembers.id, memberId),
-					eq(settlementMembers.settlementId, settlementId),
-					eq(settlements.userId, userId),
-				),
-			)
-			: [];
-
-		if (memberId && !member) {
-			return { success: false, error: "정산 멤버를 찾을 수 없습니다." };
-		}
-
-		const amount = Math.max(0, Math.trunc(data.amount));
-		if (amount <= 0) {
-			return { success: false, error: "정산 금액은 1원 이상이어야 합니다." };
-		}
-		if (data.direction === "receive" && !member) {
-			return { success: false, error: "수금 기록은 정산 멤버를 선택해야 합니다." };
-		}
-		if (settlement.role === "participant" && data.direction !== "send") {
-			return { success: false, error: "참여자 정산은 송금 기록만 남길 수 있습니다." };
-		}
-
 		await db.transaction(async (tx) => {
-			if (data.direction === "receive" && member) {
-				const [currentMember] = await tx
-					.select({
-						shareAmount: settlementMembers.shareAmount,
-						paidAmount: settlementMembers.paidAmount,
-					})
-					.from(settlementMembers)
-					.where(eq(settlementMembers.id, member.id));
-
-				if (!currentMember) {
-					throw new Error("정산 멤버를 찾을 수 없습니다.");
-				}
-
-				const remainingAmount = Math.max(currentMember.shareAmount - currentMember.paidAmount, 0);
-				if (amount > remainingAmount) {
-					throw new Error("멤버의 남은 정산 금액을 초과해서 수금할 수 없습니다.");
-				}
-			}
-
-			if (data.direction === "send") {
-				const currentMembers = await tx
-					.select({
-						shareAmount: settlementMembers.shareAmount,
-						paidAmount: settlementMembers.paidAmount,
-					})
-					.from(settlementMembers)
-					.where(eq(settlementMembers.settlementId, settlement.id));
-				const currentTransfers = await tx
-					.select({
-						direction: settlementTransfers.direction,
-						amount: settlementTransfers.amount,
-					})
-					.from(settlementTransfers)
-					.where(eq(settlementTransfers.settlementId, settlement.id));
-				const progress = calculateSettlementProgress({
-					role: settlement.role,
-					totalAmount: settlement.totalAmount,
-					myShareAmount: settlement.myShareAmount,
-					members: currentMembers,
-					transfers: currentTransfers,
-				});
-
-				if (amount > progress.outstandingAmount) {
-					throw new Error("남은 정산 금액을 초과해서 송금 기록을 남길 수 없습니다.");
-				}
-			}
-
-			await tx.insert(settlementTransfers).values({
-				settlementId: settlement.id,
-				memberId: member?.id ?? null,
-				accountId: data.accountId ?? null,
-				direction: data.direction,
-				amount,
-				occurredAt: data.occurredAt ?? new Date(),
-				memo: encryptNullable(data.memo ?? null),
-			});
-
-			if (data.accountId) {
-				const delta = data.direction === "receive" ? amount : -amount;
-				await applyAccountDelta(tx, data.accountId, delta);
-			}
-
-			if (data.direction === "receive" && member) {
-				const nextPaidAmount = Math.min(member.paidAmount + amount, member.shareAmount);
-				const nextStatus = nextPaidAmount === 0
-					? "pending"
-					: nextPaidAmount >= member.shareAmount
-						? "paid"
-						: "partial";
-
-				await tx
-					.update(settlementMembers)
-					.set({
-						paidAmount: nextPaidAmount,
-						status: nextStatus,
-						paidAt: nextPaidAmount > 0 ? new Date() : null,
-						updatedAt: new Date(),
-					})
-					.where(eq(settlementMembers.id, member.id));
-			}
-
-			await syncSettlementStatus(tx, settlement.id);
+			await applySettlementTransferRecord(tx, userId, settlementId, data);
 		});
 
 		revalidateSettlementPages();
@@ -552,41 +566,34 @@ export async function recordSettlementTransfer(
 }
 
 export async function recordParsedSettlementTransfersBatch(
-	items: Array<{
-		settlementId: string;
-		memberId?: string | null;
-		accountId?: string | null;
-		direction: SettlementTransfer["direction"];
-		amount: number;
-		occurredAt?: Date;
-		memo?: string | null;
-	}>,
+	items: Array<
+		{
+			settlementId: string;
+		} & SettlementTransferInput
+	>,
 ): Promise<{ success: true; count: number } | { success: false; error: string }> {
 	if (items.length === 0) {
 		return { success: false, error: "기록할 정산 이력이 없습니다." };
 	}
 
 	try {
-		let count = 0;
+		const userId = await getAuthUserId();
 
-		for (const item of items) {
-			const result = await recordSettlementTransfer(item.settlementId, {
-				memberId: item.memberId ?? null,
-				accountId: item.accountId ?? null,
-				direction: item.direction,
-				amount: item.amount,
-				occurredAt: item.occurredAt,
-				memo: item.memo ?? null,
-			});
-
-			if (!result.success) {
-				return result;
+		await db.transaction(async (tx) => {
+			for (const item of items) {
+				await applySettlementTransferRecord(tx, userId, item.settlementId, {
+					memberId: item.memberId ?? null,
+					accountId: item.accountId ?? null,
+					direction: item.direction,
+					amount: item.amount,
+					occurredAt: item.occurredAt,
+					memo: item.memo ?? null,
+				});
 			}
+		});
 
-			count += 1;
-		}
-
-		return { success: true, count };
+		revalidateSettlementPages();
+		return { success: true, count: items.length };
 	} catch (error) {
 		return {
 			success: false,

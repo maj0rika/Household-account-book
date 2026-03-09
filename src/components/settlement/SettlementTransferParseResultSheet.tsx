@@ -50,6 +50,23 @@ function getCandidateLabel(candidate: ParsedSettlementTransferCandidate): string
 	return `${candidate.settlementTitle} · 잔여 ${formatCurrency(candidate.outstandingAmount)}`;
 }
 
+function getRedirectPath(items: EditableTransferItem[]): string {
+	const month = items[0]?.date?.slice(0, 7) || getCurrentMonth();
+	const settlementIds = Array.from(
+		new Set(
+			items
+				.map((item) => item.selectedCandidateValue?.split(":")[0] ?? null)
+				.filter((value): value is string => Boolean(value)),
+		),
+	);
+
+	if (settlementIds.length === 1) {
+		return `/settlements?month=${month}&settlementId=${settlementIds[0]}`;
+	}
+
+	return `/settlements?month=${month}`;
+}
+
 interface EditableTransferItem {
 	date: string;
 	direction: "receive" | "send";
@@ -105,11 +122,11 @@ function EditableTransferCard({
 						<Badge variant="outline">
 							{sourceLabel}
 						</Badge>
-						)}
-						<div className="min-w-0 flex-1">
-							<p className="truncate text-sm font-medium">
-								{selectedCandidate?.settlementTitle ?? item.counterpartyName ?? "정산 이력"}
-							</p>
+					)}
+					<div className="min-w-0 flex-1">
+						<p className="truncate text-sm font-medium">
+							{selectedCandidate?.settlementTitle ?? item.counterpartyName ?? "정산 이력"}
+						</p>
 						<p className="truncate text-xs text-muted-foreground">
 							{item.counterpartyName || "상대 미확인"}
 							{selectedCandidate?.memberName ? ` · ${selectedCandidate.memberName}` : ""}
@@ -275,9 +292,9 @@ export function SettlementTransferParseResultSheet({
 	const { showSpinner, startLoading, stopLoading } = useDeferredLoading(200);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-		useEffect(() => {
-			setItems(
-				initialItems.map((item) => ({
+	useEffect(() => {
+		setItems(
+			initialItems.map((item) => ({
 				date: item.date,
 				direction: item.direction,
 				amount: String(item.amount),
@@ -286,14 +303,14 @@ export function SettlementTransferParseResultSheet({
 				sourceType: item.sourceType,
 				sourceService: item.sourceService,
 				candidates: item.candidates ?? [],
-					selectedCandidateValue: item.matchedSettlementId
-						? `${item.matchedSettlementId}:${item.matchedMemberId ?? ""}`
-						: null,
-					accountId: NO_ACCOUNT,
-				} as EditableTransferItem)),
-			);
-			setErrorMessage(null);
-		}, [initialItems]);
+				selectedCandidateValue: item.matchedSettlementId
+					? `${item.matchedSettlementId}:${item.matchedMemberId ?? ""}`
+					: null,
+				accountId: NO_ACCOUNT,
+			} as EditableTransferItem)),
+		);
+		setErrorMessage(null);
+	}, [initialItems]);
 
 	const handleUpdate = (index: number, nextItem: EditableTransferItem) => {
 		setItems((prev) => prev.map((item, itemIndex) => (itemIndex === index ? nextItem : item)));
@@ -340,13 +357,7 @@ export function SettlementTransferParseResultSheet({
 				}
 
 				onOpenChange(false);
-				const month = items[0]?.date?.slice(0, 7) || getCurrentMonth();
-				const [settlementId] = items[0]?.selectedCandidateValue?.split(":") ?? [];
-				router.push(
-					settlementId
-						? `/settlements?month=${month}&settlementId=${settlementId}`
-						: `/settlements?month=${month}`,
-				);
+				router.push(getRedirectPath(items));
 			} catch (error) {
 				console.error("[SettlementTransferParseResultSheet] 정산 이력 저장 실패", error);
 				setErrorMessage("정산 이력 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
