@@ -51,3 +51,12 @@ android/local.properties
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# AI agent 자동생성 파일
+.agents/
+.serena/memories/
+AGENTS.md
+
+# 학습/면접 자료 (개인용)
+docs/interview-*.md
+docs/tutorial/
