@@ -10,9 +10,17 @@ import { getAccounts } from "@/server/actions/account";
 import type { UnifiedParseResult, ParsedTransaction, ParsedAccount } from "@/server/llm/types";
 import type { Category, Account } from "@/types";
 
-export function UnifiedInputSection() {
-	const [categories, setCategories] = useState<Category[]>([]);
-	const [existingAccounts, setExistingAccounts] = useState<Account[]>([]);
+interface UnifiedInputSectionProps {
+	initialCategories: Category[];
+	initialAccounts: Account[];
+}
+
+export function UnifiedInputSection({
+	initialCategories,
+	initialAccounts,
+}: UnifiedInputSectionProps) {
+	const [categories, setCategories] = useState<Category[]>(initialCategories);
+	const [existingAccounts, setExistingAccounts] = useState<Account[]>(initialAccounts);
 
 	// 거래 결과 시트
 	const [txSheetOpen, setTxSheetOpen] = useState(false);
@@ -24,33 +32,6 @@ export function UnifiedInputSection() {
 	const [parsedAccounts, setParsedAccounts] = useState<ParsedAccount[]>([]);
 	const [deferAccountSheet, setDeferAccountSheet] = useState(false);
 	const [splitMeta, setSplitMeta] = useState<{ transactionCount: number; accountCount: number } | null>(null);
-
-	// 초기 데이터 로드
-	useEffect(() => {
-		let mounted = true;
-
-		const loadInitialData = async () => {
-			try {
-				const [cats, accs] = await Promise.all([
-					getUserCategories(),
-					getAccounts(),
-				]);
-				if (!mounted) return;
-				setCategories(cats);
-				setExistingAccounts(accs);
-			} catch (error) {
-				console.error("[UnifiedInputSection] 초기 데이터 로드 실패", error);
-				if (!mounted) return;
-				setCategories([]);
-				setExistingAccounts([]);
-			}
-		};
-
-		void loadInitialData();
-		return () => {
-			mounted = false;
-		};
-	}, []);
 
 	// 시트 닫힐 때 데이터 갱신 (useEffect로 분리하여 렌더 중 setState 방지)
 	const prevTxOpen = useRef(txSheetOpen);

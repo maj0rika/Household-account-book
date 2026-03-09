@@ -8,6 +8,8 @@ import { RoutePrefetcher } from "@/components/layout/RoutePrefetcher";
 import { ManualInputProvider } from "@/components/providers/ManualInputProvider";
 import { GlobalManualInputDialog } from "@/components/providers/GlobalManualInputDialog";
 import { UnifiedInputSection } from "@/components/transaction/UnifiedInputSection";
+import { getUserCategories } from "@/server/actions/transaction";
+import { getAccounts } from "@/server/actions/account";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
 	const session = await auth.api.getSession({
@@ -18,6 +20,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
 		redirect("/login");
 	}
 
+	const [initialCategories, initialAccounts] = await Promise.all([
+		getUserCategories(),
+		getAccounts(),
+	]);
+
 	return (
 		<ManualInputProvider>
 			<RoutePrefetcher />
@@ -27,7 +34,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
 				<BottomTabBar />
 			</div>
 			<GlobalManualInputDialog />
-			<UnifiedInputSection />
+			<UnifiedInputSection
+				initialCategories={initialCategories}
+				initialAccounts={initialAccounts}
+			/>
 		</ManualInputProvider>
 	);
 }

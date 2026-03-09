@@ -50,11 +50,31 @@ export async function POST(request: Request) {
 
 	// application/json → 텍스트 파싱
 	const body = await request.json().catch(() => null);
-	if (!body?.input || typeof body.input !== "string") {
+	if (!body || typeof body.input !== "string") {
 		return NextResponse.json(
 			{ success: false, error: "input 필드가 필요합니다." },
 			{ status: 400 },
 		);
+	}
+
+	if (typeof body.imageBase64 === "string" && body.imageBase64) {
+		if (typeof body.mimeType !== "string" || !body.mimeType) {
+			return NextResponse.json(
+				{ success: false, error: "mimeType 필드가 필요합니다." },
+				{ status: 400 },
+			);
+		}
+
+		const result = await executeImageParse(
+			body.imageBase64,
+			body.mimeType,
+			body.input,
+			session.user.id,
+			session.session.id,
+		);
+		const status = result.success ? 200 : 422;
+
+		return NextResponse.json(result, { status });
 	}
 
 	const result = await executeTextParse(body.input, session.user.id, session.session.id);

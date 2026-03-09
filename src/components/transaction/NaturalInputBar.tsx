@@ -2,12 +2,11 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import Image from "next/image";
-import { Send, Loader2, ImagePlus, X, Square } from "lucide-react";
+import { Send, Loader2, ImagePlus, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 import { Button } from "@/components/ui/button";
-import { parseUnifiedInput, parseUnifiedImageInput } from "@/server/actions/parse-unified";
-import type { UnifiedParseResult } from "@/server/llm/types";
+import type { UnifiedParseResponse, UnifiedParseResult } from "@/server/llm/types";
 
 const PLACEHOLDER_HINTS = [
 	"점심 김치찌개 9000, 커피 4500",
@@ -70,6 +69,39 @@ interface ParseSubmission {
 	imageData: { base64: string; mimeType: string } | null;
 }
 
+async function requestUnifiedParse(
+	submission: ParseSubmission,
+	signal: AbortSignal,
+): Promise<UnifiedParseResponse> {
+	const response = await fetch("/api/parse", {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify({
+			input: submission.input,
+			imageBase64: submission.imageData?.base64 ?? undefined,
+			mimeType: submission.imageData?.mimeType ?? undefined,
+		}),
+		signal,
+	});
+
+	const text = await response.text();
+	if (!text) {
+		throw new Error("파싱 응답이 비어 있습니다.");
+	}
+
+	try {
+		return JSON.parse(text) as UnifiedParseResponse;
+	} catch {
+		console.error("[NaturalInputBar] JSON 파싱 실패", {
+			status: response.status,
+			bodyPreview: text.slice(0, 300),
+		});
+		throw new Error("파싱 응답 형식을 읽지 못했습니다.");
+	}
+}
+
 function buildStatusStages(isLongTask: boolean): string[] {
 	if (isLongTask) {
 		return [
@@ -125,10 +157,7 @@ async function compressToJpeg(dataUrl: string, maxDim = 1600, quality = 0.82): P
 }
 
 export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
-	const [input, setInput] = useState(() => {
-		if (typeof window === "undefined") return "";
-		return sessionStorage.getItem(DRAFT_STORAGE_KEY) ?? "";
-	});
+	const [input, setInput] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [imagePreview, setImagePreview] = useState<string | null>(null);
 	const [imageData, setImageData] = useState<{ base64: string; mimeType: string } | null>(null);
@@ -142,6 +171,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 	const requestIdRef = useRef(0);
 	const statusTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 	const lastSubmissionRef = useRef<ParseSubmission | null>(null);
+	const requestAbortRef = useRef<AbortController | null>(null);
 
 	const resizeTextarea = useCallback((el: HTMLTextAreaElement) => {
 		if (!el.value.trim()) {
@@ -151,6 +181,18 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 		el.style.height = "auto";
 		el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
 	}, []);
+
+	// SSR/클라이언트 초기값 불일치 방지: sessionStorage 복원은 마운트 후 수행
+	useEffect(() => {
+		const draft = sessionStorage.getItem(DRAFT_STORAGE_KEY);
+		if (!draft) return;
+
+		setInput(draft);
+		if (textareaRef.current) {
+			textareaRef.current.value = draft;
+			resizeTextarea(textareaRef.current);
+		}
+	}, [resizeTextarea]);
 
 	const stopStatusTicker = useCallback(() => {
 		if (statusTimerRef.current) {
@@ -196,13 +238,11 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 		startStatusTicker(isLongTask);
 
 		try {
-			const result = submission.imageData
-				? await parseUnifiedImageInput(
-						submission.imageData.base64,
-						submission.imageData.mimeType,
-						submission.input,
-					)
-				: await parseUnifiedInput(submission.input);
+			requestAbortRef.current?.abort();
+			const controller = new AbortController();
+			requestAbortRef.current = controller;
+
+			const result = await requestUnifiedParse(submission, controller.signal);
 
 			if (requestId !== requestIdRef.current) return;
 
@@ -221,9 +261,18 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 			}
 		} catch (e) {
 			if (requestId !== requestIdRef.current) return;
+
+			if (e instanceof Error && e.name === "AbortError") {
+				return;
+			}
+
 			console.error("[NaturalInputBar] 파싱 요청 실패", e);
 			setError("요청 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
 		} finally {
+			if (requestAbortRef.current?.signal.aborted || requestId === requestIdRef.current) {
+				requestAbortRef.current = null;
+			}
+
 			if (requestId === requestIdRef.current) {
 				setIsLoading(false);
 				stopStatusTicker();
@@ -293,6 +342,8 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 	const handleCancel = useCallback(() => {
 		if (!isLoading) return;
 		requestIdRef.current += 1;
+		requestAbortRef.current?.abort();
+		requestAbortRef.current = null;
 		setIsLoading(false);
 		stopStatusTicker();
 		setError("요청을 취소했어요. 필요하면 다시 시도해 주세요.");
@@ -306,7 +357,10 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 		}
 	};
 
-	useEffect(() => () => stopStatusTicker(), [stopStatusTicker]);
+	useEffect(() => () => {
+		requestAbortRef.current?.abort();
+		stopStatusTicker();
+	}, [stopStatusTicker]);
 
 	const canRetry = !!error && !!lastSubmissionRef.current && !isLoading;
 
@@ -337,7 +391,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 									onClick={handleCancel}
 									className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
 								>
-									<Square className="h-2.5 w-2.5" />
+									<X className="h-3 w-3" />
 									취소
 								</button>
 							</div>
