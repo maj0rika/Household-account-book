@@ -279,6 +279,8 @@ type: start | progress | complete | change | issue
 | 2026-03-09 | 수정 | LLM 자동 재시도 제거 — 사용자 1회 요청당 벤더 1회 호출로 제한                      | [history](./history/2026-03-09-09-llm-auto-retry-removal.md)                |
 | 2026-03-09 | 성능 | 거래 화면 초기 요청 수 감소 — 초기 서버 액션 제거, 현재 경로 prefetch 제외         | [history](./history/2026-03-09-10-transaction-request-reduction.md)         |
 
+| 2026-03-09 | 수정 | LLM 타임아웃 상한 증가 — 텍스트/이미지 파싱 대기 시간 완화                         | [history](./history/2026-03-09-11-llm-timeout-threshold-increase.md)        |
+| 2026-03-09 | 수정 | Fireworks 실패 시 Kimi 자동 폴백 — 세션 쿨다운 포함                               | [history](./history/2026-03-09-12-fireworks-kimi-fallback.md)               |
 ## [완료] 2차 디자인 시스템 전수검사 (추가 컴포넌트 터치 최적화)
 
 ### Phase 1: PM (요구사항 분석 및 작업 분해)

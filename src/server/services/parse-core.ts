@@ -16,7 +16,12 @@ import type { Account } from "@/types";
 // 로그아웃 → 재로그인 시 새 세션 ID가 발급되므로 자동 리셋
 const FIREWORKS_FREE_LIMIT = 3;
 const MAX_MAP_SIZE = 1000;
-const fireworksUsageMap = new Map<string, { count: number; lastUsed: number }>();
+const FIREWORKS_FAILURE_COOLDOWN_MS = 10 * 60 * 1000;
+const fireworksUsageMap = new Map<string, {
+	count: number;
+	lastUsed: number;
+	blockedUntil?: number;
+}>();
 
 // 오래된 엔트리 정리 (24시간 초과)
 function pruneStaleEntries(): void {
@@ -30,6 +35,8 @@ function pruneStaleEntries(): void {
 function canUseFireworks(sessionId: string): boolean {
 	if (!process.env.FIREWORKS_API_KEY) return false;
 	const entry = fireworksUsageMap.get(sessionId);
+	const blockedUntil = entry?.blockedUntil ?? 0;
+	if (blockedUntil > Date.now()) return false;
 	const used = entry?.count ?? 0;
 	return used < FIREWORKS_FREE_LIMIT;
 }
@@ -41,46 +48,124 @@ function incrementFireworksUsage(sessionId: string): void {
 	pruneStaleEntries();
 }
 
-function resolveTextProvider(input: string, sessionId: string): LLMProvider | null {
+function hasKimi(): boolean {
+	return !!process.env.KIMI_API_KEY;
+}
+
+function hasFireworks(): boolean {
+	return !!process.env.FIREWORKS_API_KEY;
+}
+
+function dedupeProviders(providers: Array<LLMProvider | null>): LLMProvider[] {
+	return providers.filter((provider, index, list): provider is LLMProvider => {
+		return !!provider && list.indexOf(provider) === index;
+	});
+}
+
+function resolveTextProviders(sessionId: string): LLMProvider[] {
 	// 정책 우선순위 #1: 기존 3회 룰 (신규/초기 사용자 체감 속도)
 	if (canUseFireworks(sessionId)) {
-		return "fireworks";
+		return dedupeProviders([
+			"fireworks",
+			hasKimi() ? "kimi" : null,
+		]);
 	}
 
 	// 정책 우선순위 #2: 긴 입력도 고성능 Kimi로 처리
-	if (process.env.KIMI_API_KEY) return "kimi";
+	if (hasKimi()) return ["kimi"];
 
 	// 최후 폴백: 이용 가능한 provider가 fireworks뿐이면 제한 이후에도 사용
-	if (process.env.FIREWORKS_API_KEY) return "fireworks";
+	if (hasFireworks()) return ["fireworks"];
 
-	return null;
+	return [];
 }
 
-function resolveImageProvider(sessionId: string): LLMProvider | null {
+function resolveImageProviders(sessionId: string): LLMProvider[] {
 	// 정책 우선순위 #1: 기존 3회 룰
-	if (canUseFireworks(sessionId)) return "fireworks";
+	if (canUseFireworks(sessionId)) {
+		return dedupeProviders([
+			"fireworks",
+			hasKimi() ? "kimi" : null,
+		]);
+	}
 
 	// 이미지/긴 입력은 Kimi 우선
-	if (process.env.KIMI_API_KEY) return "kimi";
+	if (hasKimi()) return ["kimi"];
 
 	// 최후 폴백
-	if (process.env.FIREWORKS_API_KEY) return "fireworks";
+	if (hasFireworks()) return ["fireworks"];
 
-	return null;
+	return [];
+}
+
+function isRecoverableProviderFailure(message: string): boolean {
+	const normalized = message.toLowerCase();
+
+	return normalized.includes("llm 응답 시간 초과")
+		|| normalized.includes("llmtimeouterror")
+		|| normalized.includes("request was aborted")
+		|| normalized.includes("fetch failed")
+		|| normalized.includes("network")
+		|| normalized.includes("connection")
+		|| normalized.includes("response")
+		|| normalized.includes("응답이 비어")
+		|| normalized.includes("응답 형식")
+		|| normalized.includes("파싱 결과가 비어")
+		|| normalized.includes("unexpected end of json input")
+		|| normalized.includes("rate limit")
+		|| normalized.includes("429")
+		|| normalized.includes("500")
+		|| normalized.includes("502")
+		|| normalized.includes("503")
+		|| normalized.includes("504");
+}
+
+function activateFireworksCooldown(sessionId: string, reason: string): void {
+	const entry = fireworksUsageMap.get(sessionId);
+	const blockedUntil = Date.now() + FIREWORKS_FAILURE_COOLDOWN_MS;
+
+	fireworksUsageMap.set(sessionId, {
+		count: entry?.count ?? 0,
+		lastUsed: Date.now(),
+		blockedUntil,
+	});
+	pruneStaleEntries();
+
+	console.warn("[LLM] fireworks cooldown activated", {
+		reason,
+		cooldownMs: FIREWORKS_FAILURE_COOLDOWN_MS,
+	});
+}
+
+function normalizeParseFailure(
+	result: UnifiedParseResponse,
+	timeoutMs: number,
+	isImage: boolean,
+): UnifiedParseResponse {
+	if (result.success) return result;
+
+	if (
+		result.error.includes("LLM 응답 시간 초과")
+		|| result.error.includes("LLMTimeoutError")
+	) {
+		return { success: false, error: mapTimeoutErrorMessage(timeoutMs, isImage) };
+	}
+
+	return result;
 }
 
 function resolveTextTimeoutMs(input: string): number {
 	const textLength = input.trim().length;
-	if (textLength <= 100) return 25000;
-	if (textLength <= 400) return 45000;
-	return 75000;
+	if (textLength <= 100) return 45000;
+	if (textLength <= 400) return 70000;
+	return 100000;
 }
 
 function resolveImageTimeoutMs(textInput: string): number {
 	const textLength = textInput.trim().length;
-	if (textLength <= 100) return 70000;
-	if (textLength <= 400) return 85000;
-	return 100000;
+	if (textLength <= 100) return 90000;
+	if (textLength <= 400) return 110000;
+	return 120000;
 }
 
 function mapTimeoutErrorMessage(timeoutMs: number, isImage: boolean): string {
@@ -147,9 +232,9 @@ export async function executeTextParse(
 	}
 
 	// provider/timeout 결정
-	const provider = resolveTextProvider(input, sessionId);
+	const providers = resolveTextProviders(sessionId);
 	const timeoutMs = resolveTextTimeoutMs(input);
-	if (!provider) {
+	if (providers.length === 0) {
 		return { success: false, error: mapProviderConfigErrorMessage() };
 	}
 
@@ -162,29 +247,47 @@ export async function executeTextParse(
 	// 은행 메시지 전처리
 	const processedInput = isBankMessage(input) ? preprocessBankMessage(input) : input;
 
-	const result = await parseUnifiedText(
-		processedInput,
-		userCategories,
-		existingAccounts,
-		provider,
-		{ timeoutMs },
-	);
+	let lastResult: UnifiedParseResponse | null = null;
 
-	// 성공 시에만 카운터 증가 (실패하면 횟수 소비하지 않음)
-	if (result.success && provider === "fireworks") {
-		incrementFireworksUsage(sessionId);
-	}
+	for (let index = 0; index < providers.length; index++) {
+		const provider = providers[index];
+		const result = await parseUnifiedText(
+			processedInput,
+			userCategories,
+			existingAccounts,
+			provider,
+			{ timeoutMs },
+		);
 
-	if (!result.success) {
-		if (
-			result.error.includes("LLM 응답 시간 초과") ||
-			result.error.includes("LLMTimeoutError")
-		) {
-			return { success: false, error: mapTimeoutErrorMessage(timeoutMs, false) };
+		if (result.success) {
+			if (provider === "fireworks") {
+				incrementFireworksUsage(sessionId);
+			}
+			return result;
 		}
+
+		lastResult = result;
+
+		const fallbackProvider = providers[index + 1];
+		const shouldFallback = provider === "fireworks" && fallbackProvider === "kimi";
+		if (!shouldFallback) {
+			break;
+		}
+
+		const isRecoverable = isRecoverableProviderFailure(result.error);
+		if (isRecoverable) {
+			activateFireworksCooldown(sessionId, result.error);
+		}
+
+		console.warn("[LLM] text provider fallback", {
+			from: provider,
+			to: fallbackProvider,
+			recoverable: isRecoverable,
+			error: result.error,
+		});
 	}
 
-	return result;
+	return normalizeParseFailure(lastResult ?? { success: false, error: "파싱 실패: 알 수 없는 오류" }, timeoutMs, false);
 }
 
 /**
@@ -203,9 +306,9 @@ export async function executeImageParse(
 	}
 
 	// provider/timeout 결정
-	const provider = resolveImageProvider(sessionId);
+	const providers = resolveImageProviders(sessionId);
 	const timeoutMs = resolveImageTimeoutMs(textInput);
-	if (!provider) {
+	if (providers.length === 0) {
 		return { success: false, error: mapProviderConfigErrorMessage() };
 	}
 
@@ -214,28 +317,47 @@ export async function executeImageParse(
 		getUserAccounts(userId),
 	]);
 
-	const result = await parseUnifiedImage(
-		imageBase64,
-		mimeType,
-		textInput,
-		userCategories,
-		existingAccounts,
-		provider,
-		{ timeoutMs },
-	);
+	let lastResult: UnifiedParseResponse | null = null;
 
-	if (result.success && provider === "fireworks") {
-		incrementFireworksUsage(sessionId);
-	}
+	for (let index = 0; index < providers.length; index++) {
+		const provider = providers[index];
+		const result = await parseUnifiedImage(
+			imageBase64,
+			mimeType,
+			textInput,
+			userCategories,
+			existingAccounts,
+			provider,
+			{ timeoutMs },
+		);
 
-	if (!result.success) {
-		if (
-			result.error.includes("LLM 응답 시간 초과") ||
-			result.error.includes("LLMTimeoutError")
-		) {
-			return { success: false, error: mapTimeoutErrorMessage(timeoutMs, true) };
+		if (result.success) {
+			if (provider === "fireworks") {
+				incrementFireworksUsage(sessionId);
+			}
+			return result;
 		}
+
+		lastResult = result;
+
+		const fallbackProvider = providers[index + 1];
+		const shouldFallback = provider === "fireworks" && fallbackProvider === "kimi";
+		if (!shouldFallback) {
+			break;
+		}
+
+		const isRecoverable = isRecoverableProviderFailure(result.error);
+		if (isRecoverable) {
+			activateFireworksCooldown(sessionId, result.error);
+		}
+
+		console.warn("[LLM] image provider fallback", {
+			from: provider,
+			to: fallbackProvider,
+			recoverable: isRecoverable,
+			error: result.error,
+		});
 	}
 
-	return result;
+	return normalizeParseFailure(lastResult ?? { success: false, error: "이미지 파싱 실패: 알 수 없는 오류" }, timeoutMs, true);
 }
