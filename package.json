@@ -9,7 +9,7 @@
 		"lint": "next lint",
 		"test": "vitest run",
 		"db:generate": "drizzle-kit generate",
-		"db:migrate": "drizzle-kit migrate",
+		"db:migrate": "tsx scripts/repair-drizzle-migrations.ts && drizzle-kit migrate",
 		"db:seed:create": "tsx src/server/db/seed.ts",
 		"db:seed": "tsx src/server/db/seed.ts --",
 		"db:seed:user": "tsx src/server/db/seed.ts -- --email",

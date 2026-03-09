@@ -317,6 +317,7 @@ type: start | progress | complete | change | issue
 | 2026-03-09 | 기능 | 카드 부채 결제주기 + 음수 지출 TODO 구체화                                         | [history](./history/2026-03-09-23-credit-card-billing-negative-expense-todo.md) |
 | 2026-03-09 | 수정 | Phase 14 정산 이력 batch 저장 원자성 보강 및 자동 매칭 회귀 테스트 추가            | [history](./history/2026-03-09-24-settlement-transfer-stability.md)         |
 | 2026-03-09 | 수정 | Phase 14 열린 정산 기준 정산 알림 텍스트 힌트 보강                                | [history](./history/2026-03-09-25-settlement-transfer-text-hints.md)        |
+| 2026-03-09 | 수정 | Drizzle legacy migration repair 추가 및 정산 스키마 로컬 DB 복구                   | [history](./history/2026-03-09-26-drizzle-legacy-migration-repair.md)       |
 
 ## [완료] 2차 디자인 시스템 전수검사 (추가 컴포넌트 터치 최적화)
 
