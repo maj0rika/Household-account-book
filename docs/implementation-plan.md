@@ -158,6 +158,7 @@
 - [x] 계좌 기능 사용 시 `가계부 금액`과 `실제 계좌 영향 금액` 분리 설계 검토
 - [x] 후속: 정산 완료 메시지/입금 알림 자동 파싱
 - [x] 후속 안정화: 정산 이력 batch 저장 원자성 및 자동 매칭 회귀 테스트
+- [x] 후속 안정화: 열린 정산 기준 정산 알림 텍스트 힌트 보강
 
 참고 문서: [Phase 14 PM 플래닝](./brainstorms/2026-03-09-n-split-settlement-planning.md), [Phase 14 UX/UI 설계](./brainstorms/2026-03-09-n-split-settlement-uxui.md), [Phase 14 BE 설계](./brainstorms/2026-03-09-n-split-settlement-be-design.md)
 
@@ -315,6 +316,7 @@ type: start | progress | complete | change | issue
 | 2026-03-09 | 기능 | Phase 14 정산 완료 메시지·입금 알림 자동 파싱 및 정산 이력 저장 연결               | [history](./history/2026-03-09-23-settlement-transfer-alert-parse.md)       |
 | 2026-03-09 | 기능 | 카드 부채 결제주기 + 음수 지출 TODO 구체화                                         | [history](./history/2026-03-09-23-credit-card-billing-negative-expense-todo.md) |
 | 2026-03-09 | 수정 | Phase 14 정산 이력 batch 저장 원자성 보강 및 자동 매칭 회귀 테스트 추가            | [history](./history/2026-03-09-24-settlement-transfer-stability.md)         |
+| 2026-03-09 | 수정 | Phase 14 열린 정산 기준 정산 알림 텍스트 힌트 보강                                | [history](./history/2026-03-09-25-settlement-transfer-text-hints.md)        |
 
 ## [완료] 2차 디자인 시스템 전수검사 (추가 컴포넌트 터치 최적화)
 

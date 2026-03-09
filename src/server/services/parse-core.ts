@@ -1,12 +1,13 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 
 import { db } from "@/server/db";
-import { categories, accounts } from "@/server/db/schema";
+import { categories, accounts, settlements } from "@/server/db/schema";
 import { decryptString, decryptNumber } from "@/server/lib/crypto";
 import { parseUnifiedText, parseUnifiedImage } from "@/server/llm";
 import type { LLMProvider } from "@/server/llm/client";
 import { isBankMessage, preprocessBankMessage } from "@/server/llm/bank-message";
 import { isFinancialInput, OOD_ERROR_MESSAGE } from "@/server/llm/ood-filter";
+import { preprocessSettlementTransferMessage } from "@/server/llm/settlement-message";
 import type { LLMCategory } from "@/server/llm/prompt";
 import type { UnifiedParseResponse } from "@/server/llm/types";
 import { matchParsedSettlementTransfers } from "@/server/settlement/transfer-matching";
@@ -214,6 +215,16 @@ async function getUserAccounts(userId: string): Promise<Account[]> {
 	}));
 }
 
+async function hasOpenSettlements(userId: string): Promise<boolean> {
+	const rows = await db
+		.select({ id: settlements.id })
+		.from(settlements)
+		.where(and(eq(settlements.userId, userId), ne(settlements.status, "completed")))
+		.limit(1);
+
+	return rows.length > 0;
+}
+
 /**
  * 코어 텍스트 파싱 — 세션 추출 없이 userId/sessionId를 직접 받는다.
  * Server Action과 API 라우트 모두에서 사용.
@@ -239,14 +250,18 @@ export async function executeTextParse(
 		return { success: false, error: mapProviderConfigErrorMessage() };
 	}
 
-	// 병렬로 카테고리 + 계정 조회
-	const [userCategories, existingAccounts] = await Promise.all([
+	// 병렬로 카테고리 + 계정 + 열린 정산 여부 조회
+	const [userCategories, existingAccounts, openSettlementExists] = await Promise.all([
 		getUserLLMCategories(userId),
 		getUserAccounts(userId),
+		hasOpenSettlements(userId),
 	]);
 
 	// 은행 메시지 전처리
-	const processedInput = isBankMessage(input) ? preprocessBankMessage(input) : input;
+	const bankProcessedInput = isBankMessage(input) ? preprocessBankMessage(input) : input;
+	const processedInput = preprocessSettlementTransferMessage(bankProcessedInput, {
+		hasOpenSettlements: openSettlementExists,
+	});
 
 	let lastResult: UnifiedParseResponse | null = null;
 
@@ -317,10 +332,14 @@ export async function executeImageParse(
 		return { success: false, error: mapProviderConfigErrorMessage() };
 	}
 
-	const [userCategories, existingAccounts] = await Promise.all([
+	const [userCategories, existingAccounts, openSettlementExists] = await Promise.all([
 		getUserLLMCategories(userId),
 		getUserAccounts(userId),
+		hasOpenSettlements(userId),
 	]);
+	const processedTextInput = preprocessSettlementTransferMessage(textInput, {
+		hasOpenSettlements: openSettlementExists,
+	});
 
 	let lastResult: UnifiedParseResponse | null = null;
 
@@ -329,7 +348,7 @@ export async function executeImageParse(
 		const result = await parseUnifiedImage(
 			imageBase64,
 			mimeType,
-			textInput,
+			processedTextInput,
 			userCategories,
 			existingAccounts,
 			provider,

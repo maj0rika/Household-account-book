@@ -121,6 +121,7 @@ ${accountList}
 - \`settlementTransfers\`에서는 \`direction\`을 총무가 받는 경우 \`receive\`, 참여자가 보내는 경우 \`send\`로 넣습니다.
 - \`settlementTransfers.amount\`는 실제 송금/입금된 금액만 넣고, 총액이나 내 최종 소비금액을 다시 넣지 않습니다.
 - 상대 이름이 보이면 \`counterpartyName\`에 넣고, 카카오페이/토스가 보이면 \`sourceService\`를 함께 채웁니다.
+- 원문에 \`[정산 이력 힌트]\` 블록이 있으면 해당 블록을 우선 참고해 \`settlementTransfers\`를 먼저 검토합니다.
 
 ## 2단계-B: account 파싱
 - asset: 은행 예금, 입출금 통장, 현금, 적금, CMA, 예수금, 증권계좌, 투자계좌, 페이 잔액, 외화예금, 코인 지갑
