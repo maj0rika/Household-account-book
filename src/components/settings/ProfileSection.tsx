@@ -1,9 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { LogOut, Trash2 } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { authClient } from "@/lib/auth-client";
+import { DeleteAccountDialog } from "./DeleteAccountDialog";
 
 interface ProfileSectionProps {
 	user: {
@@ -14,6 +18,7 @@ interface ProfileSectionProps {
 
 export function ProfileSection({ user }: ProfileSectionProps) {
 	const router = useRouter();
+	const [deleteOpen, setDeleteOpen] = useState(false);
 
 	const handleLogout = async () => {
 		await authClient.signOut();
@@ -39,6 +44,19 @@ export function ProfileSection({ user }: ProfileSectionProps) {
 				<LogOut className="mr-2 h-4 w-4" />
 				로그아웃
 			</Button>
+
+			<Separator />
+
+			<Button
+				variant="ghost"
+				className="w-full text-destructive"
+				onClick={() => setDeleteOpen(true)}
+			>
+				<Trash2 className="mr-2 h-4 w-4" />
+				계정 삭제
+			</Button>
+
+			<DeleteAccountDialog open={deleteOpen} onOpenChange={setDeleteOpen} />
 		</div>
 	);
 }

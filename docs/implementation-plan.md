@@ -142,13 +142,22 @@
 
 ### Phase 14: N분의 1 정산 (더치페이) 🆕
 
-내가 카드로 전체 결제 후, 친구들에게 각자 몫을 청구/추적.
+내가 먼저 전체를 결제하더라도, **가계부 본체는 내 부담금만 기록**하고, 총액/참여자/미수금은 별도 정산 레이어에서 추적한다.
 
-- [ ] DB 스키마: settlements, settlement_members 테이블
-- [ ] 거래 저장 후 "정산하기" 버튼 → 인원 입력 → N등분
-- [ ] 정산 현황 대시보드 (받아야 할 금액, 완료/미완료)
-- [ ] 개별 정산 완료 체크
-- [ ] 카카오페이/토스 딥링크 연동 (송금 요청 URL)
+핵심 불변조건: **총무 역할을 했더라도 내 가계부는 총액 기준으로 오염되면 안 된다.**
+
+- [ ] PM 원칙 확정: `transactions.amount`는 `내 부담금` 기준으로 유지하고, 총액은 정산 메타데이터로 분리
+- [ ] DB 스키마: `settlements`, `settlement_members` 테이블 추가
+- [ ] 거래 저장 시 정산 데이터 동시 생성 (총액, 내 몫, 인원, 총무 여부, 멤버 상태)
+- [ ] 파싱 결과 시트에서 `총액`, `내 몫`, `인원`, `참여자`, `완료 상태` 수정 가능
+- [ ] 자연어 입력: `3명이서 9만원, 내가 냈고 내 몫은 3만원` 같은 문장을 정산 포함 거래로 파싱
+- [ ] 이미지 입력: 카카오톡/토스 등 정산 스크린샷 업로드 시 초안 자동 파싱
+- [ ] 정산 현황 대시보드 (받아야 할 금액, 완료/미완료, 참여자별 상태)
+- [ ] 개별 정산 완료 체크 및 미수금 갱신
+- [ ] 계좌 기능 사용 시 `가계부 금액`과 `실제 계좌 영향 금액` 분리 설계 검토
+- [ ] 후속: 정산 완료 메시지/입금 알림 자동 파싱
+
+참고 문서: [Phase 14 PM 플래닝](./brainstorms/2026-03-09-n-split-settlement-planning.md), [Phase 14 UX/UI 설계](./brainstorms/2026-03-09-n-split-settlement-uxui.md)
 
 ### Phase 15: 예산 알림
 
@@ -278,9 +287,14 @@ type: start | progress | complete | change | issue
 | 2026-03-09 | 수정 | LLM 타임아웃 디버깅 경로 정리 — JSON API 전환, 요청 abort, 서버 로그 추가          | [history](./history/2026-03-09-08-llm-timeout-debugging-fix.md)             |
 | 2026-03-09 | 수정 | LLM 자동 재시도 제거 — 사용자 1회 요청당 벤더 1회 호출로 제한                      | [history](./history/2026-03-09-09-llm-auto-retry-removal.md)                |
 | 2026-03-09 | 성능 | 거래 화면 초기 요청 수 감소 — 초기 서버 액션 제거, 현재 경로 prefetch 제외         | [history](./history/2026-03-09-10-transaction-request-reduction.md)         |
-
 | 2026-03-09 | 수정 | LLM 타임아웃 상한 증가 — 텍스트/이미지 파싱 대기 시간 완화                         | [history](./history/2026-03-09-11-llm-timeout-threshold-increase.md)        |
 | 2026-03-09 | 수정 | Fireworks 실패 시 Kimi 자동 폴백 — 세션 쿨다운 포함                               | [history](./history/2026-03-09-12-fireworks-kimi-fallback.md)               |
+| 2026-03-09 | 수정 | 파싱 결과 시트 중첩 버튼 구조 수정                                                 | [history](./history/2026-03-09-13-parse-sheet-nested-button-fix.md)         |
+| 2026-03-09 | 계획 | Phase 14 N분의 1 정산 PM 플래닝 정리                                               | [history](./history/2026-03-09-14-n-split-settlement-planning.md)           |
+| 2026-03-09 | 계획 | Phase 14 N분의 1 정산 UX/UI 설계                                                   | [history](./history/2026-03-09-15-n-split-settlement-uxui-planning.md)      |
+| 2026-03-09 | 계획 | Phase 14 N분의 1 정산 BE 설계                                                      | [history](./history/2026-03-09-16-n-split-settlement-be-design.md)          |
+| 2026-03-09 | 기능 | 계정 삭제 기능 추가 (Google Play 정책 준수)                                        | [history](./history/2026-03-09-18-delete-account-feature.md)                |
+
 ## [완료] 2차 디자인 시스템 전수검사 (추가 컴포넌트 터치 최적화)
 
 ### Phase 1: PM (요구사항 분석 및 작업 분해)

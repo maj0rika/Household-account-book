@@ -2,10 +2,11 @@
 
 import { headers } from "next/headers";
 import { and, eq } from "drizzle-orm";
+import { verifyPassword } from "better-auth/crypto";
 
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
-import { categories } from "@/server/db/schema";
+import { authAccounts, authUsers, categories } from "@/server/db/schema";
 import { revalidateCategoryPages } from "@/lib/cache-keys";
 
 async function getAuthUserId(): Promise<string> {
@@ -66,5 +67,45 @@ export async function deleteCategory(
 		return { success: true };
 	} catch (e) {
 		return { success: false, error: e instanceof Error ? e.message : "카테고리 삭제에 실패했습니다." };
+	}
+}
+
+// 사용자 계정 삭제 — 비밀번호 검증 후 사용자 삭제 (CASCADE로 전체 데이터 삭제)
+export async function deleteUserAccount(
+	password: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+	try {
+		const userId = await getAuthUserId();
+
+		// credential 계정에서 해시된 비밀번호 조회
+		const [account] = await db
+			.select({ password: authAccounts.password })
+			.from(authAccounts)
+			.where(
+				and(
+					eq(authAccounts.userId, userId),
+					eq(authAccounts.providerId, "credential"),
+				),
+			);
+
+		if (!account?.password) {
+			return { success: false, error: "계정 정보를 찾을 수 없습니다." };
+		}
+
+		const isValid = await verifyPassword({
+			hash: account.password,
+			password,
+		});
+
+		if (!isValid) {
+			return { success: false, error: "비밀번호가 일치하지 않습니다." };
+		}
+
+		// 사용자 삭제 — CASCADE로 sessions, accounts, categories, transactions 등 전부 삭제
+		await db.delete(authUsers).where(eq(authUsers.id, userId));
+
+		return { success: true };
+	} catch (e) {
+		return { success: false, error: e instanceof Error ? e.message : "계정 삭제에 실패했습니다." };
 	}
 }
