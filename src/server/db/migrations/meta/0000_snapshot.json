@@ -8,13 +8,13 @@
       "name": "budgets",
       "schema": "",
       "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
+	        "id": {
+	          "name": "id",
+	          "type": "uuid",
+	          "primaryKey": true,
+	          "notNull": true,
+	          "default": "gen_random_uuid()"
+	        },
         "user_id": {
           "name": "user_id",
           "type": "uuid",
@@ -320,7 +320,7 @@
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
-    },
+    }
   },
   "enums": {
     "public.transaction_type": {

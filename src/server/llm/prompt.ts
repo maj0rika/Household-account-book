@@ -110,6 +110,12 @@ ${accountList}
 - description 예시: "스타벅스", "점심 김치찌개", "넷플릭스", "배당금", "당근 판매"
 - \`isRecurring: true\`는 반복성이 명시된 경우에만 설정합니다: "매달", "매월", "정기결제", "자동이체", "고정", "구독", "월세", "관리비"
 - \`dayOfMonth\`는 반복 입력에서만 설정하며 1~31 정수입니다. 명시가 없으면 문장 속 날짜 또는 거래 날짜의 일을 사용합니다.
+- \`n/1\`, \`1/N\`, \`더치페이\`, \`정산\`, \`총무\`, \`내 몫\`, \`각자\`, \`N명이서\` 같은 표현이 있으면 정산 포함 거래를 검토합니다.
+- 정산 포함 거래에서는 \`amount\`를 반드시 **내가 최종 부담하는 금액**으로 넣습니다. 총 결제 금액을 \`amount\`에 넣지 마세요.
+- 총무가 전체를 결제한 경우 \`isSettlement\`, \`settlementRole\`, \`settlementTotalAmount\`, \`myShareAmount\`, \`participantCount\`를 함께 채웁니다.
+- 참여자가 자기 몫만 보내거나 기록하는 경우 \`isSettlement\`, \`settlementRole\`, \`myShareAmount\`를 함께 채웁니다.
+- 참여자 이름이나 각자 몫이 보이면 \`settlementMembers\` 배열에 넣습니다.
+- 카카오톡/토스 정산 화면을 읽은 경우 보이면 \`settlementSourceType\`, \`settlementSourceService\`, \`settlementStatus\`를 함께 채웁니다.
 
 ## 2단계-B: account 파싱
 - asset: 은행 예금, 입출금 통장, 현금, 적금, CMA, 예수금, 증권계좌, 투자계좌, 페이 잔액, 외화예금, 코인 지갑
@@ -148,7 +154,16 @@ ${accountList}
       "amount": 숫자,
       "isRecurring": false,
       "dayOfMonth": null,
-      "suggestedCategory": null
+      "suggestedCategory": null,
+      "isSettlement": false,
+      "settlementRole": null,
+      "settlementTotalAmount": null,
+      "myShareAmount": null,
+      "participantCount": null,
+      "settlementStatus": null,
+      "settlementSourceType": null,
+      "settlementSourceService": null,
+      "settlementMembers": []
     }
   ],
   "accounts": [

@@ -5,63 +5,13 @@ import { and, eq, gte, lt, lte, ilike, sql, desc, type SQL } from "drizzle-orm";
 
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
-import { transactions, categories, recurringTransactions, accounts } from "@/server/db/schema";
+import { transactions, categories, recurringTransactions, accounts, settlements, settlementMembers } from "@/server/db/schema";
 import type { ParsedTransaction } from "@/server/llm/types";
-import { encryptNullable, decryptNullable, decryptString, encryptNumber, decryptNumber } from "@/server/lib/crypto";
+import { encryptNullable, decryptNullable, decryptString } from "@/server/lib/crypto";
 import type { Transaction, MonthlySummary, CategoryBreakdown, DailyExpense, Category } from "@/types";
 import { revalidateTransactionPages } from "@/lib/cache-keys";
-
-// db.transaction 콜백의 tx 타입
-type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
-
-// 계좌 잔액 변동: income → +amount, expense → -amount
-// 암호화된 balance → 조회(FOR UPDATE) → 복호화 → 계산 → 암호화 → 저장
-async function adjustAccountBalance(
-	tx: DbTransaction,
-	accountId: string | null | undefined,
-	type: "income" | "expense",
-	amount: number,
-) {
-	if (!accountId) return;
-	const delta = type === "income" ? amount : -amount;
-	const result = await tx.execute(
-		sql`SELECT balance FROM accounts WHERE id = ${accountId} FOR UPDATE`,
-	);
-	const row = result.rows[0];
-	if (!row) return;
-	const current = decryptNumber(String(row.balance));
-	await tx
-		.update(accounts)
-		.set({
-			balance: encryptNumber(current + delta),
-			updatedAt: new Date(),
-		})
-		.where(eq(accounts.id, accountId));
-}
-
-// 계좌 잔액 역산 (삭제/수정 시 이전 거래 되돌리기)
-async function reverseAccountBalance(
-	tx: DbTransaction,
-	accountId: string | null | undefined,
-	type: "income" | "expense",
-	amount: number,
-) {
-	if (!accountId) return;
-	const delta = type === "income" ? -amount : amount;
-	const result = await tx.execute(
-		sql`SELECT balance FROM accounts WHERE id = ${accountId} FOR UPDATE`,
-	);
-	const row = result.rows[0];
-	if (!row) return;
-	const current = decryptNumber(String(row.balance));
-	await tx
-		.update(accounts)
-		.set({
-			balance: encryptNumber(current + delta),
-			updatedAt: new Date(),
-		})
-		.where(eq(accounts.id, accountId));
-}
+import { applyTransactionAccountImpact, reverseTransactionAccountImpact, type DbTransaction } from "@/server/account-balance";
+import { normalizeSettlementDraft, resolveAccountImpactAmount } from "@/server/settlement/utils";
 
 async function getAuthUserId(): Promise<string> {
 	const session = await auth.api.getSession({
@@ -112,6 +62,46 @@ function isRecurringDuplicate(
 		if ((row.categoryId ?? null) !== (candidate.categoryId ?? null)) return false;
 		return Math.abs(row.dayOfMonth - candidate.dayOfMonth) <= 1;
 	});
+}
+
+async function createSettlementRecords(
+	tx: DbTransaction,
+	userId: string,
+	transactionId: string,
+	item: ParsedTransaction,
+): Promise<void> {
+	const settlementDraft = normalizeSettlementDraft(item);
+	if (!settlementDraft) return;
+
+	const [settlement] = await tx
+		.insert(settlements)
+		.values({
+			userId,
+			transactionId,
+			title: settlementDraft.title,
+			totalAmount: settlementDraft.totalAmount,
+			myShareAmount: settlementDraft.myShareAmount,
+			participantCount: settlementDraft.participantCount,
+			role: settlementDraft.role,
+			status: settlementDraft.status,
+			sourceType: settlementDraft.sourceType,
+			sourceService: settlementDraft.sourceService,
+		})
+		.returning({ id: settlements.id });
+
+	if (!settlement || settlementDraft.members.length === 0) return;
+
+	await tx.insert(settlementMembers).values(
+		settlementDraft.members.map((member, index) => ({
+			settlementId: settlement.id,
+			name: member.name,
+			shareAmount: member.shareAmount,
+			status: member.status,
+			paidAmount: member.paidAmount,
+			paidAt: member.paidAmount > 0 ? new Date() : null,
+			sortOrder: index,
+		})),
+	);
 }
 
 export async function createTransactions(
@@ -175,19 +165,7 @@ export async function createTransactions(
 			categoryMap = new Map(userCategories.map((c) => [categoryKey(c.type, c.name), c.id]));
 		}
 
-		const regularValues = normalizedItems
-			.filter((item) => !item.isRecurring)
-			.map((item) => ({
-				userId,
-				categoryId: categoryMap.get(categoryKey(item.type, item.category)) ?? null,
-				accountId: item.accountId ?? null,
-				type: item.type,
-				amount: item.amount,
-				description: item.description,
-				originalInput: encryptNullable(originalInput),
-				date: item.date,
-				isRecurring: false,
-			}));
+		const regularItems = normalizedItems.filter((item) => !item.isRecurring);
 
 		const recurringCandidates = normalizedItems
 			.filter((item) => item.isRecurring)
@@ -244,12 +222,31 @@ export async function createTransactions(
 				}
 			}
 
-			if (regularValues.length > 0) {
-				await tx.insert(transactions).values(regularValues);
-				// 연결 계좌 잔액 반영
-				for (const item of regularValues) {
-					await adjustAccountBalance(tx, item.accountId, item.type, item.amount);
-				}
+			let regularSavedCount = 0;
+
+			for (const item of regularItems) {
+				const accountImpactAmount = resolveAccountImpactAmount(item);
+				const storedAccountImpactAmount = accountImpactAmount === item.amount ? null : accountImpactAmount;
+
+				const [inserted] = await tx
+					.insert(transactions)
+					.values({
+						userId,
+						categoryId: categoryMap.get(categoryKey(item.type, item.category)) ?? null,
+						accountId: item.accountId ?? null,
+						type: item.type,
+						amount: item.amount,
+						accountImpactAmount: storedAccountImpactAmount,
+						description: item.description,
+						originalInput: encryptNullable(originalInput),
+						date: item.date,
+						isRecurring: false,
+					})
+					.returning({ id: transactions.id });
+
+				await applyTransactionAccountImpact(tx, item.accountId, item.type, accountImpactAmount);
+				await createSettlementRecords(tx, userId, inserted.id, item);
+				regularSavedCount += 1;
 			}
 
 			if (dedupedRecurring.length > 0) {
@@ -271,6 +268,7 @@ export async function createTransactions(
 						categoryId: item.categoryId,
 						type: item.type,
 						amount: item.amount,
+						accountImpactAmount: null,
 						description: item.description,
 						originalInput: encryptNullable(originalInput),
 						date: item.date,
@@ -280,7 +278,7 @@ export async function createTransactions(
 				);
 			}
 
-			return regularValues.length + dedupedRecurring.length;
+			return regularSavedCount + dedupedRecurring.length;
 		});
 
 		// 모든 항목이 중복으로 제거된 경우 사용자에게 원인 안내
@@ -343,6 +341,7 @@ export async function getTransactions(month: string, filters?: TransactionFilter
 			accountId: transactions.accountId,
 			type: transactions.type,
 			amount: transactions.amount,
+			accountImpactAmount: transactions.accountImpactAmount,
 			description: transactions.description,
 			date: transactions.date,
 			memo: transactions.memo,
@@ -368,6 +367,7 @@ export async function getTransactions(month: string, filters?: TransactionFilter
 		accountId: row.accountId,
 		type: row.type,
 		amount: row.amount,
+		accountImpactAmount: row.accountImpactAmount,
 		description: row.description,
 		originalInput: null, // 리스트 조회 시 복호화 스킵 (성능)
 		date: row.date,
@@ -437,6 +437,7 @@ export async function deleteTransaction(
 				accountId: transactions.accountId,
 				type: transactions.type,
 				amount: transactions.amount,
+				accountImpactAmount: transactions.accountImpactAmount,
 			})
 			.from(transactions)
 			.where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
@@ -451,7 +452,12 @@ export async function deleteTransaction(
 				.where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
 
 			// 연결 계좌 잔액 역산
-			await reverseAccountBalance(tx, existing.accountId, existing.type, existing.amount);
+			await reverseTransactionAccountImpact(
+				tx,
+				existing.accountId,
+				existing.type,
+				existing.accountImpactAmount ?? existing.amount,
+			);
 		});
 
 		revalidateTransactionPages();
@@ -463,15 +469,16 @@ export async function deleteTransaction(
 
 export async function updateTransaction(
 	id: string,
-	data: {
-		type?: "income" | "expense";
-		categoryId?: string | null;
-		accountId?: string | null;
-		description?: string;
-		amount?: number;
-		date?: string;
-		memo?: string | null;
-	},
+		data: {
+			type?: "income" | "expense";
+			categoryId?: string | null;
+			accountId?: string | null;
+			description?: string;
+			amount?: number;
+			accountImpactAmount?: number | null;
+			date?: string;
+			memo?: string | null;
+		},
 ): Promise<{ success: true } | { success: false; error: string }> {
 	try {
 		const userId = await getAuthUserId();
@@ -482,6 +489,7 @@ export async function updateTransaction(
 				accountId: transactions.accountId,
 				type: transactions.type,
 				amount: transactions.amount,
+				accountImpactAmount: transactions.accountImpactAmount,
 			})
 			.from(transactions)
 			.where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
@@ -492,7 +500,14 @@ export async function updateTransaction(
 
 		const newType = data.type ?? existing.type;
 		const newAmount = data.amount ?? existing.amount;
+		const newAccountImpactAmount = data.accountImpactAmount !== undefined
+			? data.accountImpactAmount
+			: existing.accountImpactAmount;
 		const newAccountId = data.accountId !== undefined ? data.accountId : existing.accountId;
+		const resolvedNewAccountImpactAmount = newAccountImpactAmount ?? newAmount;
+		const storedNewAccountImpactAmount = resolvedNewAccountImpactAmount === newAmount
+			? null
+			: resolvedNewAccountImpactAmount;
 
 		await db.transaction(async (tx) => {
 			// 거래 업데이트
@@ -504,6 +519,9 @@ export async function updateTransaction(
 					...(data.accountId !== undefined && { accountId: data.accountId }),
 					...(data.description !== undefined && { description: data.description }),
 					...(data.amount !== undefined && { amount: data.amount }),
+					...((data.accountImpactAmount !== undefined || data.amount !== undefined) && {
+						accountImpactAmount: storedNewAccountImpactAmount,
+					}),
 					...(data.date !== undefined && { date: data.date }),
 					...(data.memo !== undefined && { memo: encryptNullable(data.memo) }),
 					updatedAt: new Date(),
@@ -511,9 +529,14 @@ export async function updateTransaction(
 				.where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
 
 			// 이전 계좌 역산
-			await reverseAccountBalance(tx, existing.accountId, existing.type, existing.amount);
+			await reverseTransactionAccountImpact(
+				tx,
+				existing.accountId,
+				existing.type,
+				existing.accountImpactAmount ?? existing.amount,
+			);
 			// 새 계좌 반영
-			await adjustAccountBalance(tx, newAccountId, newType, newAmount);
+			await applyTransactionAccountImpact(tx, newAccountId, newType, resolvedNewAccountImpactAmount);
 		});
 
 		revalidateTransactionPages();
@@ -549,11 +572,16 @@ export async function createSingleTransaction(data: {
 	accountId?: string | null;
 	description: string;
 	amount: number;
+	accountImpactAmount?: number | null;
 	date: string;
 	memo?: string;
 }): Promise<{ success: true } | { success: false; error: string }> {
 	try {
 		const userId = await getAuthUserId();
+		const resolvedAccountImpactAmount = data.accountImpactAmount ?? data.amount;
+		const storedAccountImpactAmount = resolvedAccountImpactAmount === data.amount
+			? null
+			: resolvedAccountImpactAmount;
 
 		await db.transaction(async (tx) => {
 			await tx.insert(transactions).values({
@@ -562,13 +590,19 @@ export async function createSingleTransaction(data: {
 				accountId: data.accountId ?? null,
 				type: data.type,
 				amount: data.amount,
+				accountImpactAmount: storedAccountImpactAmount,
 				description: data.description,
 				date: data.date,
 				memo: encryptNullable(data.memo ?? null),
 			});
 
 			// 연결 계좌 잔액 반영
-			await adjustAccountBalance(tx, data.accountId, data.type, data.amount);
+			await applyTransactionAccountImpact(
+				tx,
+				data.accountId,
+				data.type,
+				resolvedAccountImpactAmount,
+			);
 		});
 
 		revalidateTransactionPages();

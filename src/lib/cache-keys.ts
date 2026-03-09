@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 
 export const CachePaths = {
 	transactions: "/transactions",
+	settlements: "/settlements",
 	statistics: "/statistics",
 	assets: "/assets",
 	budget: "/budget",
@@ -15,9 +16,17 @@ export const CachePaths = {
 // 거래 mutation 시 무효화할 경로 (거래 + 통계 + 자산 + 예산)
 export function revalidateTransactionPages(): void {
 	revalidatePath(CachePaths.transactions, "page");
+	revalidatePath(CachePaths.settlements, "page");
 	revalidatePath(CachePaths.statistics, "page");
 	revalidatePath(CachePaths.assets, "page");
 	revalidatePath(CachePaths.budget, "page");
+}
+
+// 정산 mutation 시 무효화할 경로
+export function revalidateSettlementPages(): void {
+	revalidatePath(CachePaths.transactions, "page");
+	revalidatePath(CachePaths.settlements, "page");
+	revalidatePath(CachePaths.assets, "page");
 }
 
 // 계좌 mutation 시 무효화할 경로

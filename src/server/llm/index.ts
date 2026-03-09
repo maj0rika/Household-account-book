@@ -20,6 +20,11 @@ export class LLMTimeoutError extends Error {
 
 const VALID_ACCOUNT_TYPES = new Set(["asset", "debt"]);
 const VALID_SUB_TYPES = new Set(["bank", "cash", "savings", "investment", "credit_card", "loan", "other"]);
+const VALID_SETTLEMENT_ROLES = new Set(["organizer", "participant"]);
+const VALID_SETTLEMENT_STATUSES = new Set(["pending", "partial", "completed"]);
+const VALID_SETTLEMENT_MEMBER_STATUSES = new Set(["pending", "partial", "paid"]);
+const VALID_SETTLEMENT_SOURCE_TYPES = new Set(["text", "image", "manual"]);
+const VALID_SETTLEMENT_SOURCE_SERVICES = new Set(["kakao", "toss", "unknown"]);
 
 function extractJSON(text: string): string {
 	// ```json ... ``` 블록 추출
@@ -66,6 +71,93 @@ function validateTransactions(data: unknown): ParsedTransaction[] {
 
 		if (typeof item.suggestedCategory === "string" && item.suggestedCategory.trim()) {
 			result.suggestedCategory = item.suggestedCategory.trim();
+		}
+
+		if (typeof item.accountImpactAmount === "number" && item.accountImpactAmount > 0) {
+			result.accountImpactAmount = Number(item.accountImpactAmount);
+		}
+
+		if (item.isSettlement === true) {
+			result.isSettlement = true;
+		}
+
+		if (typeof item.settlementRole === "string" && VALID_SETTLEMENT_ROLES.has(item.settlementRole)) {
+			result.settlementRole = item.settlementRole as "organizer" | "participant";
+			result.isSettlement = true;
+		}
+
+		if (typeof item.settlementTotalAmount === "number" && item.settlementTotalAmount > 0) {
+			result.settlementTotalAmount = Number(item.settlementTotalAmount);
+			result.isSettlement = true;
+		}
+
+		if (typeof item.myShareAmount === "number" && item.myShareAmount > 0) {
+			result.myShareAmount = Number(item.myShareAmount);
+			result.isSettlement = true;
+		}
+
+		if (typeof item.participantCount === "number" && item.participantCount > 0) {
+			result.participantCount = Math.trunc(item.participantCount);
+			result.isSettlement = true;
+		}
+
+		if (typeof item.settlementStatus === "string" && VALID_SETTLEMENT_STATUSES.has(item.settlementStatus)) {
+			result.settlementStatus = item.settlementStatus as "pending" | "partial" | "completed";
+		}
+
+		if (typeof item.settlementSourceType === "string" && VALID_SETTLEMENT_SOURCE_TYPES.has(item.settlementSourceType)) {
+			result.settlementSourceType = item.settlementSourceType as "text" | "image" | "manual";
+		}
+
+		if (typeof item.settlementSourceService === "string" && VALID_SETTLEMENT_SOURCE_SERVICES.has(item.settlementSourceService)) {
+			result.settlementSourceService = item.settlementSourceService as "kakao" | "toss" | "unknown";
+		}
+
+			if (Array.isArray(item.settlementMembers)) {
+				const members = item.settlementMembers
+					.map((member: unknown) => {
+						if (!member || typeof member !== "object") return null;
+						const candidate = member as Record<string, unknown>;
+
+						if (
+							typeof candidate.name !== "string"
+							|| typeof candidate.shareAmount !== "number"
+							|| candidate.shareAmount <= 0
+						) {
+							return null;
+						}
+
+						const normalizedStatus = typeof candidate.status === "string" && VALID_SETTLEMENT_MEMBER_STATUSES.has(candidate.status)
+							? candidate.status as "pending" | "partial" | "paid"
+							: undefined;
+
+						return {
+							name: candidate.name.trim(),
+							shareAmount: Number(candidate.shareAmount),
+							status: normalizedStatus,
+							paidAmount: typeof candidate.paidAmount === "number" && candidate.paidAmount > 0
+								? Number(candidate.paidAmount)
+								: undefined,
+						};
+					})
+					.filter((
+						member: {
+							name: string;
+							shareAmount: number;
+							status?: "pending" | "partial" | "paid";
+							paidAmount?: number;
+						} | null,
+					): member is {
+						name: string;
+						shareAmount: number;
+						status?: "pending" | "partial" | "paid";
+						paidAmount?: number;
+					} => member !== null);
+
+			if (members.length > 0) {
+				result.settlementMembers = members;
+				result.isSettlement = true;
+			}
 		}
 
 		return result;

@@ -5,6 +5,7 @@ export interface Transaction {
 	accountId: string | null;
 	type: "income" | "expense";
 	amount: number;
+	accountImpactAmount: number | null;
 	description: string;
 	originalInput: string | null;
 	date: string; // YYYY-MM-DD
@@ -23,6 +24,66 @@ export interface Transaction {
 		name: string;
 		icon: string;
 	} | null;
+}
+
+export type SettlementRole = "organizer" | "participant";
+export type SettlementStatus = "pending" | "partial" | "completed";
+export type SettlementMemberStatus = "pending" | "partial" | "paid";
+export type SettlementTransferDirection = "receive" | "send";
+
+export interface SettlementSummary {
+	id: string;
+	transactionId: string;
+	title: string;
+	totalAmount: number;
+	myShareAmount: number;
+	participantCount: number;
+	role: SettlementRole;
+	status: SettlementStatus;
+	sourceType: "text" | "image" | "manual";
+	sourceService: "kakao" | "toss" | "unknown";
+	outstandingAmount: number;
+	settledAmount: number;
+	memberCount: number;
+	createdAt: Date;
+	updatedAt: Date;
+}
+
+export interface SettlementMember {
+	id: string;
+	settlementId: string;
+	name: string;
+	shareAmount: number;
+	status: SettlementMemberStatus;
+	paidAmount: number;
+	paidAt: Date | null;
+	sortOrder: number;
+	createdAt: Date;
+	updatedAt: Date;
+}
+
+export interface SettlementTransfer {
+	id: string;
+	settlementId: string;
+	memberId: string | null;
+	accountId: string | null;
+	direction: SettlementTransferDirection;
+	amount: number;
+	occurredAt: Date;
+	memo: string | null;
+	createdAt: Date;
+}
+
+export interface SettlementDetail extends SettlementSummary {
+	members: SettlementMember[];
+	transfers: SettlementTransfer[];
+}
+
+export interface SettlementDigest {
+	pendingCount: number;
+	receivableAmount: number;
+	payableAmount: number;
+	completedCount: number;
 }
 
 export interface Category {
