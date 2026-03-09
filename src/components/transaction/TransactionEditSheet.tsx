@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -23,9 +25,9 @@ import {
 	DrawerFooter,
 } from "@/components/ui/drawer";
 import { updateTransaction, deleteTransaction } from "@/server/actions/transaction";
-import { formatCurrencyInput, parseCurrencyInput } from "@/lib/format";
+import { formatCurrency, formatCurrencyInput, parseCurrencyInput } from "@/lib/format";
 import { useDeferredLoading } from "@/hooks/useDeferredLoading";
-import type { Transaction, Category, Account } from "@/types";
+import type { Transaction, Category, Account, SettlementSummary } from "@/types";
 
 interface TransactionEditSheetProps {
 	open: boolean;
@@ -33,12 +35,21 @@ interface TransactionEditSheetProps {
 	transaction: Transaction;
 	categories: Category[];
 	accounts: Account[];
+	settlementSummary?: SettlementSummary | null;
 }
 
 // 계좌 미선택을 표현하는 센티넬 값
 const NO_ACCOUNT = "__none__";
 
-export function TransactionEditSheet({ open, onOpenChange, transaction: tx, categories, accounts }: TransactionEditSheetProps) {
+export function TransactionEditSheet({
+	open,
+	onOpenChange,
+	transaction: tx,
+	categories,
+	accounts,
+	settlementSummary = null,
+}: TransactionEditSheetProps) {
+	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 	const { showSpinner, startLoading, stopLoading } = useDeferredLoading(200);
 
@@ -52,6 +63,13 @@ export function TransactionEditSheet({ open, onOpenChange, transaction: tx, cate
 	const filteredCategories = categories.filter((c) => c.type === type);
 	const assetAccounts = accounts.filter((a) => a.type === "asset");
 	const debtAccounts = accounts.filter((a) => a.type === "debt");
+	const settlementCtaLabel = settlementSummary
+		? settlementSummary.status === "completed"
+			? "정산 완료"
+			: settlementSummary.role === "organizer"
+				? `미수 ${formatCurrency(settlementSummary.outstandingAmount)}`
+				: `보낼 돈 ${formatCurrency(settlementSummary.outstandingAmount)}`
+		: null;
 
 	const handleSave = () => {
 		const numAmount = Number(amount);
@@ -106,6 +124,39 @@ export function TransactionEditSheet({ open, onOpenChange, transaction: tx, cate
 				</DrawerHeader>
 
 				<div className="space-y-4 px-4">
+					{settlementSummary && (
+						<div className="rounded-xl border border-primary/15 bg-primary/5 p-3">
+							<div className="flex items-start justify-between gap-3">
+								<div>
+									<div className="flex items-center gap-2">
+										<Badge variant={settlementSummary.status === "completed" ? "default" : "outline"}>
+											정산
+										</Badge>
+										<Badge variant="secondary">
+											{settlementSummary.role === "organizer" ? "총무" : "참여자"}
+										</Badge>
+									</div>
+									<p className="mt-2 text-sm font-medium">{settlementCtaLabel}</p>
+									<p className="mt-1 text-xs text-muted-foreground">
+										가계부에는 {formatCurrency(tx.amount)}만 반영되고, 정산 상세는 별도 화면에서 관리합니다.
+									</p>
+								</div>
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									className="shrink-0"
+									onClick={() => {
+										onOpenChange(false);
+										router.push(`/settlements?month=${tx.date.slice(0, 7)}&settlementId=${settlementSummary.id}`);
+									}}
+								>
+									정산 상세 열기
+								</Button>
+							</div>
+						</div>
+					)}
+
 					{/* 설명 */}
 					<div className="space-y-1.5">
 						<Label className="text-xs">설명</Label>

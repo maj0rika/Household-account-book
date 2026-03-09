@@ -27,6 +27,7 @@ import {
 	DrawerDescription,
 	DrawerFooter,
 } from "@/components/ui/drawer";
+import { SettlementDraftEditor } from "@/components/settlement/SettlementDraftEditor";
 import { formatCurrency, formatSignedCurrency, formatCurrencyInput, parseCurrencyInput } from "@/lib/format";
 import { useDeferredLoading } from "@/hooks/useDeferredLoading";
 import { createTransactions } from "@/server/actions/transaction";
@@ -50,6 +51,94 @@ const CATEGORY_ICON_MAP: Record<string, string> = {
 
 // 계좌 미선택 센티넬 값
 const NO_ACCOUNT = "__none__";
+
+function hasPositiveNumber(value: number | null | undefined): value is number {
+	return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+function hasSettlementCandidate(item: ParsedTransaction): boolean {
+	return item.isSettlement === true
+		|| item.settlementRole === "organizer"
+		|| item.settlementRole === "participant"
+		|| hasPositiveNumber(item.settlementTotalAmount)
+		|| hasPositiveNumber(item.myShareAmount)
+		|| hasPositiveNumber(item.participantCount)
+		|| Boolean(item.settlementMembers?.length);
+}
+
+function getDefaultSettlementTracking(item: ParsedTransaction): boolean {
+	if (!hasSettlementCandidate(item)) return false;
+	return item.settlementRole !== "participant";
+}
+
+function getSettlementPreview(item: ParsedTransaction): {
+	label: string;
+	amount: number;
+} | null {
+	if (!hasSettlementCandidate(item)) return null;
+
+	const role = item.settlementRole === "participant" ? "participant" : "organizer";
+	const myShareAmount = hasPositiveNumber(item.myShareAmount) ? item.myShareAmount : item.amount;
+	const totalAmount = Math.max(
+		hasPositiveNumber(item.settlementTotalAmount) ? item.settlementTotalAmount : myShareAmount,
+		myShareAmount,
+	);
+
+	if (item.settlementStatus === "completed") {
+		return {
+			label: "정산 완료",
+			amount: 0,
+		};
+	}
+
+	return {
+		label: role === "organizer" ? "미수" : "보낼 돈",
+		amount: role === "organizer"
+			? Math.max(totalAmount - myShareAmount, 0)
+			: myShareAmount,
+	};
+}
+
+function sanitizeSettlementForSave(item: ParsedTransaction, enabled: boolean): ParsedTransaction {
+	if (!enabled || !hasSettlementCandidate(item)) {
+		return {
+			...item,
+			accountImpactAmount: undefined,
+			isSettlement: undefined,
+			settlementRole: undefined,
+			settlementTotalAmount: undefined,
+			myShareAmount: undefined,
+			participantCount: undefined,
+			settlementStatus: undefined,
+			settlementSourceType: undefined,
+			settlementSourceService: undefined,
+			settlementMembers: undefined,
+		};
+	}
+
+	const role = item.settlementRole === "participant" ? "participant" : "organizer";
+	const myShareAmount = hasPositiveNumber(item.myShareAmount) ? item.myShareAmount : item.amount;
+	const totalAmount = Math.max(
+		hasPositiveNumber(item.settlementTotalAmount) ? item.settlementTotalAmount : myShareAmount,
+		myShareAmount,
+	);
+	const participantCount = hasPositiveNumber(item.participantCount)
+		? Math.max(role === "organizer" ? 2 : 1, Math.trunc(item.participantCount))
+		: role === "organizer"
+			? Math.max(2, (item.settlementMembers?.length ?? 0) + 1)
+			: 1;
+
+	return {
+		...item,
+		amount: myShareAmount,
+		accountImpactAmount: role === "organizer" && totalAmount !== myShareAmount ? totalAmount : undefined,
+		isSettlement: true,
+		settlementRole: role,
+		settlementTotalAmount: totalAmount,
+		myShareAmount,
+		participantCount,
+	};
+}
 
 function getDefaultIcon(categoryName: string, type: "income" | "expense"): string {
 	if (CATEGORY_ICON_MAP[categoryName]) return CATEGORY_ICON_MAP[categoryName];
@@ -108,6 +197,8 @@ function EditableItem({
 	onRemove,
 	onAddCategory,
 	isAddingCategory,
+	settlementTrackingEnabled,
+	onSettlementTrackingChange,
 }: {
 	item: ParsedTransaction;
 	index: number;
@@ -117,52 +208,68 @@ function EditableItem({
 	onRemove: (index: number) => void;
 	onAddCategory: (index: number, name: string, type: "income" | "expense") => void;
 	isAddingCategory: boolean;
+	settlementTrackingEnabled: boolean;
+	onSettlementTrackingChange: (enabled: boolean) => void;
 }) {
 	const [expanded, setExpanded] = useState(false);
 
 	const filteredCategories = categories.filter((c) => c.type === item.type);
 	const assetAccounts = accounts.filter((a) => a.type === "asset");
 	const debtAccounts = accounts.filter((a) => a.type === "debt");
+	const settlementPreview = getSettlementPreview(item);
+	const hasSettlement = hasSettlementCandidate(item);
 
 	return (
 		<div className="border-b border-border last:border-b-0">
 			{/* 요약 행 */}
-			<button
-				type="button"
-				className="flex w-full cursor-pointer items-center gap-2 py-2.5 text-left"
-				onClick={() => setExpanded((prev) => !prev)}
-			>
-				<span className="shrink-0 p-0.5 text-muted-foreground">
-					{expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-				</span>
-				<Badge variant={item.type === "income" ? "default" : "secondary"} className="shrink-0 text-xs">
-					{item.type === "income" ? "수입" : "지출"}
-				</Badge>
-				{item.isRecurring && (
-					<Badge variant="outline" className="shrink-0 gap-1 text-xs">
-						<Repeat className="h-2.5 w-2.5" />
-						고정
+			<div className="flex items-center gap-2 py-2.5">
+				<button
+					type="button"
+					className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
+					onClick={() => setExpanded((prev) => !prev)}
+					aria-expanded={expanded}
+				>
+					<span className="shrink-0 p-0.5 text-muted-foreground">
+						{expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+					</span>
+					<Badge variant={item.type === "income" ? "default" : "secondary"} className="shrink-0 text-xs">
+						{item.type === "income" ? "수입" : "지출"}
 					</Badge>
-				)}
-				<div className="min-w-0 flex-1">
-					<p className="truncate text-sm font-medium">{item.description}</p>
-					<p className="text-xs text-muted-foreground">{item.category} · {item.date}</p>
-				</div>
-				<span className="shrink-0 whitespace-nowrap text-sm font-semibold">
-					{formatSignedCurrency(item.amount, item.type)}
-				</span>
+					{item.isRecurring && (
+						<Badge variant="outline" className="shrink-0 gap-1 text-xs">
+							<Repeat className="h-2.5 w-2.5" />
+							고정
+						</Badge>
+					)}
+					{hasSettlement && (
+						<Badge variant={settlementTrackingEnabled ? "outline" : "secondary"} className="shrink-0 text-xs">
+							{settlementTrackingEnabled ? "정산 포함" : "거래만 저장"}
+						</Badge>
+					)}
+					{hasSettlement && settlementTrackingEnabled && settlementPreview && (
+						<Badge variant="secondary" className="shrink-0 text-xs">
+							{settlementPreview.label}
+							{settlementPreview.amount > 0 ? ` ${formatCurrency(settlementPreview.amount)}` : ""}
+						</Badge>
+					)}
+					<div className="min-w-0 flex-1">
+						<p className="truncate text-sm font-medium">{item.description}</p>
+						<p className="text-xs text-muted-foreground">{item.category} · {item.date}</p>
+					</div>
+					<span className="shrink-0 whitespace-nowrap text-sm font-semibold">
+						{formatSignedCurrency(item.amount, item.type)}
+					</span>
+				</button>
 				<Button
 					variant="ghost"
 					size="icon"
 					className="h-7 w-7 shrink-0"
-					onClick={(e) => {
-						e.stopPropagation();
-						onRemove(index);
-					}}
+					onClick={() => onRemove(index)}
+					aria-label="거래 항목 삭제"
 				>
 					<X className="h-3.5 w-3.5" />
 				</Button>
-			</button>
+			</div>
 
 			{/* 카테고리 추천 배너 */}
 			{item.suggestedCategory && (
@@ -349,6 +456,15 @@ function EditableItem({
 								</Select>
 							</div>
 						)}
+
+						{hasSettlement && (
+							<SettlementDraftEditor
+								item={item}
+								enabled={settlementTrackingEnabled}
+								onEnabledChange={onSettlementTrackingChange}
+								onChange={(next) => onUpdate(index, next)}
+							/>
+						)}
 					</motion.div>
 				)}
 			</AnimatePresence>
@@ -372,9 +488,13 @@ export function ParseResultSheet({
 	const { showSpinner, startLoading, stopLoading } = useDeferredLoading(200);
 	const [pendingCategoryKeys, setPendingCategoryKeys] = useState<Set<string>>(new Set());
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
+	const [settlementTracking, setSettlementTracking] = useState<boolean[]>(
+		() => initialItems.map((item) => getDefaultSettlementTracking(item)),
+	);
 
 	useEffect(() => {
 		setItems(initialItems);
+		setSettlementTracking(initialItems.map((item) => getDefaultSettlementTracking(item)));
 		setErrorMessage(null);
 	}, [initialItems]);
 
@@ -395,6 +515,11 @@ export function ParseResultSheet({
 			}
 			return next;
 		});
+		setSettlementTracking((prev) => prev.filter((_, i) => i !== index));
+	};
+
+	const handleSettlementTrackingChange = (index: number, enabled: boolean) => {
+		setSettlementTracking((prev) => prev.map((value, i) => (i === index ? enabled : value)));
 	};
 
 	const handleAddCategory = async (index: number, rawName: string, type: "income" | "expense") => {
@@ -456,6 +581,10 @@ export function ParseResultSheet({
 	const totalIncome = items
 		.filter((i) => i.type === "income")
 		.reduce((sum, i) => sum + i.amount, 0);
+	const settlementCount = items.reduce((count, item, index) => {
+		if (!(settlementTracking[index] ?? false)) return count;
+		return count + (hasSettlementCandidate(item) ? 1 : 0);
+	}, 0);
 
 	const hasPendingCategoryAdds = pendingCategoryKeys.size > 0;
 
@@ -466,7 +595,10 @@ export function ParseResultSheet({
 		startTransition(async () => {
 			startLoading();
 			try {
-				const result = await createTransactions(items, originalInput);
+				const itemsToSave = items.map((item, index) =>
+					sanitizeSettlementForSave(item, settlementTracking[index] ?? false),
+				);
+				const result = await createTransactions(itemsToSave, originalInput);
 				if (result.success) {
 					onOpenChange(false);
 
@@ -522,6 +654,8 @@ export function ParseResultSheet({
 								onRemove={handleRemove}
 								onAddCategory={handleAddCategory}
 								isAddingCategory={!!key && pendingCategoryKeys.has(key)}
+								settlementTrackingEnabled={settlementTracking[index] ?? false}
+								onSettlementTrackingChange={(enabled) => handleSettlementTrackingChange(index, enabled)}
 							/>
 						);
 					})}
@@ -556,6 +690,8 @@ export function ParseResultSheet({
 							</>
 						) : splitMeta ? (
 							`${items.length}건 저장 후 자산 단계로`
+						) : settlementCount > 0 ? (
+							`${items.length}건 저장 + 정산 ${settlementCount}건 생성`
 						) : (
 							`${items.length}건 저장`
 						)}

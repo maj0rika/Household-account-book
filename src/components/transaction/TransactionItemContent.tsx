@@ -3,20 +3,41 @@
 import { memo } from "react";
 import { Repeat } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { formatSignedCurrency } from "@/lib/format";
-import type { Transaction } from "@/types";
+import { formatCurrency, formatSignedCurrency } from "@/lib/format";
+import type { Transaction, SettlementSummary } from "@/types";
 
 interface TransactionItemContentProps {
 	tx: Transaction;
+	settlement?: SettlementSummary | null;
 }
 
-export const TransactionItemContent = memo(function TransactionItemContent({ tx }: TransactionItemContentProps) {
+export const TransactionItemContent = memo(function TransactionItemContent({
+	tx,
+	settlement = null,
+}: TransactionItemContentProps) {
+	const settlementLabel = settlement
+		? settlement.status === "completed"
+			? "정산 완료"
+			: settlement.role === "organizer"
+				? `미수 ${formatCurrency(settlement.outstandingAmount)}`
+				: `보낼 돈 ${formatCurrency(settlement.outstandingAmount)}`
+		: null;
+
 	return (
 		<>
 			<span className="text-xl">{tx.category?.icon ?? "💳"}</span>
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-1.5">
 					<p className="truncate text-sm font-medium">{tx.description}</p>
+					{settlement && (
+						<Badge
+							variant="outline"
+							className="shrink-0 px-1.5 py-0 text-[10px]"
+							aria-label="정산 연결 거래"
+						>
+							정산
+						</Badge>
+					)}
 					{tx.isRecurring && (
 						<Badge variant="outline" className="shrink-0 gap-0.5 px-1 py-0 text-[10px]">
 							<Repeat className="h-2.5 w-2.5" />
@@ -27,6 +48,7 @@ export const TransactionItemContent = memo(function TransactionItemContent({ tx 
 				<p className="truncate text-xs text-muted-foreground">
 					{tx.category?.name ?? "미분류"}
 					{tx.account && ` · ${tx.account.icon}${tx.account.name}`}
+					{settlementLabel && ` · ${settlementLabel}`}
 				</p>
 			</div>
 			<span

@@ -146,18 +146,19 @@
 
 핵심 불변조건: **총무 역할을 했더라도 내 가계부는 총액 기준으로 오염되면 안 된다.**
 
-- [ ] PM 원칙 확정: `transactions.amount`는 `내 부담금` 기준으로 유지하고, 총액은 정산 메타데이터로 분리
-- [ ] DB 스키마: `settlements`, `settlement_members` 테이블 추가
-- [ ] 거래 저장 시 정산 데이터 동시 생성 (총액, 내 몫, 인원, 총무 여부, 멤버 상태)
-- [ ] 파싱 결과 시트에서 `총액`, `내 몫`, `인원`, `참여자`, `완료 상태` 수정 가능
-- [ ] 자연어 입력: `3명이서 9만원, 내가 냈고 내 몫은 3만원` 같은 문장을 정산 포함 거래로 파싱
+- [x] PM 원칙 확정: `transactions.amount`는 `내 부담금` 기준으로 유지하고, 총액은 정산 메타데이터로 분리
+- [x] DB 스키마: `settlements`, `settlement_members` 테이블 추가
+- [x] 거래 저장 시 정산 데이터 동시 생성 (총액, 내 몫, 인원, 총무 여부, 멤버 상태)
+- [x] 파싱 결과 시트에서 `총액`, `내 몫`, `인원`, `참여자`, `완료 상태` 수정 가능
+- [x] 자연어 입력: `3명이서 9만원, 내가 냈고 내 몫은 3만원` 같은 문장을 정산 포함 거래로 파싱
 - [ ] 이미지 입력: 카카오톡/토스 등 정산 스크린샷 업로드 시 초안 자동 파싱
-- [ ] 정산 현황 대시보드 (받아야 할 금액, 완료/미완료, 참여자별 상태)
-- [ ] 개별 정산 완료 체크 및 미수금 갱신
-- [ ] 계좌 기능 사용 시 `가계부 금액`과 `실제 계좌 영향 금액` 분리 설계 검토
+- [x] 정산 현황 대시보드 (받아야 할 금액, 완료/미완료, 참여자별 상태)
+- [x] 개별 정산 완료 체크 및 미수금 갱신
+- [x] 정산 상세에서 수금/송금 이력 직접 기록 및 잔액 초과 입력 방지
+- [x] 계좌 기능 사용 시 `가계부 금액`과 `실제 계좌 영향 금액` 분리 설계 검토
 - [ ] 후속: 정산 완료 메시지/입금 알림 자동 파싱
 
-참고 문서: [Phase 14 PM 플래닝](./brainstorms/2026-03-09-n-split-settlement-planning.md), [Phase 14 UX/UI 설계](./brainstorms/2026-03-09-n-split-settlement-uxui.md)
+참고 문서: [Phase 14 PM 플래닝](./brainstorms/2026-03-09-n-split-settlement-planning.md), [Phase 14 UX/UI 설계](./brainstorms/2026-03-09-n-split-settlement-uxui.md), [Phase 14 BE 설계](./brainstorms/2026-03-09-n-split-settlement-be-design.md)
 
 ### Phase 15: 예산 알림
 
@@ -293,7 +294,11 @@ type: start | progress | complete | change | issue
 | 2026-03-09 | 계획 | Phase 14 N분의 1 정산 PM 플래닝 정리                                               | [history](./history/2026-03-09-14-n-split-settlement-planning.md)           |
 | 2026-03-09 | 계획 | Phase 14 N분의 1 정산 UX/UI 설계                                                   | [history](./history/2026-03-09-15-n-split-settlement-uxui-planning.md)      |
 | 2026-03-09 | 계획 | Phase 14 N분의 1 정산 BE 설계                                                      | [history](./history/2026-03-09-16-n-split-settlement-be-design.md)          |
+| 2026-03-09 | 기능 | Phase 14 N분의 1 정산 BE 코어 구현                                                 | [history](./history/2026-03-09-17-phase14-be-core-implementation.md)        |
 | 2026-03-09 | 기능 | 계정 삭제 기능 추가 (Google Play 정책 준수)                                        | [history](./history/2026-03-09-18-delete-account-feature.md)                |
+| 2026-03-09 | 기능 | 프롬프트 입력 플레이스홀더 정산 예시 추가                                          | [history](./history/2026-03-09-19-prompt-placeholder-settlement-examples.md) |
+| 2026-03-09 | 기능 | Phase 14 N분의 1 정산 FE 구현                                                      | [history](./history/2026-03-09-20-phase14-settlement-fe-implementation.md)  |
+| 2026-03-09 | 기능 | Phase 14 정산 이력 직접 기록 UI 및 초과 입력 가드 추가                             | [history](./history/2026-03-09-21-phase14-settlement-transfer-entry.md)     |
 
 ## [완료] 2차 디자인 시스템 전수검사 (추가 컴포넌트 터치 최적화)
 

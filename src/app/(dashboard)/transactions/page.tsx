@@ -10,12 +10,14 @@ import {
 } from "@/server/actions/transaction";
 import { getAccounts } from "@/server/actions/account";
 import { autoApplyRecurringTransactions } from "@/server/actions/recurring";
+import { getSettlementDigest, getSettlements } from "@/server/actions/settlement";
 import { getCurrentMonth, isValidMonth, formatDateLocal, getKSTDate } from "@/lib/format";
 import { MonthlySummaryCard } from "@/components/dashboard/MonthlySummaryCard";
 import { MonthNavigator } from "@/components/dashboard/MonthNavigator";
 import { InteractiveCalendar } from "@/components/dashboard/InteractiveCalendar";
 import { TransactionsLazySections } from "@/components/dashboard/TransactionsLazySections";
 import { PostActionBanner } from "@/components/common/PostActionBanner";
+import { SettlementDigestCard } from "@/components/settlement/SettlementDigestCard";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -60,6 +62,8 @@ function getWeeklyRangeByMonth(month: string): { weekDates: string[]; startDate:
 const getTransactionsCached = cache(async (month: string) => getTransactions(month));
 const getUserCategoriesCached = cache(async () => getUserCategories());
 const getAccountsCached = cache(async () => getAccounts());
+const getSettlementDigestCached = cache(async (month: string) => getSettlementDigest(month));
+const getSettlementsCached = cache(async (month: string) => getSettlements(month));
 
 function MonthNavigatorFallback() {
 	return (
@@ -78,6 +82,7 @@ function SummaryFallback() {
 		<div className="space-y-2 px-4 py-2">
 			<Skeleton className="h-6 w-40" />
 			<Skeleton className="h-20 w-full" />
+			<Skeleton className="h-28 w-full" />
 		</div>
 	);
 }
@@ -114,8 +119,17 @@ function InsightsFallback() {
 }
 
 async function TransactionsSummarySection({ month }: { month: string }) {
-	const summary = await getMonthlySummary(month);
-	return <MonthlySummaryCard summary={summary} month={month} />;
+	const [summary, settlementDigest] = await Promise.all([
+		getMonthlySummary(month),
+		getSettlementDigestCached(month),
+	]);
+
+	return (
+		<>
+			<MonthlySummaryCard summary={summary} month={month} />
+			<SettlementDigestCard digest={settlementDigest} month={month} />
+		</>
+	);
 }
 
 async function TransactionsCalendarSection({ month }: { month: string }) {
@@ -152,6 +166,7 @@ async function TransactionsInsightsSection({
 		getCategoryBreakdown(month),
 		getDailyExpenses(startDate, endDateExclusive),
 	]);
+	const settlements = await getSettlementsCached(month);
 
 	return (
 		<TransactionsLazySections
@@ -162,6 +177,7 @@ async function TransactionsInsightsSection({
 			transactions={transactions}
 			categories={categories}
 			accounts={accounts}
+			settlements={settlements}
 			listSectionId="transactions-list-section"
 		/>
 	);

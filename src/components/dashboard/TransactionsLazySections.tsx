@@ -7,7 +7,7 @@ import { WeeklyBarChart } from "@/components/dashboard/WeeklyBarChart";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRenderPerf } from "@/hooks/useRenderPerf";
-import type { DailyExpense, Category, CategoryBreakdown, Transaction, Account } from "@/types";
+import type { DailyExpense, Category, CategoryBreakdown, Transaction, Account, SettlementSummary } from "@/types";
 
 // Recharts 차트는 Turbopack dev에서 동적 청크 로딩 실패를 줄이기 위해 정적 import로 유지한다.
 function SectionLoading({ title, rows = 3 }: { title: string; rows?: number }) {
@@ -47,6 +47,7 @@ interface TransactionsLazySectionsProps {
 	transactions: Transaction[];
 	categories: Category[];
 	accounts: Account[];
+	settlements: SettlementSummary[];
 	listSectionId?: string;
 }
 
@@ -58,6 +59,7 @@ export function TransactionsLazySections({
 	transactions,
 	categories,
 	accounts,
+	settlements,
 	listSectionId,
 }: TransactionsLazySectionsProps) {
 	useRenderPerf("transactions-lazy-sections");
@@ -72,7 +74,12 @@ export function TransactionsLazySections({
 			<RecurringTransactionManager />
 			<Separator className="my-2" />
 			<div id={listSectionId}>
-				<FilterableTransactionList transactions={transactions} categories={categories} accounts={accounts} />
+				<FilterableTransactionList
+					transactions={transactions}
+					categories={categories}
+					accounts={accounts}
+					settlements={settlements}
+				/>
 			</div>
 		</div>
 	);

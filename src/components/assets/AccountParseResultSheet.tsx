@@ -83,64 +83,70 @@ function EditableAccountItem({
 	return (
 		<div className="border-b border-border last:border-b-0">
 			{/* 요약 행 */}
-			<button
-				type="button"
-				className="flex w-full cursor-pointer items-center gap-2 py-2.5 text-left"
-				onClick={() => setExpanded((prev) => !prev)}
-			>
-				<span className="shrink-0 p-0.5 text-muted-foreground">
-					{expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-				</span>
-				<span className="text-lg">{parsed.icon}</span>
-				<Badge
-					variant={parsed.type === "asset" ? "default" : "secondary"}
-					className="shrink-0 text-xs"
+			<div className="flex items-center gap-2 py-2.5">
+				<button
+					type="button"
+					className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
+					onClick={() => setExpanded((prev) => !prev)}
+					aria-expanded={expanded}
 				>
-					{parsed.type === "asset" ? "자산" : "부채"}
-				</Badge>
+					<span className="shrink-0 p-0.5 text-muted-foreground">
+						{expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+					</span>
+					<span className="text-lg">{parsed.icon}</span>
+					<Badge
+						variant={parsed.type === "asset" ? "default" : "secondary"}
+						className="shrink-0 text-xs"
+					>
+						{parsed.type === "asset" ? "자산" : "부채"}
+					</Badge>
+					<div className="min-w-0 flex-1">
+						<p className="truncate text-sm font-medium">{parsed.name}</p>
+					</div>
+					<span className={`shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums ${
+						parsed.type === "debt" ? "text-expense" : "text-foreground"
+					}`}>
+						{formatCurrency(parsed.balance)}
+					</span>
+				</button>
 				{matchedAccount ? (
 					<Badge
+						asChild
 						variant={action === "update" ? "outline" : "default"}
-						className="shrink-0 cursor-pointer gap-1 text-xs"
-						onClick={(e) => {
-							e.stopPropagation();
-							onUpdate(index, {
-								...item,
-								action: action === "update" ? "create" : "update",
-							});
-						}}
+						className="gap-1 text-xs"
 					>
-						{action === "update" ? (
-							<><RefreshCw className="h-2.5 w-2.5" />업데이트</>
-						) : (
-							<><PlusCircle className="h-2.5 w-2.5" />신규</>
-						)}
+						<button
+							type="button"
+							onClick={() =>
+								onUpdate(index, {
+									...item,
+									action: action === "update" ? "create" : "update",
+								})
+							}
+							aria-label={action === "update" ? "신규 계정으로 변경" : "기존 계정 업데이트로 변경"}
+						>
+							{action === "update" ? (
+								<><RefreshCw className="h-2.5 w-2.5" />업데이트</>
+							) : (
+								<><PlusCircle className="h-2.5 w-2.5" />신규</>
+							)}
+						</button>
 					</Badge>
 				) : (
 					<Badge variant="outline" className="shrink-0 gap-1 text-xs">
 						<PlusCircle className="h-2.5 w-2.5" />신규
 					</Badge>
 				)}
-				<div className="min-w-0 flex-1">
-					<p className="truncate text-sm font-medium">{parsed.name}</p>
-				</div>
-				<span className={`shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums ${
-					parsed.type === "debt" ? "text-expense" : "text-foreground"
-				}`}>
-					{formatCurrency(parsed.balance)}
-				</span>
 				<Button
 					variant="ghost"
 					size="icon"
 					className="h-7 w-7 shrink-0"
-					onClick={(e) => {
-						e.stopPropagation();
-						onRemove(index);
-					}}
+					onClick={() => onRemove(index)}
+					aria-label="자산 항목 삭제"
 				>
 					<X className="h-3.5 w-3.5" />
 				</Button>
-			</button>
+			</div>
 
 			{/* 매칭 정보 배너 */}
 			{matchedAccount && action === "update" && (

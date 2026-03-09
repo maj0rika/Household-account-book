@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { TransactionList } from "@/components/transaction/TransactionList";
-import type { Transaction, Category, Account } from "@/types";
+import type { Transaction, Category, Account, SettlementSummary } from "@/types";
 
 interface Filters {
 	query: string;
@@ -261,10 +261,12 @@ export function FilterableTransactionList({
 	transactions,
 	categories,
 	accounts = [],
+	settlements = [],
 }: {
 	transactions: Transaction[];
 	categories: Category[];
 	accounts?: Account[];
+	settlements?: SettlementSummary[];
 }) {
 	const [filters, setFilters] = useState<Filters>(INITIAL_FILTERS);
 
@@ -295,7 +297,12 @@ export function FilterableTransactionList({
 					)}
 				</div>
 			)}
-			<TransactionList transactions={filteredTransactions} categories={categories} accounts={accounts} />
+			<TransactionList
+				transactions={filteredTransactions}
+				categories={categories}
+				accounts={accounts}
+				settlements={settlements}
+			/>
 		</>
 	);
 }

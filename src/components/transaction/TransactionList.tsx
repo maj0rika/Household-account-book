@@ -1,19 +1,21 @@
 "use client";
 
-import { useState, useCallback, memo } from "react";
+import { useState, useCallback, useMemo, memo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 
 import { Separator } from "@/components/ui/separator";
 import { groupTransactionsByDate } from "@/lib/format";
 import { TransactionItemContent } from "@/components/transaction/TransactionItemContent";
 import { TransactionEditSheet } from "@/components/transaction/TransactionEditSheet";
-import type { Transaction, Category, Account } from "@/types";
+import type { Transaction, Category, Account, SettlementSummary } from "@/types";
 
 const TransactionItem = memo(function TransactionItem({
 	tx,
+	settlement,
 	onEdit,
 }: {
 	tx: Transaction;
+	settlement?: SettlementSummary | null;
 	onEdit: (tx: Transaction) => void;
 }) {
 	return (
@@ -27,7 +29,7 @@ const TransactionItem = memo(function TransactionItem({
 			className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-accent/30 active:bg-accent/50"
 			onClick={() => onEdit(tx)}
 		>
-			<TransactionItemContent tx={tx} />
+			<TransactionItemContent tx={tx} settlement={settlement} />
 		</motion.button>
 	);
 });
@@ -36,12 +38,18 @@ export function TransactionList({
 	transactions,
 	categories,
 	accounts = [],
+	settlements = [],
 }: {
 	transactions: Transaction[];
 	categories: Category[];
 	accounts?: Account[];
+	settlements?: SettlementSummary[];
 }) {
 	const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+	const settlementMap = useMemo(
+		() => new Map(settlements.map((settlement) => [settlement.transactionId, settlement])),
+		[settlements],
+	);
 
 	// 콜백 안정화 — TransactionItem의 memo가 효과를 발휘하도록
 	const handleEdit = useCallback((tx: Transaction) => {
@@ -77,6 +85,7 @@ export function TransactionList({
 								<TransactionItem
 									key={tx.id}
 									tx={tx}
+									settlement={settlementMap.get(tx.id) ?? null}
 									onEdit={handleEdit}
 								/>
 							))}
@@ -95,6 +104,7 @@ export function TransactionList({
 					transaction={editingTx}
 					categories={categories}
 					accounts={accounts}
+					settlementSummary={settlementMap.get(editingTx.id) ?? null}
 				/>
 			)}
 		</>
