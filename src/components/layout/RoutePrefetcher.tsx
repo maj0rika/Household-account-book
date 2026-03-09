@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 const CORE_ROUTES = [
 	"/transactions",
@@ -13,16 +13,18 @@ const CORE_ROUTES = [
 
 export function RoutePrefetcher() {
 	const router = useRouter();
+	const pathname = usePathname();
 
 	useEffect(() => {
 		const id = window.setTimeout(() => {
 			for (const route of CORE_ROUTES) {
+				if (route === pathname) continue;
 				router.prefetch(route);
 			}
 		}, 300);
 
 		return () => window.clearTimeout(id);
-	}, [router]);
+	}, [pathname, router]);
 
 	return null;
 }

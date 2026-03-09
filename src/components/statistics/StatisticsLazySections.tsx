@@ -2,10 +2,12 @@
 
 import dynamic from "next/dynamic";
 
+import { MonthlyTrendChart } from "@/components/statistics/MonthlyTrendChart";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { CategoryRanking } from "@/server/actions/statistics";
 
+// Recharts 차트는 Turbopack dev에서 동적 청크 로딩 실패를 줄이기 위해 정적 import로 유지한다.
 function SectionLoading({ title }: { title: string }) {
 	return (
 		<div className="rounded-xl border border-border bg-card p-4">
@@ -18,14 +20,6 @@ function SectionLoading({ title }: { title: string }) {
 		</div>
 	);
 }
-
-const MonthlyTrendChart = dynamic(
-	() => import("@/components/statistics/MonthlyTrendChart").then((m) => m.MonthlyTrendChart),
-	{
-		ssr: false,
-		loading: () => <SectionLoading title="월별 추이" />,
-	},
-);
 
 const CategoryRankingList = dynamic(
 	() => import("@/components/statistics/CategoryRankingList").then((m) => m.CategoryRankingList),

@@ -2,11 +2,14 @@
 
 import dynamic from "next/dynamic";
 
+import { CategoryPieChart } from "@/components/dashboard/CategoryPieChart";
+import { WeeklyBarChart } from "@/components/dashboard/WeeklyBarChart";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRenderPerf } from "@/hooks/useRenderPerf";
 import type { DailyExpense, Category, CategoryBreakdown, Transaction, Account } from "@/types";
 
+// Recharts 차트는 Turbopack dev에서 동적 청크 로딩 실패를 줄이기 위해 정적 import로 유지한다.
 function SectionLoading({ title, rows = 3 }: { title: string; rows?: number }) {
 	return (
 		<div className="px-4 py-2">
@@ -19,22 +22,6 @@ function SectionLoading({ title, rows = 3 }: { title: string; rows?: number }) {
 		</div>
 	);
 }
-
-const WeeklyBarChart = dynamic(
-	() => import("@/components/dashboard/WeeklyBarChart").then((m) => m.WeeklyBarChart),
-	{
-		ssr: false,
-		loading: () => <SectionLoading title="주간 지출" rows={4} />,
-	},
-);
-
-const CategoryPieChart = dynamic(
-	() => import("@/components/dashboard/CategoryPieChart").then((m) => m.CategoryPieChart),
-	{
-		ssr: false,
-		loading: () => <SectionLoading title="카테고리별 지출" rows={5} />,
-	},
-);
 
 const RecurringTransactionManager = dynamic(
 	() => import("@/components/transaction/RecurringTransactionManager").then((m) => m.RecurringTransactionManager),
@@ -74,6 +61,7 @@ export function TransactionsLazySections({
 	listSectionId,
 }: TransactionsLazySectionsProps) {
 	useRenderPerf("transactions-lazy-sections");
+
 	return (
 		<div style={{ contentVisibility: "auto", containIntrinsicBlockSize: "700px" }}>
 			<Separator className="my-2" />
