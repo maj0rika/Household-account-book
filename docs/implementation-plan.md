@@ -322,6 +322,7 @@ type: start | progress | complete | change | issue
 | 2026-03-09 | 수정 | Drizzle legacy migration repair 추가 및 정산 스키마 로컬 DB 복구                   | [history](./history/2026-03-09-26-drizzle-legacy-migration-repair.md)       |
 | 2026-03-10 | 수정 | Phase 14 열린 정산 기준 은행 입금/이체 알림 fixture 보강                           | [history](./history/2026-03-10-01-settlement-bank-transfer-fixtures.md)     |
 | 2026-03-10 | 수정 | Phase 14 이미지 OCR 보조 입력 정산 힌트 보강                                       | [history](./history/2026-03-10-02-settlement-image-hints.md)                |
+| 2026-03-10 | 수정 | Phase 14 정산 알림/이미지 fixture 카탈로그 정리                                    | [history](./history/2026-03-10-03-settlement-fixture-catalog.md)            |
 
 ## [완료] 2차 디자인 시스템 전수검사 (추가 컴포넌트 터치 최적화)
 
