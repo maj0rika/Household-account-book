@@ -42,7 +42,7 @@
 - [x] 프롬프트 템플릿 작성 (카테고리 동적 삽입, 한국어 금액/상대 날짜 규칙)
 - [x] LLM 클라이언트 팩토리 (OpenAI SDK 기반, baseURL로 openai/kimi 전환)
 - [x] 통합 파싱 함수 (LLM 호출 → JSON 추출 → 유효성 검증 + 재시도)
-- [x] 파싱 Server Action + API Route (/api/parse)
+- [x] 파싱 API Route (/api/parse) + `parse-core` 공용 서비스
 - [x] 에러 핸들링 (재시도 1회, 실패 시 에러 메시지 반환)
 - [x] 카테고리 미매칭 시 새 카테고리 추가 권유 플로우 (LLM이 기존 카테고리에 해당 없다고 판단하면 → 파싱 결과에 suggestedCategory 포함 → UI에서 "새 카테고리 추가" 안내)
 
@@ -314,6 +314,7 @@ type: start | progress | complete | change | issue
 | 2026-03-10 | 설정 | reviewer 부트스트랩 규약 추가와 히스토리 로그 정렬                                | [history](./history/2026-03-10-17-reviewer-bootstrap-and-history-order.md) |
 | 2026-03-10 | 수정 | `git diff --check` trailing whitespace 실패 복구                                  | [history](./history/2026-03-10-18-trailing-whitespace-fix.md)             |
 | 2026-03-10 | 리팩터 | Fireworks 설정 체크 표현 정리                                                    | [history](./history/2026-03-10-19-fireworks-availability-check-refactor.md) |
+| 2026-03-10 | 제거 | `parse-unified.ts` dead code 제거                                                | [history](./history/2026-03-10-21-parse-unified-dead-code-removal.md)      |
 
 ## [완료] 2차 디자인 시스템 전수검사 (추가 컴포넌트 터치 최적화)
 
