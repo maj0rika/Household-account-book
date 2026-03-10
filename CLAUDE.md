@@ -53,6 +53,35 @@ type: feature | fix | refactor | perf | config | remove
 
 `docs/implementation-plan.md` 하단의 히스토리 로그 테이블에 링크를 추가한다.
 
+## 커밋 컨벤션 (필수)
+
+### 형식
+
+```
+type(scope): 한글 설명
+```
+
+- **type**: `feat`, `fix`, `refactor`, `perf`, `chore`, `docs`, `style`, `config`, `remove`
+- **scope**: 변경 영역 (생략 가능) — `ui`, `auth`, `llm`, `parse`, `security`, `app` 등
+- **설명**: 반드시 **한글**로 작성. 기술 용어/고유명사(LLM, Recharts, OAuth 등)만 영어 허용
+
+### 예시
+
+```
+feat(auth): 인앱 계정 삭제 기능 추가
+fix(ui): Recharts 청크 로드 오류 수정
+refactor(llm): 자동 재시도 제거 및 abort signal 추가
+perf(ui): 거래 화면 초기 요청 수 감소
+chore: .gitignore에 면접 PDF 파일 제외 추가
+docs: 히스토리 로그 추가 (프롬프트, 캐시, LLM 수정)
+```
+
+### 금지 패턴
+
+- 영어 본문: `fix(ui): resolve chunk load errors` → `fix(ui): 청크 로드 오류 수정`
+- 타입 접두사 누락: `LLM 타임아웃 완화` → `fix(llm): LLM 타임아웃 완화`
+- 여러 줄 본문이 필요하면 첫 줄은 요약, 빈 줄 후 상세 내용 (Git body)
+
 ## Code Style
 
 1. 탭(4칸) 고정, 스페이스 혼용 금지

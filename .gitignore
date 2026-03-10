@@ -54,6 +54,7 @@ next-env.d.ts
 
 # AI agent 자동생성 파일
 .agents/
+.claude/settings.local.json
 .serena/memories/
 AGENTS.md
 

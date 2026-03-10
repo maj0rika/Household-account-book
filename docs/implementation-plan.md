@@ -294,6 +294,8 @@ type: start | progress | complete | change | issue
 | 2026-03-09 | 계획 | Phase 14 N분의 1 정산 UX/UI 설계                                                   | [history](./history/2026-03-09-15-n-split-settlement-uxui-planning.md)      |
 | 2026-03-09 | 계획 | Phase 14 N분의 1 정산 BE 설계                                                      | [history](./history/2026-03-09-16-n-split-settlement-be-design.md)          |
 | 2026-03-09 | 기능 | 계정 삭제 기능 추가 (Google Play 정책 준수)                                        | [history](./history/2026-03-09-18-delete-account-feature.md)                |
+| 2026-03-09 | 계획 | 카드 부채/음수 지출 TODO 구체화                                                    | [history](./history/2026-03-09-23-credit-card-billing-negative-expense-todo.md) |
+| 2026-03-10 | 설정 | 작업 규칙/로컬 설정/검토 자산 정리                                                 | [history](./history/2026-03-10-01-worktree-cleanup-review-assets.md)        |
 
 ## [완료] 2차 디자인 시스템 전수검사 (추가 컴포넌트 터치 최적화)
 
