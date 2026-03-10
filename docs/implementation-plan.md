@@ -296,6 +296,7 @@ type: start | progress | complete | change | issue
 | 2026-03-09 | 기능 | 계정 삭제 기능 추가 (Google Play 정책 준수)                                        | [history](./history/2026-03-09-18-delete-account-feature.md)                |
 | 2026-03-09 | 계획 | 카드 부채/음수 지출 TODO 구체화                                                    | [history](./history/2026-03-09-23-credit-card-billing-negative-expense-todo.md) |
 | 2026-03-10 | 설정 | 작업 규칙/로컬 설정/검토 자산 정리                                                 | [history](./history/2026-03-10-01-worktree-cleanup-review-assets.md)        |
+| 2026-03-10 | 수정 | 면접 준비 문서 재정렬 + React/Next 압축 튜토리얼 추가 + 오래된 설명 사실 검증      | [history](./history/2026-03-10-02-doc-prep-refresh.md)                      |
 | 2026-03-10 | 리팩터 | 핵심 흐름 유지보수 주석 보강                                                       | [history](./history/2026-03-10-03-maintainability-comments-pass.md)         |
 | 2026-03-10 | 수정 | 자산/부채 파싱 결과 편집 시 기존 계정 재매칭 누락 수정                             | [history](./history/2026-03-10-04-account-parse-rematch-fix.md)             |
 | 2026-03-10 | 수정 | 파싱 결과 시트 중첩 버튼 구조 수정                                                 | [history](./history/2026-03-10-05-parse-sheet-nested-button-fix.md)         |
@@ -305,7 +306,12 @@ type: start | progress | complete | change | issue
 | 2026-03-10 | 수정 | 자산/부채 재매칭 시 업데이트 배지 복원                                             | [history](./history/2026-03-10-09-account-parse-rematch-restores-update-badge.md) |
 | 2026-03-10 | 수정 | 자산/부채 파싱 초기 매칭 복원 경로 추가                                            | [history](./history/2026-03-10-10-account-parse-restore-initial-match.md)  |
 | 2026-03-10 | 수정 | 코드리뷰 피드백 반영                                                               | [history](./history/2026-03-10-11-review-feedback-fix.md)                  |
+| 2026-03-10 | 설정 | 파이프라인 스킬 승인 게이트 및 리뷰 루프 재설계                                    | [history](./history/2026-03-10-12-pipeline-skill-approval-review-loop.md) |
 | 2026-03-10 | 수정 | Playwright E2E 도입 + 자산 파싱 기존 계정 동기화 보강                             | [history](./history/2026-03-10-13-playwright-e2e-account-parse-manual-test.md) |
+| 2026-03-10 | 설정 | 파이프라인 거버넌스 하드닝                                                         | [history](./history/2026-03-10-14-pipeline-governance-hardening.md)       |
+| 2026-03-10 | 설정 | 파이프라인 상태 계약 명확화                                                       | [history](./history/2026-03-10-15-pipeline-state-contract-clarification.md) |
+| 2026-03-10 | 설정 | 루트 AI 지침과 파이프라인 거버넌스 동기화                                         | [history](./history/2026-03-10-16-root-ai-governance-sync.md)            |
+| 2026-03-10 | 설정 | reviewer 부트스트랩 규약 추가와 히스토리 로그 정렬                                | [history](./history/2026-03-10-17-reviewer-bootstrap-and-history-order.md) |
 
 ## [완료] 2차 디자인 시스템 전수검사 (추가 컴포넌트 터치 최적화)
 
