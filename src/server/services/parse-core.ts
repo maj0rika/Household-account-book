@@ -38,7 +38,7 @@ function pruneStaleEntries(): void {
 }
 
 function canUseFireworks(sessionId: string): boolean {
-	if (!process.env.FIREWORKS_API_KEY) return false;
+	if (!hasFireworks()) return false;
 	const entry = fireworksUsageMap.get(sessionId);
 	const blockedUntil = entry?.blockedUntil ?? 0;
 	if (blockedUntil > Date.now()) return false;
