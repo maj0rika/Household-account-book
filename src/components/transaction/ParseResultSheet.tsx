@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+// AI 분석 결과를 검수·확정하는 하단 시트 (수정/삭제/카테고리 추가 → 일괄 저장)
+
+import { useState, useTransition, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { X, Loader2, ChevronDown, ChevronUp, Repeat, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -51,15 +53,30 @@ const CATEGORY_ICON_MAP: Record<string, string> = {
 // 계좌 미선택 센티넬 값
 const NO_ACCOUNT = "__none__";
 
+/**
+ * [유틸리티: getDefaultIcon]
+ * 특정 카테고리명에 매칭되는 아이콘이 있으면 반환하고, 
+ * 없으면 수입/지출 타입에 따른 기본 아이콘(💵/📦)을 반환합니다.
+ */
 function getDefaultIcon(categoryName: string, type: "income" | "expense"): string {
 	if (CATEGORY_ICON_MAP[categoryName]) return CATEGORY_ICON_MAP[categoryName];
 	return type === "income" ? "💵" : "📦";
 }
 
+/**
+ * [유틸리티: normalizeCategoryName]
+ * 사용자가 입력한 카테고리명 앞뒤 공백을 제거하고 내부의 연속된 공백을 하나로 합칩니다.
+ * 데이터 정규화(Data Normalization)의 한 예입니다.
+ */
 function normalizeCategoryName(name: string): string {
 	return name.trim().replace(/\s+/g, " ");
 }
 
+/**
+ * [유틸리티: categoryKey]
+ * 카테고리를 고유하게 식별하기 위한 문자열 키를 만듭니다. (예: "expense:식비")
+ * 맵(Map)이나 셋(Set)에서 중복을 체크할 때 유용하게 쓰입니다.
+ */
 function categoryKey(type: "income" | "expense", name: string): string {
 	return `${type}:${normalizeCategoryName(name)}`;
 }
@@ -99,6 +116,11 @@ interface ParseResultSheetProps {
 	} | null;
 }
 
+/**
+ * [내부 컴포넌트: EditableItem]
+ * 분석된 결과 배열 중 '한 건'의 내역을 담당하는 컴포넌트입니다.
+ * 요약 뷰와 확장된 편집 뷰 두 가지 모드를 가집니다.
+ */
 function EditableItem({
 	item,
 	index,
@@ -127,44 +149,46 @@ function EditableItem({
 	return (
 		<div className="border-b border-border last:border-b-0">
 			{/* 요약 행 */}
-			<button
-				type="button"
-				className="flex w-full cursor-pointer items-center gap-2 py-2.5 text-left"
-				onClick={() => setExpanded((prev) => !prev)}
-			>
-				<span className="shrink-0 p-0.5 text-muted-foreground">
-					{expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-				</span>
-				<Badge variant={item.type === "income" ? "default" : "secondary"} className="shrink-0 text-xs">
-					{item.type === "income" ? "수입" : "지출"}
-				</Badge>
-				{item.isRecurring && (
-					<Badge variant="outline" className="shrink-0 gap-1 text-xs">
-						<Repeat className="h-2.5 w-2.5" />
-						고정
+			<div className="flex items-center gap-2 py-2.5">
+				<button
+					type="button"
+					aria-expanded={expanded}
+					className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md py-0.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+					onClick={() => setExpanded((prev) => !prev)}
+				>
+					<span className="shrink-0 p-0.5 text-muted-foreground">
+						{expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+					</span>
+					<Badge variant={item.type === "income" ? "default" : "secondary"} className="shrink-0 text-xs">
+						{item.type === "income" ? "수입" : "지출"}
 					</Badge>
-				)}
-				<div className="min-w-0 flex-1">
-					<p className="truncate text-sm font-medium">{item.description}</p>
-					<p className="text-xs text-muted-foreground">{item.category} · {item.date}</p>
-				</div>
-				<span className="shrink-0 whitespace-nowrap text-sm font-semibold">
-					{formatSignedCurrency(item.amount, item.type)}
-				</span>
+					{item.isRecurring && (
+						<Badge variant="outline" className="shrink-0 gap-1 text-xs">
+							<Repeat className="h-2.5 w-2.5" />
+							고정
+						</Badge>
+					)}
+					<div className="min-w-0 flex-1">
+						<p className="truncate text-sm font-medium">{item.description}</p>
+						<p className="text-xs text-muted-foreground">{item.category} · {item.date}</p>
+					</div>
+					<span className="shrink-0 whitespace-nowrap text-sm font-semibold">
+						{formatSignedCurrency(item.amount, item.type)}
+					</span>
+				</button>
+
+				{/* 항목 삭제 버튼은 아코디언 토글 버튼과 분리해 중첩 button 구조를 제거합니다. */}
 				<Button
 					variant="ghost"
 					size="icon"
 					className="h-7 w-7 shrink-0"
-					onClick={(e) => {
-						e.stopPropagation();
-						onRemove(index);
-					}}
+					onClick={() => onRemove(index)}
 				>
 					<X className="h-3.5 w-3.5" />
 				</Button>
-			</button>
+			</div>
 
-			{/* 카테고리 추천 배너 */}
+			{/* [카테고리 추천 배너] AI가 분석한 '새로운 카테고리'를 DB에 즉시 등록하는 제안 창입니다. */}
 			{item.suggestedCategory && (
 				<div className="mx-1 mb-2 flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
 					<Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
@@ -187,7 +211,7 @@ function EditableItem({
 				</div>
 			)}
 
-			{/* 편집 패널 */}
+			{/* [편집 패널] Framer Motion을 활용한 부드러운 아코디언 애니메이션 */}
 			<AnimatePresence>
 				{expanded && (
 					<motion.div
@@ -202,12 +226,13 @@ function EditableItem({
 							<Label className="text-xs">설명</Label>
 							<Input
 								value={item.description}
+								// 입력 변경 시 부모 상태 즉시 동기화
 								onChange={(e) => onUpdate(index, { ...item, description: e.target.value })}
 								className="h-8 text-sm"
 							/>
 						</div>
 
-						{/* 금액 + 날짜 */}
+						{/* 금액 + 날짜: 금액 입력 시 콤마 등 포맷팅 처리를 실시간으로 수행합니다. */}
 						<div className="grid grid-cols-2 gap-2">
 							<div className="space-y-1">
 								<Label className="text-xs">금액</Label>
@@ -227,6 +252,7 @@ function EditableItem({
 								<Input
 									type="date"
 									value={item.date}
+									// 날짜 선택 시 해당 항목의 date 필드만 교체합니다.
 									onChange={(e) => onUpdate(index, { ...item, date: e.target.value })}
 									className="h-8 text-sm"
 								/>
@@ -239,6 +265,7 @@ function EditableItem({
 								<Label className="text-xs">카테고리</Label>
 								<Select
 									value={item.category}
+									// 카테고리 직접 선택 시 AI 추천(suggestedCategory) 표시는 제거합니다.
 									onValueChange={(value) => onUpdate(index, { ...item, category: value, suggestedCategory: undefined })}
 								>
 									<SelectTrigger className="h-8 text-sm">
@@ -282,6 +309,7 @@ function EditableItem({
 								<Switch
 									id={`recurring-${index}`}
 									checked={item.isRecurring ?? false}
+									// 고정 거래 토글 시, 활성화된 경우 현재 날짜를 기반으로 '매월 N일' 기본값을 설정합니다.
 									onCheckedChange={(checked) =>
 										onUpdate(index, {
 											...item,
@@ -302,6 +330,7 @@ function EditableItem({
 										min={1}
 										max={31}
 										value={item.dayOfMonth ?? ""}
+										// 매월 몇 일인지 숫자를 변경할 때의 핸들러입니다.
 										onChange={(e) => onUpdate(index, { ...item, dayOfMonth: Number(e.target.value) || undefined })}
 										className="h-7 w-14 text-center text-xs"
 									/>
@@ -356,6 +385,9 @@ function EditableItem({
 	);
 }
 
+/**
+ * [메인 컴포넌트: ParseResultSheet]
+ */
 export function ParseResultSheet({
 	open,
 	onOpenChange,
@@ -366,10 +398,16 @@ export function ParseResultSheet({
 	splitMeta,
 }: ParseResultSheetProps) {
 	const router = useRouter();
+
+	// 로컬 상태: 분석된 내역들과 카테고리 목록을 관리합니다.
 	const [items, setItems] = useState<ParsedTransaction[]>(initialItems);
 	const [localCategories, setLocalCategories] = useState<Category[]>(initialCategories);
+
+	// UX: 서버 작업 중 UI 블로킹을 방지하기 위한 Transitions 및 전용 로딩 훅
 	const [isPending, startTransition] = useTransition();
 	const { showSpinner, startLoading, stopLoading } = useDeferredLoading(200);
+
+	// 상태 제어: 카테고리 추가 작업 중임을 추적하는 Set
 	const [pendingCategoryKeys, setPendingCategoryKeys] = useState<Set<string>>(new Set());
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -382,21 +420,23 @@ export function ParseResultSheet({
 		setLocalCategories(initialCategories);
 	}, [initialCategories]);
 
-	const handleUpdate = (index: number, updated: ParsedTransaction) => {
+	// 특정 인덱스 항목 수정 (불변성 유지)
+	const handleUpdate = useCallback((index: number, updated: ParsedTransaction) => {
 		setItems((prev) => prev.map((item, i) => (i === index ? updated : item)));
-	};
+	}, []);
 
-	const handleRemove = (index: number) => {
+	// 항목 삭제 — 마지막 항목 삭제 시 시트 자동 닫기 (queueMicrotask로 렌더 중 상태 변경 방지)
+	const handleRemove = useCallback((index: number) => {
 		setItems((prev) => {
 			const next = prev.filter((_, i) => i !== index);
-			// 모든 항목이 제거되면 다음 틱에서 시트를 닫음 (렌더 중 부모 setState 방지)
 			if (next.length === 0) {
 				queueMicrotask(() => onOpenChange(false));
 			}
 			return next;
 		});
-	};
+	}, [onOpenChange]);
 
+	// AI 추천 카테고리 DB 등록 + 같은 suggestedCategory를 가진 항목 일괄 동기화
 	const handleAddCategory = async (index: number, rawName: string, type: "income" | "expense") => {
 		const name = normalizeCategoryName(rawName);
 		if (!name) return;
@@ -417,6 +457,8 @@ export function ParseResultSheet({
 			const duplicate = !result.success && result.error.includes("이미 같은 이름의 카테고리");
 
 			if (result.success || duplicate) {
+				// 이미 같은 카테고리가 있다면 실패로 끝내지 않고 로컬 상태만 정렬해
+				// "추천 추가" 직후 저장 플로우가 끊기지 않도록 맞춘다.
 				setLocalCategories((prev) => upsertLocalCategory(prev, { name, type, icon }));
 
 				// 해당 항목 + 같은 suggestedCategory를 가진 항목까지 일괄 동기화
@@ -450,6 +492,7 @@ export function ParseResultSheet({
 		}
 	};
 
+	// 현재 리스트 항목 금액 집계 (사용자 수정 시 실시간 반영)
 	const totalExpense = items
 		.filter((i) => i.type === "expense")
 		.reduce((sum, i) => sum + i.amount, 0);
@@ -459,23 +502,25 @@ export function ParseResultSheet({
 
 	const hasPendingCategoryAdds = pendingCategoryKeys.size > 0;
 
+	// 모든 내역 일괄 DB 저장
 	const handleSave = () => {
 		if (items.length === 0 || hasPendingCategoryAdds) return;
 		setErrorMessage(null);
 
 		startTransition(async () => {
-			startLoading();
+			startLoading(); // 지연된 로딩 스피너 시작
 			try {
+				// 서버 액션: 한꺼번에 거래 생성 (Bulk insert)
 				const result = await createTransactions(items, originalInput);
 				if (result.success) {
-					onOpenChange(false);
+					onOpenChange(false); // 시트 닫기
 
-					// 혼합 입력은 자산 단계로 이어지므로 현재 흐름 유지
+					// 만약 '혼합 입력(거래+자산)' Flow 중이라면, 부모 오케스트레이터가 자산 시트를 열도록 유도합니다.
 					if (splitMeta) {
 						return;
 					}
 
-					// 거래만 저장된 경우 거래 탭으로 명확히 이동/포커스
+					// 단순 거래 저장인 경우 목록 페이지로 이동하며 성공 메시지 파라미터 전달
 					router.push("/transactions?saved=tx&focus=list");
 					return;
 				}

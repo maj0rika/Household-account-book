@@ -59,6 +59,8 @@ export function AccountFormSheet({ open, onOpenChange, mode, account, defaultTyp
 	const [balance, setBalance] = useState(String(account?.balance ?? 0));
 
 	const subTypes = type === "asset" ? ASSET_SUB_TYPES : DEBT_SUB_TYPES;
+	const nameFieldId = "account-form-name";
+	const balanceFieldId = "account-form-balance";
 
 	const handleTypeChange = (newType: "asset" | "debt") => {
 		setType(newType);
@@ -112,8 +114,9 @@ export function AccountFormSheet({ open, onOpenChange, mode, account, defaultTyp
 				<div className="space-y-4 px-4">
 					{/* 이름 */}
 					<div className="space-y-1.5">
-						<Label className="text-xs">이름</Label>
+						<Label htmlFor={nameFieldId} className="text-xs">이름</Label>
 						<Input
+							id={nameFieldId}
 							value={name}
 							onChange={(e) => setName(e.target.value)}
 							placeholder="카카오뱅크, 신한카드 등"
@@ -127,7 +130,7 @@ export function AccountFormSheet({ open, onOpenChange, mode, account, defaultTyp
 							<div className="space-y-1.5">
 								<Label className="text-xs">유형</Label>
 								<Select value={type} onValueChange={(v) => handleTypeChange(v as "asset" | "debt")}>
-									<SelectTrigger className="h-9">
+									<SelectTrigger className="h-9" aria-label="유형">
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>
@@ -140,7 +143,7 @@ export function AccountFormSheet({ open, onOpenChange, mode, account, defaultTyp
 						<div className={`space-y-1.5 ${mode === "edit" ? "col-span-2" : ""}`}>
 							<Label className="text-xs">세부 유형</Label>
 							<Select value={subType} onValueChange={setSubType}>
-								<SelectTrigger className="h-9">
+								<SelectTrigger className="h-9" aria-label="세부 유형">
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
@@ -156,10 +159,11 @@ export function AccountFormSheet({ open, onOpenChange, mode, account, defaultTyp
 
 					{/* 잔액 */}
 					<div className="space-y-1.5">
-						<Label className="text-xs">
+						<Label htmlFor={balanceFieldId} className="text-xs">
 							{type === "debt" ? "부채 금액 (원)" : "잔액 (원)"}
 						</Label>
 						<Input
+							id={balanceFieldId}
 							type="number"
 							value={balance}
 							onChange={(e) => setBalance(e.target.value)}

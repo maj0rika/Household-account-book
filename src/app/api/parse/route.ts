@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/server/auth";
+import { getRequestSession } from "@/server/auth";
 import { executeTextParse, executeImageParse } from "@/server/services/parse-core";
 
 export async function POST(request: Request) {
-	const session = await auth.api.getSession({
-		headers: request.headers,
-	});
+	const session = await getRequestSession(request.headers);
 
 	if (!session?.user) {
 		return NextResponse.json({ success: false, error: "인증이 필요합니다." }, { status: 401 });

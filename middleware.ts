@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 const PROTECTED_PREFIXES = ["/transactions", "/categories", "/budget", "/statistics", "/settings", "/assets"];
-const AUTH_PAGES = ["/login", "/register"];
 
 const hasSessionCookie = (request: NextRequest): boolean => {
 	return Boolean(
@@ -14,15 +13,13 @@ const hasSessionCookie = (request: NextRequest): boolean => {
 export function middleware(request: NextRequest) {
 	const { pathname } = request.nextUrl;
 	const isProtectedPath = PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
-	const isAuthPage = AUTH_PAGES.includes(pathname);
+
+	// middleware에서는 DB 조회 없이 쿠키 존재 여부만 보고 빠르게 분기한다.
+	// 엄밀한 세션 검증은 각 서버 컴포넌트/액션에서 다시 수행하고, 여기서는 UX상 불필요한 라우트 접근만 먼저 막는다.
 	const signedIn = hasSessionCookie(request);
 
 	if (isProtectedPath && !signedIn) {
 		return NextResponse.redirect(new URL("/login", request.url));
-	}
-
-	if (isAuthPage && signedIn) {
-		return NextResponse.redirect(new URL("/transactions", request.url));
 	}
 
 	return NextResponse.next();

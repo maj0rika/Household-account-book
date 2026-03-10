@@ -10,13 +10,18 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 	const [checked, setChecked] = useState(false);
 
 	useEffect(() => {
-		authClient.getSession().then(({ data }) => {
-			if (data?.session) {
-				router.replace("/transactions");
-			} else {
+		authClient.getSession()
+			.then(({ data }) => {
+				if (data?.session) {
+					router.replace("/transactions");
+					return;
+				}
+
 				setChecked(true);
-			}
-		});
+			})
+			.catch(() => {
+				setChecked(true);
+			});
 	}, [router]);
 
 	if (!checked) {

@@ -19,6 +19,8 @@ export function UnifiedInputSection({
 	initialCategories,
 	initialAccounts,
 }: UnifiedInputSectionProps) {
+	// 자연어/이미지 입력 결과를 거래 시트와 자산 시트로 분기하는
+	// 최상위 오케스트레이션 컴포넌트다.
 	const [categories, setCategories] = useState<Category[]>(initialCategories);
 	const [existingAccounts, setExistingAccounts] = useState<Account[]>(initialAccounts);
 
@@ -37,9 +39,23 @@ export function UnifiedInputSection({
 	const prevTxOpen = useRef(txSheetOpen);
 	const prevAccountOpen = useRef(accountSheetOpen);
 
+	// 서버 액션 이후 레이아웃에서 최신 초기값이 다시 내려오면
+	// 전역 입력 시트도 같은 스냅샷을 사용하도록 동기화한다.
+	useEffect(() => {
+		setCategories(initialCategories);
+	}, [initialCategories]);
+
+	useEffect(() => {
+		setExistingAccounts(initialAccounts);
+	}, [initialAccounts]);
+
+	// [라이프사이클: 거래 시트 종료 후 동기화]
+	// 거래 입력 시트가 닫힐 때 최신 카테고리/계좌 목록을 다시 불러옵니다.
+	// 특히 '혼합 입력'인 경우, 거래 시트가 닫히면 바로 이어서 자산 시트를 엽니다.
 	useEffect(() => {
 		let mounted = true;
 
+		// 시트가 열려있다가(prev) 닫혔을 때(!txSheetOpen)만 실행
 		if (prevTxOpen.current && !txSheetOpen) {
 			void (async () => {
 				try {
@@ -55,7 +71,7 @@ export function UnifiedInputSection({
 				}
 			})();
 
-			// 혼합 입력이면 거래 시트 저장/닫기 후 자산 시트를 이어서 보여줌
+			// 혼합 입력 시 거래 저장/닫기 후 자산 시트 이어서 표시
 			if (deferAccountSheet && parsedAccounts.length > 0) {
 				setAccountSheetOpen(true);
 				setDeferAccountSheet(false);
@@ -89,6 +105,7 @@ export function UnifiedInputSection({
 		};
 	}, [accountSheetOpen]);
 
+	// 분석 결과에 따라 거래/자산 시트 또는 둘 다(혼합)를 열지 결정
 	const handleParsed = (result: UnifiedParseResult, input: string) => {
 		setOriginalInput(input);
 
@@ -97,6 +114,7 @@ export function UnifiedInputSection({
 		const hasTransactions = transactionCount > 0;
 		const hasAccounts = accountCount > 0;
 
+		// 혼합 입력 여부를 저장하여 시트에 가이드 문구 표시용으로 사용
 		setSplitMeta(hasTransactions && hasAccounts ? { transactionCount, accountCount } : null);
 
 		if (hasTransactions) {
@@ -107,6 +125,7 @@ export function UnifiedInputSection({
 		if (hasAccounts) {
 			setParsedAccounts(result.accounts);
 			if (hasTransactions) {
+				// 거래+자산 혼합: 거래 먼저 처리 후 자산 시트 지연 오픈
 				setDeferAccountSheet(true);
 				setAccountSheetOpen(false);
 			} else {

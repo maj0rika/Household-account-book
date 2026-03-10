@@ -1,24 +1,15 @@
 "use server";
 
-import { headers } from "next/headers";
 import { and, eq, desc } from "drizzle-orm";
 
-import { auth } from "@/server/auth";
+import { getAuthUserIdOrThrow } from "@/server/auth";
 import { db } from "@/server/db";
 import { accounts } from "@/server/db/schema";
 import { encrypt, decryptString, encryptNumber, decryptNumber } from "@/server/lib/crypto";
 import { revalidateAccountPages } from "@/lib/cache-keys";
 import type { Account, AccountSummary } from "@/types";
 
-async function getAuthUserId(): Promise<string> {
-	const session = await auth.api.getSession({
-		headers: await headers(),
-	});
-	if (!session?.user?.id) {
-		throw new Error("인증이 필요합니다.");
-	}
-	return session.user.id;
-}
+const getAuthUserId = getAuthUserIdOrThrow;
 
 export async function getAccounts(): Promise<Account[]> {
 	const userId = await getAuthUserId();
@@ -153,6 +144,7 @@ export async function upsertParsedAccountsBatch(
 						.update(accounts)
 						.set({
 							name: encrypt(item.name),
+							type: item.type,
 							subType: item.subType,
 							icon: item.icon,
 							balance: encryptNumber(item.balance),
