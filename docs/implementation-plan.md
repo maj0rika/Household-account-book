@@ -312,6 +312,7 @@ type: start | progress | complete | change | issue
 | 2026-03-10 | 설정 | 파이프라인 상태 계약 명확화                                                       | [history](./history/2026-03-10-15-pipeline-state-contract-clarification.md) |
 | 2026-03-10 | 설정 | 루트 AI 지침과 파이프라인 거버넌스 동기화                                         | [history](./history/2026-03-10-16-root-ai-governance-sync.md)            |
 | 2026-03-10 | 설정 | reviewer 부트스트랩 규약 추가와 히스토리 로그 정렬                                | [history](./history/2026-03-10-17-reviewer-bootstrap-and-history-order.md) |
+| 2026-03-10 | 수정 | `git diff --check` trailing whitespace 실패 복구                                  | [history](./history/2026-03-10-18-trailing-whitespace-fix.md)             |
 
 ## [완료] 2차 디자인 시스템 전수검사 (추가 컴포넌트 터치 최적화)
 

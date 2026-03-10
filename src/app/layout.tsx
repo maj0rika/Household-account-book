@@ -63,6 +63,7 @@ export default function RootLayout({
 			<body
 				className={`${pretendard.variable} ${geistSans.variable} ${geistMono.variable} antialiased`}
 			>
+				{/* 전역 스플래시는 앱 첫 진입과 라우트 전환 초반의 체감 공백을 메운다. */}
 				<AppSplashScreen />
 				{children}
 			</body>

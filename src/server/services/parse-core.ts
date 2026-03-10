@@ -1,3 +1,7 @@
+// LLM 기반 파싱 코어 — 사용자 입력을 가계부 데이터로 변환
+// - 세션별 Fireworks 사용량 카운팅 (무료 할당량 관리)
+// - Fireworks → Kimi 자동 폴백
+// - 장애 공급자 쿨다운으로 불필요한 대기 방지
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@/server/db";
@@ -14,6 +18,7 @@ import type { Account } from "@/types";
 // 세션별 Fireworks 사용 카운터 (인메모리)
 // key: sessionId, value: { count, lastUsed }
 // 로그아웃 → 재로그인 시 새 세션 ID가 발급되므로 자동 리셋
+// 인메모리 — 서버 재시작 시 초기화됨 (엄격한 제한 필요 시 Redis/DB 전환)
 const FIREWORKS_FREE_LIMIT = 3;
 const MAX_MAP_SIZE = 1000;
 const FIREWORKS_FAILURE_COOLDOWN_MS = 10 * 60 * 1000;
@@ -213,10 +218,8 @@ async function getUserAccounts(userId: string): Promise<Account[]> {
 	}));
 }
 
-/**
- * 코어 텍스트 파싱 — 세션 추출 없이 userId/sessionId를 직접 받는다.
- * Server Action과 API 라우트 모두에서 사용.
- */
+// 코어 텍스트 파싱 — Server Action / API 라우트 공용
+// OOD 필터 → 카테고리·계좌 병렬 조회 → provider 순차 폴백
 export async function executeTextParse(
 	input: string,
 	userId: string,
@@ -226,31 +229,34 @@ export async function executeTextParse(
 		return { success: false, error: "입력이 비어 있습니다." };
 	}
 
-	// 1단계 OOD 필터: 가계부와 무관한 입력 차단 (LLM 호출 전)
+	// 1단계 OOD 필터: 가계부와 무관한 입력 차단 (LLM 호출 전 비용 절감)
 	if (!isFinancialInput(input)) {
 		return { success: false, error: OOD_ERROR_MESSAGE };
 	}
 
-	// provider/timeout 결정
+	// provider(AI 제공자) 및 timeout(제한 시간) 결정
 	const providers = resolveTextProviders(sessionId);
 	const timeoutMs = resolveTextTimeoutMs(input);
 	if (providers.length === 0) {
 		return { success: false, error: mapProviderConfigErrorMessage() };
 	}
 
-	// 병렬로 카테고리 + 계정 조회
+	// [성능 최적화] 병렬로 카테고리 + 계정 조회
 	const [userCategories, existingAccounts] = await Promise.all([
 		getUserLLMCategories(userId),
 		getUserAccounts(userId),
 	]);
 
-	// 은행 메시지 전처리
+	// 은행 메시지 전처리 (불필요한 공백이나 특수문자 제거)
 	const processedInput = isBankMessage(input) ? preprocessBankMessage(input) : input;
 
 	let lastResult: UnifiedParseResponse | null = null;
 
+	// 우선순위 순서대로 provider를 시도하고 실패 시 폴백
 	for (let index = 0; index < providers.length; index++) {
 		const provider = providers[index];
+		// providers는 "우선 시도 → 실패 시 폴백" 순서다.
+		// 여기서만 순차 실행해야 timeout/로그/쿨다운 상태를 요청 단위로 일관되게 남길 수 있다.
 		const result = await parseUnifiedText(
 			processedInput,
 			userCategories,
@@ -260,6 +266,8 @@ export async function executeTextParse(
 		);
 
 		if (result.success) {
+			// Fireworks 무료 사용량은 "실제 성공 응답" 기준으로만 차감한다.
+			// 실패 요청까지 차감하면 체감 속도 정책보다 장애 전파가 더 커진다.
 			if (provider === "fireworks") {
 				incrementFireworksUsage(sessionId);
 			}
@@ -276,6 +284,8 @@ export async function executeTextParse(
 
 		const isRecoverable = isRecoverableProviderFailure(result.error);
 		if (isRecoverable) {
+			// 복구 가능한 실패만 쿨다운을 걸어 다음 요청부터 바로 Kimi를 우선 사용하게 한다.
+			// 사용량 제한과 별개로 "실패가 반복되는 벤더"를 잠시 우회하는 안전장치다.
 			activateFireworksCooldown(sessionId, result.error);
 		}
 
@@ -321,6 +331,7 @@ export async function executeImageParse(
 
 	for (let index = 0; index < providers.length; index++) {
 		const provider = providers[index];
+		// 이미지도 텍스트와 같은 폴백 규칙을 따르되, 전처리 비용이 큰 만큼 동일 payload를 재활용한다.
 		const result = await parseUnifiedImage(
 			imageBase64,
 			mimeType,

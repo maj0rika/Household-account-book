@@ -1,21 +1,12 @@
 "use server";
 
-import { headers } from "next/headers";
 import { and, eq, gte, lt, sql } from "drizzle-orm";
 
-import { auth } from "@/server/auth";
+import { getAuthUserIdOrThrow } from "@/server/auth";
 import { db } from "@/server/db";
 import { transactions, categories } from "@/server/db/schema";
 
-async function getAuthUserId(): Promise<string> {
-	const session = await auth.api.getSession({
-		headers: await headers(),
-	});
-	if (!session?.user?.id) {
-		throw new Error("인증이 필요합니다.");
-	}
-	return session.user.id;
-}
+const getAuthUserId = getAuthUserIdOrThrow;
 
 export interface MonthlyTrend {
 	month: string; // "2026-01"

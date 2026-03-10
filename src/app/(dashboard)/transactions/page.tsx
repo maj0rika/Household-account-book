@@ -57,6 +57,8 @@ function getWeeklyRangeByMonth(month: string): { weekDates: string[]; startDate:
 	};
 }
 
+// 같은 요청 안에서 여러 섹션이 동일 데이터를 참조하므로
+// React cache로 중복 조회를 줄이고 Suspense 경계가 나뉘어도 결과를 공유한다.
 const getTransactionsCached = cache(async (month: string) => getTransactions(month));
 const getUserCategoriesCached = cache(async () => getUserCategories());
 const getAccountsCached = cache(async () => getAccounts());
@@ -143,6 +145,8 @@ async function TransactionsInsightsSection({
 }: {
 	month: string;
 }) {
+	// 아래 섹션들은 같은 월 기준 데이터를 여러 카드에서 함께 쓰므로
+	// 여기서 한 번 모아 내려주고, 하위 클라이언트 컴포넌트는 렌더링과 상호작용에만 집중시킨다.
 	const { weekDates, startDate, endDateExclusive } = getWeeklyRangeByMonth(month);
 
 	const [transactions, categories, accounts, categoryBreakdown, dailyExpenses] = await Promise.all([
@@ -185,6 +189,8 @@ export default async function TransactionsPage({ searchParams }: Props) {
 
 	return (
 		<div className="pb-28 md:pb-24">
+			{/* 거래 페이지는 "월 선택 → 요약 → 캘린더 → 상세 인사이트" 순서로 쌓는다.
+				각 섹션을 분리된 Suspense 경계로 감싸 일부 데이터가 느려도 상단 컨텍스트부터 먼저 읽을 수 있게 한다. */}
 			<Suspense fallback={<MonthNavigatorFallback />}>
 				<MonthNavigator month={month} />
 			</Suspense>

@@ -1,23 +1,14 @@
 "use server";
 
-import { headers } from "next/headers";
 import { eq, and, gte, lt } from "drizzle-orm";
 
-import { auth } from "@/server/auth";
+import { getAuthUserIdOrThrow } from "@/server/auth";
 import { db } from "@/server/db";
 import { recurringTransactions, transactions } from "@/server/db/schema";
 import { encryptNullable } from "@/server/lib/crypto";
 import { revalidateRecurringPages } from "@/lib/cache-keys";
 
-async function getAuthUserId(): Promise<string> {
-	const session = await auth.api.getSession({
-		headers: await headers(),
-	});
-	if (!session?.user?.id) {
-		throw new Error("인증이 필요합니다.");
-	}
-	return session.user.id;
-}
+const getAuthUserId = getAuthUserIdOrThrow;
 
 export async function getRecurringTransactions() {
 	const userId = await getAuthUserId();

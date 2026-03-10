@@ -45,15 +45,13 @@ npm run db:seed
 - https://supabase.com/docs/guides/database/connecting-to-postgres
 - https://supabase.com/docs/guides/api/api-keys
 
-### 2) Google OAuth (선택)
+### 2) Better Auth 이메일/비밀번호 인증
 
-1. Google Cloud Console에서 OAuth Client를 생성한다.
-2. `.env.local`에 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`을 입력한다.
-3. 인증 기능 구현 단계(Phase 3)에서 사용한다.
+이 프로젝트의 현재 인증 방식은 **이메일/비밀번호만** 사용한다.;
 
-공식 문서:
-
-- https://developers.google.com/workspace/guides/create-credentials
+1. `.env.local`에 `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`을 입력한다.;
+2. 회원가입/로그인 화면은 Better Auth의 credential provider를 사용한다.;
+3. Google OAuth는 제거되었으므로 별도 Client ID 발급이 필요하지 않다.;
 
 ### 3) KIMI 키 (선택)
 

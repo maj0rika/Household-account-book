@@ -16,6 +16,8 @@ export function RoutePrefetcher() {
 	const pathname = usePathname();
 
 	useEffect(() => {
+		// 첫 페인트 직후 핵심 탭만 미리 데워서 모바일 탭 전환 지연을 줄인다.
+		// 현재 경로는 제외해 불필요한 중복 prefetch를 막는다.
 		const id = window.setTimeout(() => {
 			for (const route of CORE_ROUTES) {
 				if (route === pathname) continue;

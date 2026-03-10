@@ -1,6 +1,4 @@
-import { headers } from "next/headers";
-
-import { auth } from "@/server/auth";
+import { getServerSession } from "@/server/auth";
 import { getUserCategories } from "@/server/actions/transaction";
 import { ProfileSection } from "@/components/settings/ProfileSection";
 import { CategoryManager } from "@/components/settings/CategoryManager";
@@ -8,9 +6,7 @@ import { ThemeToggle } from "@/components/settings/ThemeToggle";
 import { Separator } from "@/components/ui/separator";
 
 export default async function SettingsPage() {
-	const session = await auth.api.getSession({
-		headers: await headers(),
-	});
+	const session = await getServerSession();
 
 	const categories = await getUserCategories();
 

@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import type { UnifiedParseResponse, UnifiedParseResult } from "@/server/llm/types";
 
+// 자연어 입력 예시 힌트 (다양한 시나리오 포함)
 const PLACEHOLDER_HINTS = [
 	"점심 김치찌개 9000, 커피 4500",
 	"쿠팡 장보기 38200",
@@ -23,16 +24,19 @@ const PLACEHOLDER_HINTS = [
 	"카드 내역 이미지를 첨부해 보세요",
 ];
 
+// 빈 입력창에 힌트를 순차 롤링하는 애니메이션 컴포넌트
 function AnimatedPlaceholder({ show }: { show: boolean }) {
 	const [index, setIndex] = useState(0);
 	const [mounted, setMounted] = useState(false);
 
 	useEffect(() => {
+		// 마운트 시 랜덤 인덱스로 시작
 		setIndex(Math.floor(Math.random() * PLACEHOLDER_HINTS.length));
 		setMounted(true);
 	}, []);
 
 	useEffect(() => {
+		// 2.5초마다 다음 힌트로 롤링 (언마운트 시 clearInterval)
 		if (!show || !mounted) return;
 		const interval = setInterval(() => {
 			setIndex((prev) => (prev + 1) % PLACEHOLDER_HINTS.length);
@@ -69,6 +73,7 @@ interface ParseSubmission {
 	imageData: { base64: string; mimeType: string } | null;
 }
 
+// 서버 /api/parse 호출 (AbortSignal로 취소 지원)
 async function requestUnifiedParse(
 	submission: ParseSubmission,
 	signal: AbortSignal,
@@ -102,6 +107,7 @@ async function requestUnifiedParse(
 	}
 }
 
+// 로딩 중 단계별 상태 메시지 (이미지 포함 시 단계 추가)
 function buildStatusStages(isLongTask: boolean): string[] {
 	if (isLongTask) {
 		return [
@@ -122,6 +128,7 @@ function buildStatusStages(isLongTask: boolean): string[] {
 const DRAFT_STORAGE_KEY = "draft-natural-input";
 const SUPPORTED_IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
+// 파일을 base64 Data URL로 변환
 function readFileAsDataUrl(file: File): Promise<string> {
 	return new Promise((resolve, reject) => {
 		const reader = new FileReader();
@@ -131,17 +138,14 @@ function readFileAsDataUrl(file: File): Promise<string> {
 	});
 }
 
-function loadImage(dataUrl: string): Promise<HTMLImageElement> {
-	return new Promise((resolve, reject) => {
-		const img = new window.Image();
-		img.onload = () => resolve(img);
-		img.onerror = () => reject(new Error("이미지 디코딩에 실패했습니다."));
-		img.src = dataUrl;
-	});
-}
-
+// 클라이언트 JPEG 압축 — maxDim 리사이즈 + quality 조절로 전송 비용 절감
 async function compressToJpeg(dataUrl: string, maxDim = 1600, quality = 0.82): Promise<string> {
-	const img = await loadImage(dataUrl);
+	const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+		const i = new window.Image();
+		i.onload = () => resolve(i);
+		i.onerror = () => reject(new Error("이미지 디코딩에 실패했습니다."));
+		i.src = dataUrl;
+	});
 	const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
 	const width = Math.max(1, Math.round(img.width * scale));
 	const height = Math.max(1, Math.round(img.height * scale));
@@ -166,13 +170,16 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 	const [statusMessage, setStatusMessage] = useState<string>("");
 	const [showLongHint, setShowLongHint] = useState(false);
 
+	// [참조 관리]
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	// requestIdRef: 빠른 연속 클릭이나 중복 요청 발생 시, 늦게 온 응답을 무시하기 위한 고유 ID입니다.
 	const requestIdRef = useRef(0);
 	const statusTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 	const lastSubmissionRef = useRef<ParseSubmission | null>(null);
 	const requestAbortRef = useRef<AbortController | null>(null);
 
+	// textarea 높이 자동 조정 (최대 120px)
 	const resizeTextarea = useCallback((el: HTMLTextAreaElement) => {
 		if (!el.value.trim()) {
 			el.style.height = "";
@@ -182,7 +189,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 		el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
 	}, []);
 
-	// SSR/클라이언트 초기값 불일치 방지: sessionStorage 복원은 마운트 후 수행
+	// [Life Cycle] 마운트 시 브라우저 세션에 저장된 '작성 중인 글'을 복원합니다.
 	useEffect(() => {
 		const draft = sessionStorage.getItem(DRAFT_STORAGE_KEY);
 		if (!draft) return;
@@ -194,6 +201,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 		}
 	}, [resizeTextarea]);
 
+	// 상태 메시지 타이머 중단 + 초기화
 	const stopStatusTicker = useCallback(() => {
 		if (statusTimerRef.current) {
 			clearInterval(statusTimerRef.current);
@@ -203,6 +211,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 		setShowLongHint(false);
 	}, []);
 
+	// 2.8초 간격으로 로딩 상태 메시지 롤테이션
 	const startStatusTicker = useCallback((isLongTask: boolean) => {
 		const stages = buildStatusStages(isLongTask);
 		let index = 0;
@@ -219,6 +228,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 		}, 2800);
 	}, []);
 
+	// 첨부 이미지 삭제 (preview + data 초기화, input value 리셋)
 	const clearImage = useCallback(() => {
 		setImagePreview(null);
 		setImageData(null);
@@ -227,6 +237,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 		}
 	}, []);
 
+	// 파싱 실행 — requestId 증가 + 이전 요청 abort + API 호출
 	const executeParse = useCallback(async (submission: ParseSubmission) => {
 		const requestId = ++requestIdRef.current;
 		const trimmedInput = submission.input.trim();
@@ -238,12 +249,14 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 		startStatusTicker(isLongTask);
 
 		try {
+			// 이전 진행 중인 요청이 있다면 취소하여 레이스 컨디션을 방지합니다.
 			requestAbortRef.current?.abort();
 			const controller = new AbortController();
 			requestAbortRef.current = controller;
 
 			const result = await requestUnifiedParse(submission, controller.signal);
 
+			// 만약 이 응답이 오기 전에 다른 새로운 요청이 시작되었다면, 이 값은 버립니다.
 			if (requestId !== requestIdRef.current) return;
 
 			if (result.success) {
@@ -262,6 +275,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 		} catch (e) {
 			if (requestId !== requestIdRef.current) return;
 
+			// 사용자가 직접 취소한 경우는 에러로 처리하지 않습니다.
 			if (e instanceof Error && e.name === "AbortError") {
 				return;
 			}
@@ -280,6 +294,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 		}
 	}, [onParsed, clearImage, resizeTextarea, startStatusTicker, stopStatusTicker]);
 
+	// 이미지 선택 → 유효성 검사 + base64 변환 + 클라이언트 압축
 	const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0];
 		if (!file) return;
@@ -289,7 +304,6 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 			return;
 		}
 
-		// 원본 업로드 제한 (너무 큰 파일은 브라우저 메모리/인코딩 비용이 큼)
 		if (file.size > 12 * 1024 * 1024) {
 			setError("이미지 크기는 12MB 이하여야 합니다.");
 			return;
@@ -299,7 +313,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 			let dataUrl = await readFileAsDataUrl(file);
 			let mimeType = file.type;
 
-			// HEIC/HEIF 등 비호환 포맷 또는 큰 이미지는 JPEG로 변환/압축
+			// 모델 입력 제한 및 네트워크 최적화를 위해 클라이언트 사이드 압축 수행
 			const shouldConvert = !SUPPORTED_IMAGE_MIME.has(file.type) || file.size > 1.5 * 1024 * 1024;
 			if (shouldConvert) {
 				dataUrl = await compressToJpeg(dataUrl, 1600, 0.82);
@@ -308,7 +322,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 
 			let base64 = dataUrl.split(",")[1] ?? "";
 
-			// 여전히 크면 한 번 더 압축
+			// 압축 후에도 너무 크면 품질을 더 낮춰 재압축
 			if (base64.length > 2_600_000) {
 				dataUrl = await compressToJpeg(dataUrl, 1280, 0.72);
 				mimeType = "image/jpeg";
@@ -329,19 +343,22 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 		}
 	};
 
+	// 전송 핸들러 — 텍스트/이미지 중 하나 이상 필요, 로딩 중 중복 차단
 	const handleSubmit = useCallback(() => {
 		if ((!input.trim() && !imageData) || isLoading) return;
 		void executeParse({ input, imageData });
 	}, [input, imageData, isLoading, executeParse]);
 
+	// 재시도 — 마지막 submission 재사용
 	const handleRetry = useCallback(() => {
 		if (isLoading || !lastSubmissionRef.current) return;
 		void executeParse(lastSubmissionRef.current);
 	}, [isLoading, executeParse]);
 
+	// 취소 — AbortController로 네트워크 요청 차단 + UI 초기화
 	const handleCancel = useCallback(() => {
 		if (!isLoading) return;
-		requestIdRef.current += 1;
+		requestIdRef.current += 1; // 이미 오고 있는 응답을 무시하게 함
 		requestAbortRef.current?.abort();
 		requestAbortRef.current = null;
 		setIsLoading(false);
@@ -349,14 +366,16 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 		setError("요청을 취소했어요. 필요하면 다시 시도해 주세요.");
 	}, [isLoading, stopStatusTicker]);
 
+	// 엔터 전송 (isComposing 무시 + Shift+Enter 줄바꿈 허용)
 	const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
 		if (e.key === "Enter" && !e.nativeEvent.isComposing) {
-			if (e.shiftKey) return;
+			if (e.shiftKey) return; // Shift+Enter는 줄바꿈
 			e.preventDefault();
 			handleSubmit();
 		}
 	};
 
+	// 언마운트 시 요청·타이머 정리
 	useEffect(() => () => {
 		requestAbortRef.current?.abort();
 		stopStatusTicker();
@@ -372,6 +391,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 				animate={{ y: 0, opacity: 1 }}
 				transition={{ duration: 0.35, ease: "easeOut" }}
 			>
+				{/* 로딩 스테이터스 표시부 */}
 				<AnimatePresence>
 					{isLoading && (
 						<motion.div
@@ -404,6 +424,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 					)}
 				</AnimatePresence>
 
+				{/* 이미지 미리보기 */}
 				<AnimatePresence>
 					{imagePreview && (
 						<motion.div
@@ -435,6 +456,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 				</AnimatePresence>
 
 				<div className="flex items-center gap-2 px-3 py-2">
+					{/* 이미지 첨부 버튼 */}
 					<Button
 						type="button"
 						variant="ghost"
@@ -453,6 +475,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 						onChange={handleImageSelect}
 					/>
 
+					{/* 텍스트 입력창 */}
 					<div className="relative min-w-0 flex-1">
 						<AnimatedPlaceholder show={!input && !isLoading} />
 						<textarea
@@ -461,6 +484,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 							onChange={(e) => {
 								const val = e.target.value;
 								setInput(val);
+								// 세션 스토리지에 임시 저장 (새로고침 복원용)
 								sessionStorage.setItem(DRAFT_STORAGE_KEY, val);
 								resizeTextarea(e.target);
 								if (error) setError(null);
@@ -471,6 +495,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 							disabled={isLoading}
 						/>
 					</div>
+					{/* 전송 버튼 */}
 					<motion.div className="shrink-0" whileTap={{ scale: 0.9 }}>
 						<Button
 							size="icon"
@@ -483,6 +508,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 					</motion.div>
 				</div>
 
+				{/* 에러 메시지 및 재시도 */}
 				<AnimatePresence>
 					{error && (
 						<motion.div

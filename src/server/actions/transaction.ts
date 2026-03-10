@@ -1,9 +1,12 @@
+// 거래(수입/지출) CRUD 서버 액션
+// - 거래+잔액 변경은 DB 트랜잭션으로 원자성 보장
+// - FOR UPDATE 비관적 락으로 동시성 제어
+// - 변경 후 revalidateTransactionPages로 캐시 무효화
 "use server";
 
-import { headers } from "next/headers";
 import { and, eq, gte, lt, lte, ilike, sql, desc, type SQL } from "drizzle-orm";
 
-import { auth } from "@/server/auth";
+import { getAuthUserIdOrThrow } from "@/server/auth";
 import { db } from "@/server/db";
 import { transactions, categories, recurringTransactions, accounts } from "@/server/db/schema";
 import type { ParsedTransaction } from "@/server/llm/types";
@@ -14,8 +17,7 @@ import { revalidateTransactionPages } from "@/lib/cache-keys";
 // db.transaction 콜백의 tx 타입
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-// 계좌 잔액 변동: income → +amount, expense → -amount
-// 암호화된 balance → 조회(FOR UPDATE) → 복호화 → 계산 → 암호화 → 저장
+// 거래에 따른 계좌 잔액 반영 (FOR UPDATE 락으로 동시 수정 방지)
 async function adjustAccountBalance(
 	tx: DbTransaction,
 	accountId: string | null | undefined,
@@ -63,15 +65,7 @@ async function reverseAccountBalance(
 		.where(eq(accounts.id, accountId));
 }
 
-async function getAuthUserId(): Promise<string> {
-	const session = await auth.api.getSession({
-		headers: await headers(),
-	});
-	if (!session?.user?.id) {
-		throw new Error("인증이 필요합니다.");
-	}
-	return session.user.id;
-}
+const getAuthUserId = getAuthUserIdOrThrow;
 
 function normalizeCategoryName(name: string): string {
 	return name.trim().replace(/\s+/g, " ");
@@ -134,7 +128,7 @@ export async function createTransactions(
 			};
 		});
 
-		// 1) 카테고리 조회
+		// 1) 기존 카테고리 로드
 		let userCategories = await db
 			.select({ id: categories.id, name: categories.name, type: categories.type })
 			.from(categories)
@@ -142,7 +136,7 @@ export async function createTransactions(
 
 		let categoryMap = new Map(userCategories.map((c) => [categoryKey(c.type, c.name), c.id]));
 
-		// 2) 누락 카테고리 자동 보정 (추천 추가 직후 동기화 지연 대응)
+		// AI 추천 카테고리가 DB에 없으면 자동 생성하여 UX 끊김 방지
 		const missingMap = new Map<string, { name: string; type: "income" | "expense" }>();
 		for (const item of normalizedItems) {
 			const key = categoryKey(item.type, item.category);
@@ -152,6 +146,7 @@ export async function createTransactions(
 		}
 
 		if (missingMap.size > 0) {
+			// 누락된 카테고리 일괄 삽입
 			await db
 				.insert(categories)
 				.values(
@@ -168,6 +163,7 @@ export async function createTransactions(
 					target: [categories.userId, categories.type, categories.name],
 				});
 
+			// 최신화된 맵 재구축
 			userCategories = await db
 				.select({ id: categories.id, name: categories.name, type: categories.type })
 				.from(categories)
@@ -239,6 +235,8 @@ export async function createTransactions(
 				};
 
 				if (!isRecurringDuplicate(signature, existingSignatures)) {
+					// 같은 요청 안에서도 중복 후보가 여러 번 들어올 수 있으므로
+					// insert 전에 메모리 시그니처를 즉시 갱신해 중복 등록을 막는다.
 					dedupedRecurring.push(candidate);
 					existingSignatures.push(signature);
 				}
@@ -278,6 +276,8 @@ export async function createTransactions(
 						isRecurring: true,
 					})),
 				);
+				// 고정 거래는 "자동 생성된 이번 달 거래"와 "반복 규칙"을 함께 남겨야 한다.
+				// 그래야 현재 월 집계에 즉시 반영되면서도 다음 달 자동 생성의 기준을 유지할 수 있다.
 			}
 
 			return regularValues.length + dedupedRecurring.length;
@@ -369,7 +369,9 @@ export async function getTransactions(month: string, filters?: TransactionFilter
 		type: row.type,
 		amount: row.amount,
 		description: row.description,
-		originalInput: null, // 리스트 조회 시 복호화 스킵 (성능)
+		// 리스트 화면에서는 원문이 필요 없어서 null로 고정한다.
+		// 암호화된 원문까지 복호화하면 건수에 비례해 crypto 비용이 커지고, 초기 렌더만 느려진다.
+		originalInput: null,
 		date: row.date,
 		memo: decryptNullable(row.memo),
 		isRecurring: row.isRecurring,
