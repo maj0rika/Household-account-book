@@ -130,6 +130,8 @@ export function detectSettlementTransferHint(
 
 	const explicitSettlement = hasExplicitSettlementKeyword(normalized);
 	const sourceService = detectSourceService(normalized);
+	const receiveCounterpartyName = extractReceiveCounterparty(normalized);
+	const sendCounterpartyName = extractSendCounterparty(normalized);
 
 	let direction = detectDirection(normalized);
 	if (!direction && explicitSettlement) {
@@ -149,7 +151,11 @@ export function detectSettlementTransferHint(
 		return null;
 	}
 
-	if (!explicitSettlement && sourceService === "unknown") {
+	const counterpartyName = direction === "receive"
+		? receiveCounterpartyName
+		: sendCounterpartyName;
+
+	if (!explicitSettlement && sourceService === "unknown" && !counterpartyName) {
 		return null;
 	}
 
@@ -157,9 +163,7 @@ export function detectSettlementTransferHint(
 		direction,
 		sourceService,
 		amount,
-		counterpartyName: direction === "receive"
-			? extractReceiveCounterparty(normalized)
-			: extractSendCounterparty(normalized),
+		counterpartyName,
 	};
 }
 

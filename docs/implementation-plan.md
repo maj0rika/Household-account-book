@@ -159,6 +159,7 @@
 - [x] 후속: 정산 완료 메시지/입금 알림 자동 파싱
 - [x] 후속 안정화: 정산 이력 batch 저장 원자성 및 자동 매칭 회귀 테스트
 - [x] 후속 안정화: 열린 정산 기준 정산 알림 텍스트 힌트 보강
+- [x] 후속 안정화: 열린 정산 기준 은행 입금/이체 알림 fixture 보강
 
 참고 문서: [Phase 14 PM 플래닝](./brainstorms/2026-03-09-n-split-settlement-planning.md), [Phase 14 UX/UI 설계](./brainstorms/2026-03-09-n-split-settlement-uxui.md), [Phase 14 BE 설계](./brainstorms/2026-03-09-n-split-settlement-be-design.md)
 
@@ -318,6 +319,7 @@ type: start | progress | complete | change | issue
 | 2026-03-09 | 수정 | Phase 14 정산 이력 batch 저장 원자성 보강 및 자동 매칭 회귀 테스트 추가            | [history](./history/2026-03-09-24-settlement-transfer-stability.md)         |
 | 2026-03-09 | 수정 | Phase 14 열린 정산 기준 정산 알림 텍스트 힌트 보강                                | [history](./history/2026-03-09-25-settlement-transfer-text-hints.md)        |
 | 2026-03-09 | 수정 | Drizzle legacy migration repair 추가 및 정산 스키마 로컬 DB 복구                   | [history](./history/2026-03-09-26-drizzle-legacy-migration-repair.md)       |
+| 2026-03-10 | 수정 | Phase 14 열린 정산 기준 은행 입금/이체 알림 fixture 보강                           | [history](./history/2026-03-10-01-settlement-bank-transfer-fixtures.md)     |
 
 ## [완료] 2차 디자인 시스템 전수검사 (추가 컴포넌트 터치 최적화)
 

@@ -56,4 +56,27 @@ describe("settlement message hints", () => {
 			counterpartyName: undefined,
 		});
 	});
+
+	it("열린 정산이 있으면 상대 이름이 있는 은행 입금 알림도 receive 힌트를 붙인다", () => {
+		const hint = detectSettlementTransferHint(
+			"[카카오뱅크] 이영희님이 15,000원 입금했어요",
+			{ hasOpenSettlements: true },
+		);
+
+		expect(hint).toEqual({
+			direction: "receive",
+			sourceService: "unknown",
+			amount: 15000,
+			counterpartyName: "이영희",
+		});
+	});
+
+	it("열린 정산이 있어도 상대 이름이 없는 일반 입금 알림은 정산으로 오인하지 않는다", () => {
+		const processed = preprocessSettlementTransferMessage(
+			"[카카오뱅크] 급여 3,000,000원 입금",
+			{ hasOpenSettlements: true },
+		);
+
+		expect(processed).not.toContain("[정산 이력 힌트]");
+	});
 });
