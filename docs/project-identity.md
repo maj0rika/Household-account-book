@@ -25,6 +25,7 @@
 - `DATABASE_URL`: Supabase Postgres 연결 문자열
 - `KIMI_API_KEY`: KIMI 사용 시
 - `FIREWORKS_API_KEY`: Fireworks 사용 시
+- `MINIMAX_API_KEY`: MiniMax 사용 시 (100자 이하 짧은 텍스트 우선 경로)
 
 ## 실전 셋업 가이드
 
@@ -66,6 +67,14 @@ npm run db:seed
 1. Fireworks 제공 콘솔에서 API Key를 발급받는다.
 2. `.env.local`에 `FIREWORKS_API_KEY`를 입력한다.
 3. 우선순위에 따라 `LLM_PROVIDER=fireworks`로 자동 적용될 수 있다.
+
+### 5) MiniMax 키 (선택)
+
+1. MiniMax 제공 콘솔에서 API Key를 발급받는다.
+2. `.env.local`에 `MINIMAX_API_KEY`를 입력한다.
+3. 100자 이하 짧은 텍스트 입력은 MiniMax를 1순위로 사용하고, 실패 시 Fireworks로 폴백한다.
+4. 긴 텍스트/복수 거래는 기존 Kimi 경로를 유지한다.
+5. 이미지 입력은 기존처럼 Fireworks 우선, 3회 초과 시 Kimi로 전환된다.
 
 ## .env.local 템플릿
 

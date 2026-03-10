@@ -314,6 +314,8 @@ type: start | progress | complete | change | issue
 | 2026-03-10 | 설정 | reviewer 부트스트랩 규약 추가와 히스토리 로그 정렬                                | [history](./history/2026-03-10-17-reviewer-bootstrap-and-history-order.md) |
 | 2026-03-10 | 수정 | `git diff --check` trailing whitespace 실패 복구                                  | [history](./history/2026-03-10-18-trailing-whitespace-fix.md)             |
 | 2026-03-10 | 리팩터 | Fireworks 설정 체크 표현 정리                                                    | [history](./history/2026-03-10-19-fireworks-availability-check-refactor.md) |
+| 2026-03-10 | 설정 | MiniMax API 키 환경변수 슬롯 추가                                                | [history](./history/2026-03-10-20-minimax-env-key-slot.md)                  |
+| 2026-03-10 | 설정 | MiniMax 텍스트 우선 라우팅 + 이미지 Fireworks 3회 정책 유지                     | [history](./history/2026-03-10-21-minimax-fireworks-kimi-routing.md)        |
 | 2026-03-10 | 제거 | `parse-unified.ts` dead code 제거                                                | [history](./history/2026-03-10-21-parse-unified-dead-code-removal.md)      |
 
 ## [완료] 2차 디자인 시스템 전수검사 (추가 컴포넌트 터치 최적화)

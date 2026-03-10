@@ -1,3 +1,6 @@
+// LLM API 호출 + 응답 파싱 계층
+// parse-core.ts에서 호출되며, prompt.ts의 프롬프트를 조립하여 LLM에 전송하고 응답을 타입 안전한 객체로 변환한다.
+// 흐름: prompt.ts(프롬프트 생성) → index.ts(API 호출 + 응답 파싱) → parse-core.ts(폴백/에러 처리)
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
 import { getLLMConfig } from "./client";
 import type { LLMProvider } from "./client";
@@ -21,22 +24,31 @@ export class LLMTimeoutError extends Error {
 const VALID_ACCOUNT_TYPES = new Set(["asset", "debt"]);
 const VALID_SUB_TYPES = new Set(["bank", "cash", "savings", "investment", "credit_card", "loan", "other"]);
 
-function extractJSON(text: string): string {
-	// ```json ... ``` 블록 추출
-	const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-	if (fenced) return fenced[1].trim();
-
-	// { ... } 객체 직접 추출 (통합 응답은 객체)
-	const objectMatch = text.match(/\{[\s\S]*\}/);
-	if (objectMatch) return objectMatch[0].trim();
-
-	// [ ... ] 배열 직접 추출 (하위 호환)
-	const arrayMatch = text.match(/\[[\s\S]*\]/);
-	if (arrayMatch) return arrayMatch[0].trim();
-
-	return text.trim();
+// MiniMax M2.5는 content 앞에 <think>...</think>를 섞어 반환할 수 있어 JSON 추출 전에 제거한다.
+function stripReasoningBlocks(text: string): string {
+	return text.replace(/<think>[\s\S]*?<\/think>\s*/gi, "").trim();
 }
 
+// LLM 응답에서 JSON 추출 — 마크다운 코드블록, 객체, 배열 순으로 시도
+// "```json\n{...}\n```"  → "{...}"     (코드블록 안의 JSON)
+// "다음은 결과: {...}"   → "{...}"     (객체 직접 추출)
+// "[{...}]"              → "[{...}]"   (배열 하위 호환)
+function extractJSON(text: string): string {
+	const normalized = stripReasoningBlocks(text);
+	const fenced = normalized.match(/```(?:json)?\s*([\s\S]*?)```/);
+	if (fenced) return fenced[1].trim();
+
+	const objectMatch = normalized.match(/\{[\s\S]*\}/);
+	if (objectMatch) return objectMatch[0].trim();
+
+	const arrayMatch = normalized.match(/\[[\s\S]*\]/);
+	if (arrayMatch) return arrayMatch[0].trim();
+
+	return normalized.trim();
+}
+
+// 거래 항목 검증: 필수 필드 유무, type 유효성, 금액 양수 체크
+// [{date:"2026-03-10",type:"expense",category:"식비",description:"CU",amount:3500}] → ParsedTransaction[]
 function validateTransactions(data: unknown): ParsedTransaction[] {
 	if (!Array.isArray(data)) return [];
 
@@ -72,6 +84,8 @@ function validateTransactions(data: unknown): ParsedTransaction[] {
 	});
 }
 
+// 계정 항목 검증: type(asset/debt), subType, balance 유효성 체크
+// [{name:"카카오뱅크",type:"asset",subType:"bank",balance:1500000}] → ParsedAccount[]
 function validateAccounts(data: unknown): ParsedAccount[] {
 	if (!Array.isArray(data)) return [];
 
@@ -96,7 +110,14 @@ function validateAccounts(data: unknown): ParsedAccount[] {
 	});
 }
 
-// 통합 응답 파싱 (객체 or 배열 하위호환)
+// LLM JSON 응답을 intent + transactions + accounts로 분리
+// 예시 1 — 거래: {intent:"transaction", transactions:[{date:"2026-03-10",type:"expense",...}], accounts:[]}
+//   → { intent:"transaction", transactions: ParsedTransaction[], accounts: [] }
+// 예시 2 — 계정: {intent:"account", transactions:[], accounts:[{name:"카카오뱅크",type:"asset",...}]}
+//   → { intent:"account", transactions: [], accounts: ParsedAccount[] }
+// 예시 3 — OOD: {rejected:true, reason:"가계부와 관련 없는 입력입니다."}
+//   → throw Error("가계부와 관련 없는 입력입니다.")
+// 예시 4 — 하위호환(배열): [{date:"2026-03-10",...}] → intent:"transaction"으로 간주
 function parseUnifiedResponse(parsed: unknown): { intent: "transaction" | "account"; transactions: ParsedTransaction[]; accounts: ParsedAccount[] } {
 	// 새 통합 포맷: { intent, transactions, accounts }
 	if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
@@ -128,7 +149,8 @@ function parseUnifiedResponse(parsed: unknown): { intent: "transaction" | "accou
 	throw new Error("LLM 응답 형식을 인식할 수 없습니다.");
 }
 
-// 타임아웃 시 실제 벤더 요청도 abort하여 "늦게 200 완료"되는 유령 응답을 줄인다.
+// 타임아웃시 AbortSignal로 HTTP 요청 자체를 취소하여 "늦은 200 OK" 유령 응답을 방지
+// withTimeout(fn, 45000) → 45초 내 응답 없으면 LLMTimeoutError throw
 async function withTimeout<T>(
 	task: (signal: AbortSignal) => Promise<T>,
 	ms: number,
@@ -165,7 +187,18 @@ function getElapsedMs(startedAt: number): number {
 }
 
 /**
- * 통합 파싱: 텍스트 입력 → 거래 또는 자산/부채 자동 분기
+ * 텍스트 파싱 메인 — parse-core.ts에서 호출
+ * input "CU 3500" + categories [{name:"식비",type:"expense"}, ...] + provider "minimax"
+ *   → getLLMConfig("minimax") → { client, model:"MiniMax-M2.5", temperature:1 }
+ *   → buildSystemPrompt() → "당신은 한국어 가계부...\n- 지출: 식비, 교통..." (3000자+)
+ *   → buildUserPrompt() → "...\n[START]\nCU 3500\n[END]"
+ *   → client.chat.completions.create() → LLM API 호출
+ *   → response.choices[0].message.content
+ *       = '```json\n{"intent":"transaction","transactions":[{"date":"2026-03-10",...}]}\n```'
+ *   → extractJSON() → '{"intent":"transaction","transactions":[...]}'
+ *   → JSON.parse() → { intent:"transaction", transactions:[...], accounts:[] }
+ *   → parseUnifiedResponse() → 검증 후 { intent, transactions:ParsedTransaction[], accounts:[] }
+ *   → return { success:true, intent:"transaction", transactions:[...], accounts:[] }
  */
 export async function parseUnifiedText(
 	input: string,
@@ -235,7 +268,11 @@ export async function parseUnifiedText(
 }
 
 /**
- * 통합 파싱: 이미지 입력 → 거래 또는 자산/부채 자동 분기
+ * 이미지 파싱 메인 — parse-core.ts에서 호출
+ * imageBase64 "data:image/jpeg;base64,/9j/4AAQ..." + textInput "영수증" + provider "kimi"
+ *   → messages.content = [{type:"image_url", image_url:{url:"data:..."} }, {type:"text", text:"첨부 이미지를...영수증..."}]
+ *   → client.chat.completions.create() → LLM Vision API 호출
+ *   → 이후 흐름은 parseUnifiedText와 동일 (extractJSON → JSON.parse → parseUnifiedResponse)
  */
 export async function parseUnifiedImage(
 	imageBase64: string,

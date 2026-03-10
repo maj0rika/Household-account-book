@@ -1,7 +1,18 @@
-// LLM 기반 파싱 코어 — 사용자 입력을 가계부 데이터로 변환
-// - 세션별 Fireworks 사용량 카운팅 (무료 할당량 관리)
-// - Fireworks → Kimi 자동 폴백
-// - 장애 공급자 쿨다운으로 불필요한 대기 방지
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// LLM 파싱 코어 — 사용자 입력(text/image)을 가계부 데이터로 변환하는 중앙 파이프라인.
+//
+// 데이터 흐름:
+//   입력 → OOD 필터(무관 입력 차단) → 은행 메시지 전처리 → provider 결정
+//   → DB에서 카테고리/계좌 병렬 조회 → LLM 호출
+//   → 텍스트: MiniMax 우선, Fireworks 폴백 / 이미지: Fireworks 우선, 3회 초과 시 Kimi
+//   → 응답 정규화 → UnifiedParseResponse 반환
+//
+// 주요 설계 결정:
+//   - 100자 이하 짧은 텍스트는 MiniMax → Fireworks 순서로 처리
+//   - 이미지는 세션별 Fireworks 3회 후 Kimi 전환 (기존 정책 유지)
+//   - 이미지 Fireworks 장애 provider 10분 쿨다운 (낭비 방지)
+//   - 성공 응답만 usage 차감 (장애에 의한 할당 소진 방지)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@/server/db";
@@ -15,42 +26,48 @@ import type { LLMCategory } from "@/server/llm/prompt";
 import type { UnifiedParseResponse } from "@/server/llm/types";
 import type { Account } from "@/types";
 
-// 세션별 Fireworks 사용 카운터 (인메모리)
+const SHORT_TEXT_PROVIDER_THRESHOLD = 100; // "단순 텍스트" 판별 기준
+
+// 세션별 이미지 Fireworks 사용 카운터 (인메모리)
 // key: sessionId, value: { count, lastUsed }
 // 로그아웃 → 재로그인 시 새 세션 ID가 발급되므로 자동 리셋
 // 인메모리 — 서버 재시작 시 초기화됨 (엄격한 제한 필요 시 Redis/DB 전환)
-const FIREWORKS_FREE_LIMIT = 3;
-const MAX_MAP_SIZE = 1000;
-const FIREWORKS_FAILURE_COOLDOWN_MS = 10 * 60 * 1000;
-const fireworksUsageMap = new Map<string, {
-	count: number;
-	lastUsed: number;
-	blockedUntil?: number;
+const IMAGE_FIREWORKS_FREE_LIMIT = 3;      // 세션당 이미지 Fireworks 우선 호출 횟수
+const MAX_MAP_SIZE = 1000;                 // 메모리 누수 방지용 상한
+const IMAGE_FIREWORKS_FAILURE_COOLDOWN_MS = 10 * 60 * 1000; // 장애 후 10분간 해당 세션에서 회피
+const imageFireworksUsageMap = new Map<string, {
+	count: number;           // 성공 응답 누적 횟수
+	lastUsed: number;        // 마지막 사용 타임스탬프 (prune 기준)
+	blockedUntil?: number;   // 쿨다운 해제 시각 (장애 시 설정)
 }>();
 
 // 오래된 엔트리 정리 (24시간 초과)
-function pruneStaleEntries(): void {
-	if (fireworksUsageMap.size <= MAX_MAP_SIZE) return;
+function pruneStaleImageFireworksEntries(): void {
+	if (imageFireworksUsageMap.size <= MAX_MAP_SIZE) return;
 	const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-	for (const [key, val] of fireworksUsageMap) {
-		if (val.lastUsed < cutoff) fireworksUsageMap.delete(key);
+	for (const [key, val] of imageFireworksUsageMap) {
+		if (val.lastUsed < cutoff) imageFireworksUsageMap.delete(key);
 	}
 }
 
-function canUseFireworks(sessionId: string): boolean {
+function hasMiniMax(): boolean {
+	return !!process.env.MINIMAX_API_KEY;
+}
+
+function canUseImageFireworks(sessionId: string): boolean {
 	if (!hasFireworks()) return false;
-	const entry = fireworksUsageMap.get(sessionId);
+	const entry = imageFireworksUsageMap.get(sessionId);
 	const blockedUntil = entry?.blockedUntil ?? 0;
 	if (blockedUntil > Date.now()) return false;
 	const used = entry?.count ?? 0;
-	return used < FIREWORKS_FREE_LIMIT;
+	return used < IMAGE_FIREWORKS_FREE_LIMIT;
 }
 
-function incrementFireworksUsage(sessionId: string): void {
-	const entry = fireworksUsageMap.get(sessionId);
+function incrementImageFireworksUsage(sessionId: string): void {
+	const entry = imageFireworksUsageMap.get(sessionId);
 	const count = (entry?.count ?? 0) + 1;
-	fireworksUsageMap.set(sessionId, { count, lastUsed: Date.now() });
-	pruneStaleEntries();
+	imageFireworksUsageMap.set(sessionId, { count, lastUsed: Date.now() });
+	pruneStaleImageFireworksEntries();
 }
 
 function hasKimi(): boolean {
@@ -61,33 +78,38 @@ function hasFireworks(): boolean {
 	return !!process.env.FIREWORKS_API_KEY;
 }
 
+// null 제거 + 중복 제거 — provider 배열을 안전하게 정리
 function dedupeProviders(providers: Array<LLMProvider | null>): LLMProvider[] {
 	return providers.filter((provider, index, list): provider is LLMProvider => {
 		return !!provider && list.indexOf(provider) === index;
 	});
 }
 
-function resolveTextProviders(sessionId: string): LLMProvider[] {
-	// 정책 우선순위 #1: 기존 3회 룰 (신규/초기 사용자 체감 속도)
-	if (canUseFireworks(sessionId)) {
+function resolveTextProviders(input: string): LLMProvider[] {
+	const textLength = input.trim().length;
+
+	// 100자 이하 짧은 텍스트는 MiniMax를 우선 시도하고 실패 시 Fireworks로 폴백한다.
+	if (textLength <= SHORT_TEXT_PROVIDER_THRESHOLD) {
 		return dedupeProviders([
-			"fireworks",
-			hasKimi() ? "kimi" : null,
+			hasMiniMax() ? "minimax" : null,
+			hasFireworks() ? "fireworks" : null,
+			!hasMiniMax() && !hasFireworks() && hasKimi() ? "kimi" : null,
 		]);
 	}
 
-	// 정책 우선순위 #2: 긴 입력도 고성능 Kimi로 처리
+	// 긴 입력/복수 거래는 기존 고성능 Kimi 경로를 유지한다.
 	if (hasKimi()) return ["kimi"];
 
-	// 최후 폴백: 이용 가능한 provider가 fireworks뿐이면 제한 이후에도 사용
+	// Kimi가 없으면 Fireworks, 둘 다 없으면 MiniMax로 마지막 폴백을 건다.
 	if (hasFireworks()) return ["fireworks"];
+	if (hasMiniMax()) return ["minimax"];
 
 	return [];
 }
 
 function resolveImageProviders(sessionId: string): LLMProvider[] {
 	// 정책 우선순위 #1: 기존 3회 룰
-	if (canUseFireworks(sessionId)) {
+	if (canUseImageFireworks(sessionId)) {
 		return dedupeProviders([
 			"fireworks",
 			hasKimi() ? "kimi" : null,
@@ -103,6 +125,9 @@ function resolveImageProviders(sessionId: string): LLMProvider[] {
 	return [];
 }
 
+// 폴백을 시도할 가치가 있는 실패인지 판단
+// true: 타임아웃/네트워크/서버 오류 → 다른 provider로 재시도
+// false: 콘텐츠 오류/입력 오류 → 다른 provider로도 같은 결과이므로 즉시 중단
 function isRecoverableProviderFailure(message: string): boolean {
 	const normalized = message.toLowerCase();
 
@@ -112,12 +137,15 @@ function isRecoverableProviderFailure(message: string): boolean {
 		|| normalized.includes("fetch failed")
 		|| normalized.includes("network")
 		|| normalized.includes("connection")
+		|| normalized.includes("forbidden")
 		|| normalized.includes("response")
 		|| normalized.includes("응답이 비어")
 		|| normalized.includes("응답 형식")
 		|| normalized.includes("파싱 결과가 비어")
 		|| normalized.includes("unexpected end of json input")
 		|| normalized.includes("rate limit")
+		|| normalized.includes("401")
+		|| normalized.includes("403")
 		|| normalized.includes("429")
 		|| normalized.includes("500")
 		|| normalized.includes("502")
@@ -125,23 +153,25 @@ function isRecoverableProviderFailure(message: string): boolean {
 		|| normalized.includes("504");
 }
 
-function activateFireworksCooldown(sessionId: string, reason: string): void {
-	const entry = fireworksUsageMap.get(sessionId);
-	const blockedUntil = Date.now() + FIREWORKS_FAILURE_COOLDOWN_MS;
+function activateImageFireworksCooldown(sessionId: string, reason: string): void {
+	const entry = imageFireworksUsageMap.get(sessionId);
+	const blockedUntil = Date.now() + IMAGE_FIREWORKS_FAILURE_COOLDOWN_MS;
 
-	fireworksUsageMap.set(sessionId, {
+	imageFireworksUsageMap.set(sessionId, {
 		count: entry?.count ?? 0,
 		lastUsed: Date.now(),
 		blockedUntil,
 	});
-	pruneStaleEntries();
+	pruneStaleImageFireworksEntries();
 
 	console.warn("[LLM] fireworks cooldown activated", {
 		reason,
-		cooldownMs: FIREWORKS_FAILURE_COOLDOWN_MS,
+		cooldownMs: IMAGE_FIREWORKS_FAILURE_COOLDOWN_MS,
 	});
 }
 
+// LLM 내부 에러 메시지를 사용자 친화적 메시지로 변환
+// (LLMTimeoutError 같은 기술적 메시지가 사용자에게 노출되는 것을 방지)
 function normalizeParseFailure(
 	result: UnifiedParseResponse,
 	timeoutMs: number,
@@ -159,11 +189,12 @@ function normalizeParseFailure(
 	return result;
 }
 
+// 입력 길이에 따른 단계별 타임아웃 — 짧은 입력에 긴 타임아웃을 주면 UX 저하
 function resolveTextTimeoutMs(input: string): number {
 	const textLength = input.trim().length;
-	if (textLength <= 100) return 45000;
-	if (textLength <= 400) return 70000;
-	return 100000;
+	if (textLength <= SHORT_TEXT_PROVIDER_THRESHOLD) return 45000;   // ~45s: 단순 입력 ("CU 3500")
+	if (textLength <= 400) return 70000;   // ~70s: 중간 길이
+	return 100000;                          // ~100s: 긴 입력/복수 거래
 }
 
 function resolveImageTimeoutMs(textInput: string): number {
@@ -183,7 +214,7 @@ function mapTimeoutErrorMessage(timeoutMs: number, isImage: boolean): string {
 }
 
 function mapProviderConfigErrorMessage(): string {
-	return "AI 파서 설정이 비어 있어요. 관리자에게 KIMI/FIREWORKS 키 설정을 요청해 주세요.";
+	return "AI 파서 설정이 비어 있어요. 관리자에게 MINIMAX/FIREWORKS/KIMI 키 설정을 요청해 주세요.";
 }
 
 // DB 조회: 사용자 LLM 카테고리
@@ -235,7 +266,7 @@ export async function executeTextParse(
 	}
 
 	// provider(AI 제공자) 및 timeout(제한 시간) 결정
-	const providers = resolveTextProviders(sessionId);
+	const providers = resolveTextProviders(input);
 	const timeoutMs = resolveTextTimeoutMs(input);
 	if (providers.length === 0) {
 		return { success: false, error: mapProviderConfigErrorMessage() };
@@ -266,27 +297,25 @@ export async function executeTextParse(
 		);
 
 		if (result.success) {
-			// Fireworks 무료 사용량은 "실제 성공 응답" 기준으로만 차감한다.
-			// 실패 요청까지 차감하면 체감 속도 정책보다 장애 전파가 더 커진다.
-			if (provider === "fireworks") {
-				incrementFireworksUsage(sessionId);
-			}
 			return result;
 		}
 
 		lastResult = result;
 
 		const fallbackProvider = providers[index + 1];
-		const shouldFallback = provider === "fireworks" && fallbackProvider === "kimi";
+		const shouldFallback = !!fallbackProvider && (
+			(provider === "minimax" && fallbackProvider === "fireworks")
+			|| (provider === "fireworks" && fallbackProvider === "kimi")
+		);
 		if (!shouldFallback) {
 			break;
 		}
 
 		const isRecoverable = isRecoverableProviderFailure(result.error);
-		if (isRecoverable) {
+		if (provider === "fireworks" && fallbackProvider === "kimi" && isRecoverable) {
 			// 복구 가능한 실패만 쿨다운을 걸어 다음 요청부터 바로 Kimi를 우선 사용하게 한다.
 			// 사용량 제한과 별개로 "실패가 반복되는 벤더"를 잠시 우회하는 안전장치다.
-			activateFireworksCooldown(sessionId, result.error);
+			activateImageFireworksCooldown(sessionId, result.error);
 		}
 
 		console.warn("[LLM] text provider fallback", {
@@ -344,7 +373,7 @@ export async function executeImageParse(
 
 		if (result.success) {
 			if (provider === "fireworks") {
-				incrementFireworksUsage(sessionId);
+				incrementImageFireworksUsage(sessionId);
 			}
 			return result;
 		}
@@ -359,7 +388,7 @@ export async function executeImageParse(
 
 		const isRecoverable = isRecoverableProviderFailure(result.error);
 		if (isRecoverable) {
-			activateFireworksCooldown(sessionId, result.error);
+			activateImageFireworksCooldown(sessionId, result.error);
 		}
 
 		console.warn("[LLM] image provider fallback", {
