@@ -9,6 +9,11 @@ interface SettlementTransferHintOptions {
 	hasOpenSettlements: boolean;
 }
 
+interface SettlementImageHint {
+	role: "organizer" | "participant";
+	sourceService: "kakao" | "toss" | "unknown";
+}
+
 const EXPLICIT_SETTLEMENT_PATTERNS = [
 	/정산/i,
 	/n\s*\/\s*1/i,
@@ -27,6 +32,20 @@ const SEND_KEYWORDS = [
 	"송금했습니다",
 	"보냈어요",
 	"보냈습니다",
+];
+
+const PARTICIPANT_IMAGE_PATTERNS = [
+	/보낼\s*금액/i,
+	/내\s*정산금/i,
+	/송금하기/i,
+	/보내기/i,
+];
+
+const ORGANIZER_IMAGE_PATTERNS = [
+	/받을\s*금액/i,
+	/정산\s*요청/i,
+	/미입금/i,
+	/입금\s*완료/i,
 ];
 
 function hasExplicitSettlementKeyword(input: string): boolean {
@@ -190,4 +209,49 @@ export function preprocessSettlementTransferMessage(
 	}
 
 	return `${normalized}\n\n${hintLines.join("\n")}`;
+}
+
+export function detectSettlementImageHint(input: string): SettlementImageHint | null {
+	const normalized = input.replace(/\s+/g, " ").trim();
+	if (!normalized) return null;
+
+	const sourceService = detectSourceService(normalized);
+	const hasSettlementCue = hasExplicitSettlementKeyword(normalized)
+		|| PARTICIPANT_IMAGE_PATTERNS.some((pattern) => pattern.test(normalized))
+		|| ORGANIZER_IMAGE_PATTERNS.some((pattern) => pattern.test(normalized));
+
+	if (!hasSettlementCue && sourceService === "unknown") {
+		return null;
+	}
+
+	if (PARTICIPANT_IMAGE_PATTERNS.some((pattern) => pattern.test(normalized))) {
+		return {
+			role: "participant",
+			sourceService,
+		};
+	}
+
+	if (ORGANIZER_IMAGE_PATTERNS.some((pattern) => pattern.test(normalized))) {
+		return {
+			role: "organizer",
+			sourceService,
+		};
+	}
+
+	return null;
+}
+
+export function preprocessSettlementImageMessage(input: string): string {
+	const normalized = input.trim();
+	if (!normalized) return normalized;
+
+	const hint = detectSettlementImageHint(normalized);
+	if (!hint) return normalized;
+
+	return `${normalized}
+
+[이미지 정산 힌트]
+- settlement image 우선 검토
+- settlementRole: ${hint.role}
+- settlementSourceService: ${hint.sourceService}`;
 }

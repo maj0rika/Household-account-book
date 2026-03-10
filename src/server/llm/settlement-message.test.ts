@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+	detectSettlementImageHint,
 	detectSettlementTransferHint,
+	preprocessSettlementImageMessage,
 	preprocessSettlementTransferMessage,
 } from "./settlement-message";
 
@@ -115,5 +117,34 @@ describe("settlement message hints", () => {
 		);
 
 		expect(processed).not.toContain("[정산 이력 힌트]");
+	});
+
+	it("카카오 정산 OCR 문구에서 participant 이미지 힌트를 만든다", () => {
+		const hint = detectSettlementImageHint(
+			"카카오톡 정산 보낼 금액 15,000원 송금하기",
+		);
+
+		expect(hint).toEqual({
+			role: "participant",
+			sourceService: "kakao",
+		});
+	});
+
+	it("토스 정산 OCR 문구에서 organizer 이미지 힌트를 만든다", () => {
+		const processed = preprocessSettlementImageMessage(
+			"토스 정산 요청 받을 금액 42,000원 미입금 2명",
+		);
+
+		expect(processed).toContain("[이미지 정산 힌트]");
+		expect(processed).toContain("- settlementRole: organizer");
+		expect(processed).toContain("- settlementSourceService: toss");
+	});
+
+	it("일반 영수증 보조 텍스트에는 이미지 정산 힌트를 붙이지 않는다", () => {
+		const processed = preprocessSettlementImageMessage(
+			"스타벅스 아메리카노 4,500원 결제",
+		);
+
+		expect(processed).not.toContain("[이미지 정산 힌트]");
 	});
 });

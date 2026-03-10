@@ -7,7 +7,10 @@ import { parseUnifiedText, parseUnifiedImage } from "@/server/llm";
 import type { LLMProvider } from "@/server/llm/client";
 import { isBankMessage, preprocessBankMessage } from "@/server/llm/bank-message";
 import { isFinancialInput, OOD_ERROR_MESSAGE } from "@/server/llm/ood-filter";
-import { preprocessSettlementTransferMessage } from "@/server/llm/settlement-message";
+import {
+	preprocessSettlementImageMessage,
+	preprocessSettlementTransferMessage,
+} from "@/server/llm/settlement-message";
 import type { LLMCategory } from "@/server/llm/prompt";
 import type { UnifiedParseResponse } from "@/server/llm/types";
 import { matchParsedSettlementTransfers } from "@/server/settlement/transfer-matching";
@@ -337,9 +340,10 @@ export async function executeImageParse(
 		getUserAccounts(userId),
 		hasOpenSettlements(userId),
 	]);
-	const processedTextInput = preprocessSettlementTransferMessage(textInput, {
+	const transferHintedTextInput = preprocessSettlementTransferMessage(textInput, {
 		hasOpenSettlements: openSettlementExists,
 	});
+	const processedTextInput = preprocessSettlementImageMessage(transferHintedTextInput);
 
 	let lastResult: UnifiedParseResponse | null = null;
 
