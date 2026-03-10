@@ -6,6 +6,20 @@ import {
 } from "./settlement-message";
 
 describe("settlement message hints", () => {
+	it("열린 정산이 있으면 서비스명이 없는 plain receive 알림도 이름 기준으로 허용한다", () => {
+		const hint = detectSettlementTransferHint(
+			"김철수님이 15,000원 보냈어요",
+			{ hasOpenSettlements: true },
+		);
+
+		expect(hint).toEqual({
+			direction: "receive",
+			sourceService: "unknown",
+			amount: 15000,
+			counterpartyName: "김철수",
+		});
+	});
+
 	it("열린 정산이 있으면 카카오페이 입금 알림에 receive 힌트를 붙인다", () => {
 		const input = "카카오페이 김철수님이 15,000원 보냈어요";
 
@@ -32,6 +46,20 @@ describe("settlement message hints", () => {
 		expect(processed).toContain("- sourceService: toss");
 		expect(processed).toContain("- amount: 20000");
 		expect(processed).toContain("- counterpartyName: 민수");
+	});
+
+	it("열린 정산이 있으면 서비스명이 없는 plain send 알림도 이름 기준으로 허용한다", () => {
+		const hint = detectSettlementTransferHint(
+			"민수에게 20,000원 보냈어요",
+			{ hasOpenSettlements: true },
+		);
+
+		expect(hint).toEqual({
+			direction: "send",
+			sourceService: "unknown",
+			amount: 20000,
+			counterpartyName: "민수",
+		});
 	});
 
 	it("열린 정산이 없고 명시적 정산 키워드도 없으면 일반 송금 알림은 그대로 둔다", () => {
@@ -74,6 +102,15 @@ describe("settlement message hints", () => {
 	it("열린 정산이 있어도 상대 이름이 없는 일반 입금 알림은 정산으로 오인하지 않는다", () => {
 		const processed = preprocessSettlementTransferMessage(
 			"[카카오뱅크] 급여 3,000,000원 입금",
+			{ hasOpenSettlements: true },
+		);
+
+		expect(processed).not.toContain("[정산 이력 힌트]");
+	});
+
+	it("열린 정산이 있어도 상대 이름이 없는 일반 송금 완료 알림은 정산으로 오인하지 않는다", () => {
+		const processed = preprocessSettlementTransferMessage(
+			"이체 완료 50,000원",
 			{ hasOpenSettlements: true },
 		);
 
