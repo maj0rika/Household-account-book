@@ -79,13 +79,13 @@ export const categories = pgTable(
 		sortOrder: integer("sort_order").notNull().default(0),
 		isDefault: boolean("is_default").notNull().default(false),
 	},
-	(table) => ({
-		userTypeNameUnique: uniqueIndex("categories_user_type_name_unique").on(
+	(table) => [
+		uniqueIndex("categories_user_type_name_unique").on(
 			table.userId,
 			table.type,
 			table.name,
 		),
-	}),
+	],
 );
 
 export const transactions = pgTable(
@@ -107,11 +107,11 @@ export const transactions = pgTable(
 		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 	},
-	(table) => ({
-		userDateIdx: index("transactions_user_date_idx").on(table.userId, table.date),
-		userTypeDateIdx: index("transactions_user_type_date_idx").on(table.userId, table.type, table.date),
-		categoryIdx: index("transactions_category_idx").on(table.categoryId),
-	}),
+	(table) => [
+		index("transactions_user_date_idx").on(table.userId, table.date),
+		index("transactions_user_type_date_idx").on(table.userId, table.type, table.date),
+		index("transactions_category_idx").on(table.categoryId),
+	],
 );
 
 export const recurringTransactions = pgTable(
@@ -129,9 +129,9 @@ export const recurringTransactions = pgTable(
 		isActive: boolean("is_active").notNull().default(true),
 		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 	},
-	(table) => ({
-		userActiveIdx: index("recurring_tx_user_active_idx").on(table.userId, table.isActive),
-	}),
+	(table) => [
+		index("recurring_tx_user_active_idx").on(table.userId, table.isActive),
+	],
 );
 
 export const budgets = pgTable(
@@ -146,13 +146,13 @@ export const budgets = pgTable(
 		month: text("month").notNull(),
 		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 	},
-	(table) => ({
-		userCategoryMonthUnique: uniqueIndex("budgets_user_category_month_unique").on(
+	(table) => [
+		uniqueIndex("budgets_user_category_month_unique").on(
 			table.userId,
 			table.categoryId,
 			table.month,
 		),
-	}),
+	],
 );
 
 // ── 자산/부채 계정 ──
