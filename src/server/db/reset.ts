@@ -7,6 +7,9 @@ import { db } from "./index";
 const reset = async (): Promise<void> => {
 	await db.execute(sql`
 		TRUNCATE TABLE
+			"security_events",
+			"security_rate_limits",
+			"rateLimit",
 			"budgets",
 			"recurring_transactions",
 			"transactions",

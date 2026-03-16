@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Wallet } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
-import { checkEmailProvider } from "@/server/actions/check-email";
+import { mapAuthClientError } from "@/lib/auth-errors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,23 +18,12 @@ export default function RegisterPage() {
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
-	const [isAccountConflict, setIsAccountConflict] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
 
 	const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 		setIsLoading(true);
 		setErrorMessage(null);
-		setIsAccountConflict(false);
-
-		// 이메일 중복 확인
-		const check = await checkEmailProvider(email);
-		if (check.exists) {
-			setErrorMessage("이미 가입된 이메일입니다. 로그인을 이용해주세요.");
-			setIsAccountConflict(true);
-			setIsLoading(false);
-			return;
-		}
 
 		const { error } = await authClient.signUp.email({
 			name,
@@ -44,7 +33,7 @@ export default function RegisterPage() {
 		});
 
 		if (error) {
-			setErrorMessage(error.message ?? "회원가입에 실패했습니다.");
+			setErrorMessage(mapAuthClientError(error, "register"));
 			setIsLoading(false);
 			return;
 		}
@@ -110,19 +99,7 @@ export default function RegisterPage() {
 					</form>
 
 					{errorMessage && (
-						isAccountConflict ? (
-							<div className="rounded-md bg-destructive/10 px-3 py-2.5 text-center text-sm text-destructive">
-								<p>{errorMessage}</p>
-								<Link
-									href="/login"
-									className="mt-1 inline-block font-medium underline underline-offset-2"
-								>
-									로그인 페이지로 이동
-								</Link>
-							</div>
-						) : (
-							<p className="text-center text-sm text-destructive">{errorMessage}</p>
-						)
+						<p className="text-center text-sm text-destructive">{errorMessage}</p>
 					)}
 
 					<p className="text-center text-sm text-muted-foreground">

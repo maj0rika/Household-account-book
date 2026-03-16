@@ -1,8 +1,10 @@
 import {
+	bigint,
 	boolean,
 	date,
 	index,
 	integer,
+	jsonb,
 	pgEnum,
 	pgTable,
 	timestamp,
@@ -65,6 +67,50 @@ export const authVerifications = pgTable("verification", {
 	createdAt: timestamp("created_at", { withTimezone: true }),
 	updatedAt: timestamp("updated_at", { withTimezone: true }),
 });
+
+export const authRateLimits = pgTable("rateLimit", {
+	id: text("id").primaryKey(),
+	key: text("key").notNull().unique(),
+	count: integer("count").notNull(),
+	lastRequest: bigint("lastRequest", { mode: "number" }).notNull(),
+});
+
+export const securityRateLimits = pgTable(
+	"security_rate_limits",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		scope: text("scope").notNull(),
+		keyHash: text("key_hash").notNull(),
+		requestCount: integer("request_count").notNull().default(0),
+		windowStartedAt: timestamp("window_started_at", { withTimezone: true }).notNull().defaultNow(),
+		blockedUntil: timestamp("blocked_until", { withTimezone: true }),
+		consecutiveBlocks: integer("consecutive_blocks").notNull().default(0),
+		lastReason: text("last_reason"),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+	},
+	(table) => [
+		uniqueIndex("security_rate_limits_scope_key_hash_unique").on(table.scope, table.keyHash),
+		index("security_rate_limits_blocked_until_idx").on(table.blockedUntil),
+	],
+);
+
+export const securityEvents = pgTable(
+	"security_events",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		type: text("type").notNull(),
+		scope: text("scope").notNull(),
+		keyHash: text("key_hash"),
+		reason: text("reason").notNull(),
+		metadata: jsonb("metadata").$type<Record<string, string | number | boolean | null> | null>(),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+	},
+	(table) => [
+		index("security_events_scope_created_at_idx").on(table.scope, table.createdAt),
+		index("security_events_type_created_at_idx").on(table.type, table.createdAt),
+	],
+);
 
 // ── 앱 테이블 (authUsers.id 직접 참조) ──
 
