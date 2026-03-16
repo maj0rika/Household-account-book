@@ -1,4 +1,4 @@
-# 가계부 프로젝트 — Claude Code 설정
+# 가계부 프로젝트 — Codex 설정
 
 `AGENTS.md`와 `CLAUDE.md`는 같은 저장소 운영 규칙을 유지한다.
 

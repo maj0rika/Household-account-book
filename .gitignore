@@ -56,10 +56,8 @@ android/local.properties
 next-env.d.ts
 
 # AI agent 자동생성 파일
-.agents/
 .claude/settings.local.json
 .serena/memories/
-AGENTS.md
 
 # 학습/면접 자료 (개인용)
 docs/interview-*.md
