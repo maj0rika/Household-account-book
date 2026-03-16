@@ -21,6 +21,40 @@ function jsonError(
 	return NextResponse.json({ success: false, error }, { status, headers });
 }
 
+async function consumeUserParseLimit(
+	userId: string,
+	contentType: string,
+): Promise<NextResponse | null> {
+	const userDecision = await consumeRateLimit({
+		scope: "parse:user",
+		subject: userId,
+		max: 20,
+		windowSeconds: 5 * 60,
+		reason: "parse_user_limit",
+	});
+
+	if (userDecision.allowed) {
+		return null;
+	}
+
+	await recordSecurityEvent({
+		type: "throttled",
+		scope: userDecision.scope,
+		keyHash: userDecision.keyHash,
+		reason: userDecision.reason,
+		metadata: {
+			retryAfterSeconds: userDecision.retryAfterSeconds,
+			contentType: contentType || "unknown",
+		},
+	});
+
+	return jsonError(
+		"요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+		429,
+		buildRateLimitHeaders(userDecision),
+	);
+}
+
 export async function POST(request: Request) {
 	const unauthFingerprint = buildRequestFingerprint(request, null);
 
@@ -67,32 +101,6 @@ export async function POST(request: Request) {
 	}
 
 	const contentType = request.headers.get("content-type") ?? "";
-	const userDecision = await consumeRateLimit({
-		scope: "parse:user",
-		subject: session.user.id,
-		max: 20,
-		windowSeconds: 5 * 60,
-		reason: "parse_user_limit",
-	});
-
-	if (!userDecision.allowed) {
-		await recordSecurityEvent({
-			type: "throttled",
-			scope: userDecision.scope,
-			keyHash: userDecision.keyHash,
-			reason: userDecision.reason,
-			metadata: {
-				retryAfterSeconds: userDecision.retryAfterSeconds,
-				contentType: contentType || "unknown",
-			},
-		});
-
-		return jsonError(
-			"요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
-			429,
-			buildRateLimitHeaders(userDecision),
-		);
-	}
 
 	// multipart/form-data → 이미지 파싱
 	if (contentType.includes("multipart/form-data")) {
@@ -158,6 +166,11 @@ export async function POST(request: Request) {
 			}
 
 			return jsonError(validation.message, 400);
+		}
+
+		const userLimitResponse = await consumeUserParseLimit(session.user.id, contentType);
+		if (userLimitResponse) {
+			return userLimitResponse;
 		}
 
 		const imageDecision = await consumeRateLimit({
@@ -268,6 +281,11 @@ export async function POST(request: Request) {
 			return jsonError(validation.message, 400);
 		}
 
+		const userLimitResponse = await consumeUserParseLimit(session.user.id, contentType);
+		if (userLimitResponse) {
+			return userLimitResponse;
+		}
+
 		const imageDecision = await consumeRateLimit({
 			scope: "parse:image:session",
 			subject: session.session.id,
@@ -324,6 +342,11 @@ export async function POST(request: Request) {
 		}
 
 		return jsonError(sanitizedInput.message, 400);
+	}
+
+	const userLimitResponse = await consumeUserParseLimit(session.user.id, contentType);
+	if (userLimitResponse) {
+		return userLimitResponse;
 	}
 
 	const result = await executeTextParse(
