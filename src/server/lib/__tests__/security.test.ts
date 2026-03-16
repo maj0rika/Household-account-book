@@ -57,14 +57,32 @@ describe("security helpers", () => {
 			mimeType: "image/png",
 			byteLength: 1024,
 			base64Length: 2048,
+			base64Payload: Buffer.from("hello-image").toString("base64"),
 		});
 		const invalid = validateImagePayload({
 			mimeType: "image/svg+xml",
 			byteLength: 1024,
 			base64Length: 2048,
+			base64Payload: Buffer.from("hello-image").toString("base64"),
 		});
 
 		expect(valid.ok).toBe(true);
 		expect(invalid.ok).toBe(false);
+	});
+
+	it("잘못된 base64 이미지 payload를 차단한다", () => {
+		const invalid = validateImagePayload({
+			mimeType: "image/png",
+			byteLength: 1024,
+			base64Length: 16,
+			base64Payload: "%%%not-base64%%%",
+		});
+
+		expect(invalid.ok).toBe(false);
+		if (invalid.ok) {
+			throw new Error("expected invalid base64 payload to be rejected");
+		}
+
+		expect(invalid.code).toBe("invalid_base64_image");
 	});
 });

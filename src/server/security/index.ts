@@ -48,6 +48,22 @@ type SecurityEventMetadataValue = string | number | boolean | null;
 const DEFAULT_ESCALATION_AFTER = 3;
 const DEFAULT_BLOCK_SECONDS = 15 * 60;
 
+function resolveAnomalyEventType(reason: string): SecurityEventType {
+	if (reason === "origin_mismatch") {
+		return "origin_mismatch";
+	}
+
+	if (reason === "unauthorized_access") {
+		return "unauthorized";
+	}
+
+	if (reason === "base64_only_text" || reason === "invalid_base64_image") {
+		return "suspicious_pattern";
+	}
+
+	return "invalid_input";
+}
+
 function toRetryAfterSeconds(retryAt: Date): number {
 	return Math.max(1, Math.ceil((retryAt.getTime() - Date.now()) / 1000));
 }
@@ -78,6 +94,22 @@ export async function consumeRateLimit(
 	const blockSeconds = input.blockSeconds ?? DEFAULT_BLOCK_SECONDS;
 
 	return db.transaction(async (tx) => {
+		await tx
+			.insert(securityRateLimits)
+			.values({
+				scope: input.scope,
+				keyHash,
+				requestCount: 0,
+				windowStartedAt: now,
+				blockedUntil: null,
+				consecutiveBlocks: 0,
+				lastReason: input.reason,
+				updatedAt: now,
+			})
+			.onConflictDoNothing({
+				target: [securityRateLimits.scope, securityRateLimits.keyHash],
+			});
+
 		const [row] = await tx
 			.select({
 				id: securityRateLimits.id,
@@ -96,24 +128,7 @@ export async function consumeRateLimit(
 			.for("update");
 
 		if (!row) {
-			await tx.insert(securityRateLimits).values({
-				scope: input.scope,
-				keyHash,
-				requestCount: 1,
-				windowStartedAt: now,
-				blockedUntil: null,
-				consecutiveBlocks: 0,
-				lastReason: input.reason,
-				updatedAt: now,
-			});
-
-			return {
-				allowed: true,
-				retryAfterSeconds: 0,
-				reason: input.reason,
-				scope: input.scope,
-				keyHash,
-			};
+			throw new Error("rate limit row를 조회하지 못했습니다.");
 		}
 
 		const requestCount = row.requestCount;
@@ -231,11 +246,15 @@ export async function consumeIpAnomalyLimit(input: {
 	});
 
 	await recordSecurityEvent({
-		type: decision.allowed ? "invalid_input" : "blocked",
+		type: resolveAnomalyEventType(input.reason),
 		scope: input.scope,
 		keyHash: input.fingerprint.ipHash,
 		reason: input.reason,
-		metadata: input.metadata,
+		metadata: {
+			...(input.metadata ?? {}),
+			blocked: !decision.allowed,
+			retryAfterSeconds: decision.retryAfterSeconds,
+		},
 	});
 
 	return decision;

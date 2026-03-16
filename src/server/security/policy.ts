@@ -76,6 +76,19 @@ function looksLikeBase64Payload(input: string): boolean {
 	return BASE64_ONLY_REGEX.test(compact);
 }
 
+function isStrictBase64Payload(input: string): boolean {
+	const compact = input.replace(/\s+/g, "");
+	if (!compact) return false;
+	if (compact.length % 4 !== 0) return false;
+	if (!BASE64_ONLY_REGEX.test(compact)) return false;
+
+	try {
+		return Buffer.from(compact, "base64").toString("base64") === compact;
+	} catch {
+		return false;
+	}
+}
+
 export function hashSecurityValue(value: string, namespace = "general"): string {
 	const digest = createHmac("sha256", getSecuritySecret())
 		.update(`${SECURITY_DIGEST_VERSION}:${namespace}:`)
@@ -215,6 +228,7 @@ export function validateImagePayload(input: {
 	mimeType: string;
 	byteLength: number;
 	base64Length: number;
+	base64Payload: string;
 }): {
 	ok: true;
 	meta: Record<string, SecurityEventMetadataValue>;
@@ -254,6 +268,15 @@ export function validateImagePayload(input: {
 			ok: false,
 			code: "image_payload_too_large",
 			message: "이미지 인코딩 데이터가 너무 큽니다. 더 작은 이미지를 사용해 주세요.",
+			meta,
+		};
+	}
+
+	if (!isStrictBase64Payload(input.base64Payload)) {
+		return {
+			ok: false,
+			code: "invalid_base64_image",
+			message: "이미지 인코딩 형식이 올바르지 않습니다.",
 			meta,
 		};
 	}

@@ -166,6 +166,7 @@ export async function POST(request: Request) {
 			mimeType,
 			byteLength: file.size,
 			base64Length: imageBase64.length,
+			base64Payload: imageBase64,
 		});
 
 		if (!validation.ok) {
@@ -273,6 +274,7 @@ export async function POST(request: Request) {
 			mimeType: body.mimeType,
 			byteLength,
 			base64Length: body.imageBase64.length,
+			base64Payload: body.imageBase64,
 		});
 
 		if (!validation.ok) {
