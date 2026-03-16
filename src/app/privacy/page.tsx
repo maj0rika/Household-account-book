@@ -18,18 +18,18 @@ export default function PrivacyPage() {
 			</Link>
 
 			<h1 className="mb-2 text-2xl font-bold">개인정보처리방침</h1>
-			<p className="mb-8 text-sm text-muted-foreground">시행일: 2025년 2월 25일</p>
+			<p className="mb-8 text-sm text-muted-foreground">시행일: 2026년 3월 16일</p>
 
 			<div className="space-y-8 text-sm leading-relaxed text-foreground/90">
 				<Section title="1. 개인정보의 수집 항목 및 수집 방법">
 					<p>본 서비스는 회원가입 및 서비스 이용을 위해 아래 정보를 수집합니다.</p>
 					<ul className="mt-2 list-disc space-y-1 pl-5">
-						<li>필수 항목: 이메일 주소, 비밀번호(암호화 저장)</li>
-						<li>Google 로그인 시: 이메일 주소, 이름, 프로필 이미지</li>
+						<li>필수 항목: 이메일 주소, 비밀번호(해시 저장)</li>
 						<li>
 							서비스 이용 과정에서 생성되는 정보: 거래 내역(수입/지출), 카테고리, 자산
 							정보, 예산 설정
 						</li>
+						<li>보안 보호를 위한 최소 접속 정보: 해시된 IP 주소, 해시된 User-Agent</li>
 					</ul>
 				</Section>
 
@@ -66,10 +66,9 @@ export default function PrivacyPage() {
 						<li>Supabase (데이터베이스 호스팅) — 거래 데이터 저장</li>
 						<li>Vercel (웹 호스팅) — 서비스 배포 및 운영</li>
 						<li>
-							Moonshot AI — 거래 내역 자동 분류 (입력 텍스트만 전송, 개인 식별 정보
-							미포함)
+							Moonshot AI(Kimi), Fireworks AI, MiniMax — 거래/이미지 입력 자동 분류
+							(서비스 제공에 필요한 입력 텍스트와 이미지 데이터 처리)
 						</li>
-						<li>Google OAuth — 소셜 로그인 인증</li>
 					</ul>
 				</Section>
 
@@ -87,7 +86,7 @@ export default function PrivacyPage() {
 
 				<Section title="7. 개인정보의 안전성 확보 조치">
 					<ul className="list-disc space-y-1 pl-5">
-						<li>비밀번호 암호화 저장 (bcrypt)</li>
+						<li>비밀번호 해시 저장</li>
 						<li>HTTPS 통신 암호화</li>
 						<li>데이터베이스 접근 제어 (Row Level Security)</li>
 						<li>인증 토큰 기반 세션 관리</li>
@@ -101,7 +100,7 @@ export default function PrivacyPage() {
 			</div>
 
 			<p className="mt-12 text-xs text-muted-foreground">
-				본 방침은 2025년 2월 25일부터 적용됩니다.
+				본 방침은 2026년 3월 16일부터 적용됩니다.
 			</p>
 		</main>
 	);

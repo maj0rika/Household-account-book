@@ -18,7 +18,7 @@ export default function TermsPage() {
 			</Link>
 
 			<h1 className="mb-2 text-2xl font-bold">서비스 이용약관</h1>
-			<p className="mb-8 text-sm text-muted-foreground">시행일: 2025년 2월 25일</p>
+			<p className="mb-8 text-sm text-muted-foreground">시행일: 2026년 3월 16일</p>
 
 			<div className="space-y-8 text-sm leading-relaxed text-foreground/90">
 				<Section title="제1조 (목적)">
@@ -63,9 +63,7 @@ export default function TermsPage() {
 
 				<Section title="제4조 (회원가입 및 계정)">
 					<ul className="list-disc space-y-1 pl-5">
-						<li>
-							이용자는 이메일/비밀번호 또는 Google 계정을 통해 회원가입할 수 있습니다.
-						</li>
+						<li>이용자는 이메일/비밀번호를 통해 회원가입할 수 있습니다.</li>
 						<li>
 							이용자는 정확한 정보를 제공해야 하며, 타인의 정보를 도용해서는 안
 							됩니다.
@@ -132,12 +130,12 @@ export default function TermsPage() {
 					<ul className="list-disc space-y-1 pl-5">
 						<li>AI 기반 거래 분류는 참고용이며, 정확성을 보장하지 않습니다.</li>
 						<li>
-							AI 처리를 위해 입력 텍스트가 외부 AI 서비스(Moonshot AI, Fireworks AI)로
-							전송될 수 있습니다.
+							AI 처리를 위해 입력 텍스트 또는 이미지가 외부 AI 서비스(Moonshot
+							AI(Kimi), Fireworks AI, MiniMax)로 전송될 수 있습니다.
 						</li>
 						<li>
-							전송되는 데이터에는 개인 식별 정보가 포함되지 않으며, 거래 관련 텍스트만
-							전달됩니다.
+							서비스 제공에 필요한 입력 텍스트와 이미지 데이터가 처리될 수 있으며,
+							이용자는 민감한 개인 정보를 불필요하게 입력하지 않아야 합니다.
 						</li>
 					</ul>
 				</Section>
@@ -174,7 +172,7 @@ export default function TermsPage() {
 						이용자의 개인정보 보호에 관한 사항은{" "}
 						<Link
 							href="/privacy"
-							className="font-medium text-emerald-600 underline underline-offset-2 hover:text-emerald-700"
+							className="font-medium text-primary underline underline-offset-2 hover:text-primary/80"
 						>
 							개인정보처리방침
 						</Link>
@@ -202,7 +200,7 @@ export default function TermsPage() {
 			</div>
 
 			<p className="mt-12 text-xs text-muted-foreground">
-				본 약관은 2025년 2월 25일부터 적용됩니다.
+				본 약관은 2026년 3월 16일부터 적용됩니다.
 			</p>
 		</main>
 	);
