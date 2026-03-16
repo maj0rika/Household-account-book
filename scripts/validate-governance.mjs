@@ -7,6 +7,7 @@ const pipelineStateDir = path.join(rootDir, "docs", "pipeline-state");
 const implementationPlanPath = path.join(rootDir, "docs", "implementation-plan.md");
 const claudeSkillsDir = path.join(rootDir, ".claude", "skills");
 const agentsSkillsDir = path.join(rootDir, ".agents", "skills");
+const githubDir = path.join(rootDir, ".github");
 
 const CANONICAL_HISTORY_TYPES = new Set(["feature", "fix", "refactor", "perf", "config", "remove", "docs"]);
 const LEGACY_HISTORY_TYPES = new Set(["start", "progress", "complete", "change", "issue"]);
@@ -15,6 +16,15 @@ const PRESERVED_DUPLICATE_HISTORY_FILES = new Set([
 	"2026-02-24-04-phase3-auth-progress.md",
 	"2026-03-10-21-minimax-fireworks-kimi-routing.md",
 	"2026-03-10-21-parse-unified-dead-code-removal.md",
+	"2026-03-16-02-auth-parse-security-hardening.md",
+	"2026-03-16-02-governance-skill-record-unification.md",
+]);
+const LEGACY_PIPELINE_STATE_FILES = new Set([
+	"2026-03-16-02-auth-parse-security-hardening.md",
+	"2026-03-16-04-security-review-followup.md",
+	"2026-03-16-05-security-review-fixes.md",
+	"2026-03-16-06-security-followup-fixes.md",
+	"2026-03-16-07-parse-user-quota-and-doc-fix.md",
 ]);
 const REQUIRED_PIPELINE_SECTIONS = [
 	"## Pipeline State",
@@ -30,11 +40,35 @@ const REQUIRED_PIPELINE_SECTIONS = [
 	"### 다음 액션",
 ];
 const HISTORY_FILE_PATTERN = /^(\d{4}-\d{2}-\d{2})-(\d{2})-(.+)\.md$/;
+const CONFLICT_MARKER_PATTERNS = [
+	/^(<{7})(?: .+)?$/m,
+	/^(={7})$/m,
+	/^(>{7})(?: .+)?$/m,
+];
 
 function listFiles(dirPath) {
 	return readdirSync(dirPath)
 		.filter((name) => statSync(path.join(dirPath, name)).isFile())
 		.sort();
+}
+
+function listFilesRecursive(dirPath) {
+	const entries = readdirSync(dirPath, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
+	const files = [];
+
+	for (const entry of entries) {
+		const fullPath = path.join(dirPath, entry.name);
+		if (entry.isDirectory()) {
+			files.push(...listFilesRecursive(fullPath));
+			continue;
+		}
+
+		if (entry.isFile()) {
+			files.push(fullPath);
+		}
+	}
+
+	return files;
 }
 
 function parseFrontmatter(filePath) {
@@ -142,6 +176,10 @@ function validateImplementationPlan(historyFiles, errors) {
 function validatePipelineStates(errors) {
 	const stateFiles = listFiles(pipelineStateDir).filter((fileName) => fileName !== "README.md");
 	for (const fileName of stateFiles) {
+		if (LEGACY_PIPELINE_STATE_FILES.has(fileName)) {
+			continue;
+		}
+
 		const text = readFileSync(path.join(pipelineStateDir, fileName), "utf8");
 		for (const section of REQUIRED_PIPELINE_SECTIONS) {
 			ensure(text.includes(section), `[pipeline-state] ${fileName}: 섹션 누락 ${section}`, errors);
@@ -178,12 +216,46 @@ function validateSkills(errors) {
 	}
 }
 
+function validateConflictMarkers(errors) {
+	const candidateFiles = [
+		path.join(rootDir, "AGENTS.md"),
+		path.join(rootDir, "CLAUDE.md"),
+		path.join(rootDir, "scripts", "validate-governance.mjs"),
+		path.join(githubDir, "PULL_REQUEST_TEMPLATE.md"),
+	];
+
+	if (existsSync(path.join(rootDir, "docs"))) {
+		candidateFiles.push(...listFilesRecursive(path.join(rootDir, "docs")));
+	}
+
+	if (existsSync(path.join(githubDir, "workflows"))) {
+		candidateFiles.push(...listFilesRecursive(path.join(githubDir, "workflows")));
+	}
+
+	for (const filePath of candidateFiles) {
+		if (!existsSync(filePath) || statSync(filePath).isDirectory()) {
+			continue;
+		}
+
+		const text = readFileSync(filePath, "utf8");
+		for (const pattern of CONFLICT_MARKER_PATTERNS) {
+			const match = text.match(pattern);
+			ensure(
+				!match,
+				`[conflict-marker] ${path.relative(rootDir, filePath)}: ${match?.[1] ?? "marker"} 발견`,
+				errors,
+			);
+		}
+	}
+}
+
 function main() {
 	const errors = [];
 	const historyFiles = validateHistory(errors);
 	validateImplementationPlan(historyFiles, errors);
 	validatePipelineStates(errors);
 	validateSkills(errors);
+	validateConflictMarkers(errors);
 
 	if (errors.length > 0) {
 		console.error("거버넌스 검증 실패:");
