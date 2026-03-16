@@ -320,6 +320,7 @@ type: start | progress | complete | change | issue
 | 2026-03-16 | 문서 | README 최신화                                                                    | [history](./history/2026-03-16-01-readme-refresh.md)                        |
 | 2026-03-16 | 수정 | Auth/Parse 공개 입력 보안 하드닝                                                 | [history](./history/2026-03-16-02-auth-parse-security-hardening.md)         |
 | 2026-03-16 | 문서 | Auth/Parse 보안 하드닝 결과 문서화                                               | [history](./history/2026-03-16-03-security-hardening-docs.md)               |
+| 2026-03-16 | 수정 | Auth/Parse 보안 PR 리뷰 반영                                                     | [history](./history/2026-03-16-04-security-review-followup.md)              |
 
 ## [완료] 2차 디자인 시스템 전수검사 (추가 컴포넌트 터치 최적화)
 

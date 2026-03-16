@@ -222,23 +222,6 @@ export async function POST(request: Request) {
 	}
 
 	const sanitizedInput = sanitizeTextInput(body.input);
-	if (!sanitizedInput.ok && typeof body.imageBase64 !== "string") {
-		const decision = await consumeIpAnomalyLimit({
-			fingerprint,
-			scope: "parse:public:ip",
-			reason: sanitizedInput.code,
-			metadata: sanitizedInput.meta,
-		});
-		if (decision && !decision.allowed) {
-			return jsonError(
-				"요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
-				429,
-				buildRateLimitHeaders(decision),
-			);
-		}
-
-		return jsonError(sanitizedInput.message, 400);
-	}
 
 	if (typeof body.imageBase64 === "string" && body.imageBase64) {
 		if (typeof body.mimeType !== "string" || !body.mimeType) {

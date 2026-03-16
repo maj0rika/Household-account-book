@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { db } from "@/server/db";
 import { securityEvents, securityRateLimits } from "@/server/db/schema";
@@ -78,28 +78,22 @@ export async function consumeRateLimit(
 	const blockSeconds = input.blockSeconds ?? DEFAULT_BLOCK_SECONDS;
 
 	return db.transaction(async (tx) => {
-		const result = await tx.execute(sql`
-			SELECT
-				id,
-				request_count,
-				window_started_at,
-				blocked_until,
-				consecutive_blocks
-			FROM security_rate_limits
-			WHERE scope = ${input.scope}
-				AND key_hash = ${keyHash}
-			FOR UPDATE
-		`);
-
-		const row = result.rows[0] as
-			| {
-					id: string;
-					request_count: number | string;
-					window_started_at: Date | string;
-					blocked_until: Date | string | null;
-					consecutive_blocks: number | string;
-			  }
-			| undefined;
+		const [row] = await tx
+			.select({
+				id: securityRateLimits.id,
+				requestCount: securityRateLimits.requestCount,
+				windowStartedAt: securityRateLimits.windowStartedAt,
+				blockedUntil: securityRateLimits.blockedUntil,
+				consecutiveBlocks: securityRateLimits.consecutiveBlocks,
+			})
+			.from(securityRateLimits)
+			.where(
+				and(
+					eq(securityRateLimits.scope, input.scope),
+					eq(securityRateLimits.keyHash, keyHash),
+				),
+			)
+			.for("update");
 
 		if (!row) {
 			await tx.insert(securityRateLimits).values({
@@ -122,10 +116,10 @@ export async function consumeRateLimit(
 			};
 		}
 
-		const requestCount = Number(row.request_count);
-		const consecutiveBlocks = Number(row.consecutive_blocks);
-		const windowStartedAt = new Date(row.window_started_at);
-		const blockedUntil = row.blocked_until ? new Date(row.blocked_until) : null;
+		const requestCount = row.requestCount;
+		const consecutiveBlocks = row.consecutiveBlocks;
+		const windowStartedAt = row.windowStartedAt;
+		const blockedUntil = row.blockedUntil;
 
 		if (blockedUntil && blockedUntil.getTime() > now.getTime()) {
 			return {
