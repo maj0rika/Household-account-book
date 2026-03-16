@@ -10,6 +10,12 @@ const agentsSkillsDir = path.join(rootDir, ".agents", "skills");
 
 const CANONICAL_HISTORY_TYPES = new Set(["feature", "fix", "refactor", "perf", "config", "remove", "docs"]);
 const LEGACY_HISTORY_TYPES = new Set(["start", "progress", "complete", "change", "issue"]);
+const PRESERVED_DUPLICATE_HISTORY_FILES = new Set([
+	"2026-02-24-04-phase2-db-orm-complete.md",
+	"2026-02-24-04-phase3-auth-progress.md",
+	"2026-03-10-21-minimax-fireworks-kimi-routing.md",
+	"2026-03-10-21-parse-unified-dead-code-removal.md",
+]);
 const REQUIRED_PIPELINE_SECTIONS = [
 	"## Pipeline State",
 	"### 요청 요약",
@@ -65,7 +71,7 @@ function ensure(condition, message, errors) {
 
 function validateHistory(errors) {
 	const historyFiles = listFiles(historyDir);
-	const daySequences = new Map();
+	const sequenceGroups = new Map();
 
 	for (const fileName of historyFiles) {
 		const filePath = path.join(historyDir, fileName);
@@ -76,9 +82,6 @@ function validateHistory(errors) {
 		}
 
 		const [, day, sequence] = match;
-		const sequences = daySequences.get(day) ?? [];
-		sequences.push(sequence);
-		daySequences.set(day, sequences);
 
 		let frontmatter;
 		try {
@@ -99,15 +102,24 @@ function validateHistory(errors) {
 				errors,
 			);
 		}
+
+		const groupKey = `${day}-${sequence}`;
+		const entries = sequenceGroups.get(groupKey) ?? [];
+		entries.push({ fileName, type: frontmatter.type ?? "" });
+		sequenceGroups.set(groupKey, entries);
 	}
 
-	for (const [day, sequences] of daySequences.entries()) {
-		const duplicates = sequences.filter((sequence, index) => sequences.indexOf(sequence) !== index);
-		if (duplicates.length > 0) {
-			const allLegacy = duplicates.every((duplicate) => day === "2026-02-24" || day === "2026-03-10");
+	for (const [groupKey, entries] of sequenceGroups.entries()) {
+		if (entries.length > 1) {
+			const preservedDuplicateGroup = entries.every(
+				(entry) =>
+					LEGACY_HISTORY_TYPES.has(entry.type) || PRESERVED_DUPLICATE_HISTORY_FILES.has(entry.fileName),
+			);
 			ensure(
-				allLegacy,
-				`[history] ${day}: 중복 순번 ${Array.from(new Set(duplicates)).join(", ")}.`,
+				preservedDuplicateGroup,
+				`[history] ${groupKey}: 중복 순번 예외로 허용되지 않은 파일이 있습니다 (${entries
+					.map((entry) => entry.fileName)
+					.join(", ")}).`,
 				errors,
 			);
 		}

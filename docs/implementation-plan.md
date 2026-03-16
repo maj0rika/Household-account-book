@@ -342,10 +342,7 @@ type: feature | fix | refactor | perf | config | remove | docs
 | 2026-03-16 | 수정 | Auth/Parse 보안 후속 회귀 수정                                                 | [history](./history/2026-03-16-06-security-followup-fixes.md)              |
 | 2026-03-16 | 수정 | Parse 유저 quota 차감 시점 및 운영 문서 정정                                   | [history](./history/2026-03-16-07-parse-user-quota-and-doc-fix.md)         |
 | 2026-03-16 | 문서 | PR 구조 정렬 및 템플릿 추가                                                    | [history](./history/2026-03-16-08-pr-template-alignment.md)                |
-<<<<<<< HEAD
-=======
-| 2026-03-16 | 문서 | PR 구조 정렬 및 템플릿 추가                                                    | [history](./history/2026-03-16-08-pr-template-alignment.md)                |
->>>>>>> 77b1cb2 (docs(app): PR 템플릿과 본문 구조 정렬)
+| 2026-03-16 | 설정 | 거버넌스 PR 리뷰 피드백 반영                                                   | [history](./history/2026-03-16-09-review-feedback-governance-followup.md)  |
 
 ## [완료] 2차 디자인 시스템 전수검사 (추가 컴포넌트 터치 최적화)
 
