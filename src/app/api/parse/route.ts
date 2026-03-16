@@ -132,33 +132,6 @@ export async function POST(request: Request) {
 			return jsonError("image 필드가 필요합니다.", 400);
 		}
 
-		const imageDecision = await consumeRateLimit({
-			scope: "parse:image:session",
-			subject: session.session.id,
-			max: 6,
-			windowSeconds: 10 * 60,
-			reason: "parse_image_session_limit",
-		});
-
-		if (!imageDecision.allowed) {
-			await recordSecurityEvent({
-				type: "throttled",
-				scope: imageDecision.scope,
-				keyHash: imageDecision.keyHash,
-				reason: imageDecision.reason,
-				metadata: {
-					retryAfterSeconds: imageDecision.retryAfterSeconds,
-					contentType,
-				},
-			});
-
-			return jsonError(
-				"이미지 분석 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
-				429,
-				buildRateLimitHeaders(imageDecision),
-			);
-		}
-
 		const arrayBuffer = await file.arrayBuffer();
 		const imageBase64 = Buffer.from(arrayBuffer).toString("base64");
 		const mimeType = file.type || "image/jpeg";
@@ -185,6 +158,33 @@ export async function POST(request: Request) {
 			}
 
 			return jsonError(validation.message, 400);
+		}
+
+		const imageDecision = await consumeRateLimit({
+			scope: "parse:image:session",
+			subject: session.session.id,
+			max: 6,
+			windowSeconds: 10 * 60,
+			reason: "parse_image_session_limit",
+		});
+
+		if (!imageDecision.allowed) {
+			await recordSecurityEvent({
+				type: "throttled",
+				scope: imageDecision.scope,
+				keyHash: imageDecision.keyHash,
+				reason: imageDecision.reason,
+				metadata: {
+					retryAfterSeconds: imageDecision.retryAfterSeconds,
+					contentType,
+				},
+			});
+
+			return jsonError(
+				"이미지 분석 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+				429,
+				buildRateLimitHeaders(imageDecision),
+			);
 		}
 
 		const rawTextInput = (formData.get("input") as string) ?? "";
@@ -242,6 +242,32 @@ export async function POST(request: Request) {
 			return jsonError("mimeType 필드가 필요합니다.", 400);
 		}
 
+		const byteLength = Buffer.byteLength(body.imageBase64, "base64");
+		const validation = validateImagePayload({
+			mimeType: body.mimeType,
+			byteLength,
+			base64Length: body.imageBase64.length,
+			base64Payload: body.imageBase64,
+		});
+
+		if (!validation.ok) {
+			const decision = await consumeIpAnomalyLimit({
+				fingerprint,
+				scope: "parse:public:ip",
+				reason: validation.code,
+				metadata: validation.meta,
+			});
+			if (decision && !decision.allowed) {
+				return jsonError(
+					"요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+					429,
+					buildRateLimitHeaders(decision),
+				);
+			}
+
+			return jsonError(validation.message, 400);
+		}
+
 		const imageDecision = await consumeRateLimit({
 			scope: "parse:image:session",
 			subject: session.session.id,
@@ -267,32 +293,6 @@ export async function POST(request: Request) {
 				429,
 				buildRateLimitHeaders(imageDecision),
 			);
-		}
-
-		const byteLength = Buffer.byteLength(body.imageBase64, "base64");
-		const validation = validateImagePayload({
-			mimeType: body.mimeType,
-			byteLength,
-			base64Length: body.imageBase64.length,
-			base64Payload: body.imageBase64,
-		});
-
-		if (!validation.ok) {
-			const decision = await consumeIpAnomalyLimit({
-				fingerprint,
-				scope: "parse:public:ip",
-				reason: validation.code,
-				metadata: validation.meta,
-			});
-			if (decision && !decision.allowed) {
-				return jsonError(
-					"요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
-					429,
-					buildRateLimitHeaders(decision),
-				);
-			}
-
-			return jsonError(validation.message, 400);
 		}
 
 		const textInput = sanitizedInput.ok ? sanitizedInput.value : "";

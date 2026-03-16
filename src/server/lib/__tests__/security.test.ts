@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 import {
+	extractRequestIp,
 	hashSecurityValue,
 	minimizeSessionIpAddress,
 	minimizeSessionUserAgent,
@@ -27,6 +28,14 @@ describe("security helpers", () => {
 	it("세션 IP와 User-Agent를 최소화한다", () => {
 		expect(minimizeSessionIpAddress("127.0.0.1")).toMatch(/^ip:v1:/);
 		expect(minimizeSessionUserAgent("Mozilla/5.0")).toMatch(/^ua:v1:/);
+	});
+
+	it("IPv6 요청 IP를 /64 기준으로 정규화한다", () => {
+		const headers = new Headers({
+			"x-forwarded-for": "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+		});
+
+		expect(extractRequestIp(headers)).toBe("2001:0db8:85a3:0000::/64");
 	});
 
 	it("텍스트 입력에서 제어문자를 제거하고 길이를 검증한다", () => {

@@ -1,4 +1,5 @@
 import { createHmac } from "crypto";
+import { isIP } from "node:net";
 
 export type SecurityEventType =
 	| "blocked"
@@ -69,6 +70,59 @@ function normalizeHeaderValue(value: string | null): string | null {
 	return trimmed ? trimmed : null;
 }
 
+function normalizeIpv6Subnet(value: string): string | null {
+	const [withoutZone] = value.split("%");
+	const embeddedIpv4Index = withoutZone.lastIndexOf(":");
+	const embeddedIpv4 = withoutZone.slice(embeddedIpv4Index + 1);
+	const normalizedIpv6 = isIP(embeddedIpv4) === 4
+		? (() => {
+				const octets = embeddedIpv4.split(".").map((part) => Number(part));
+				const first = ((octets[0] << 8) | octets[1]).toString(16);
+				const second = ((octets[2] << 8) | octets[3]).toString(16);
+				return `${withoutZone.slice(0, embeddedIpv4Index)}:${first}:${second}`;
+			})()
+		: withoutZone;
+	const [left = "", right = ""] = normalizedIpv6.split("::");
+	const leftParts = left ? left.split(":").filter(Boolean) : [];
+	const rightParts = right ? right.split(":").filter(Boolean) : [];
+	const missingParts = 8 - (leftParts.length + rightParts.length);
+	if (missingParts < 0) return null;
+
+	const expanded = [
+		...leftParts,
+		...Array.from({ length: missingParts }, () => "0"),
+		...rightParts,
+	].map((part) => part.toLowerCase().padStart(4, "0"));
+
+	if (expanded.length !== 8) return null;
+
+	return `${expanded.slice(0, 4).join(":")}::/64`;
+}
+
+function normalizeIpForRateLimit(value: string): string {
+	const trimmed = value.trim();
+	if (!trimmed) return trimmed;
+
+	if (trimmed.startsWith("[") && trimmed.includes("]")) {
+		const closingIndex = trimmed.indexOf("]");
+		const bracketed = trimmed.slice(1, closingIndex);
+		const normalizedBracketed = normalizeIpv6Subnet(bracketed);
+		return normalizedBracketed ?? bracketed;
+	}
+
+	const ipv4WithPort = trimmed.match(/^(\d+\.\d+\.\d+\.\d+):\d+$/);
+	if (ipv4WithPort) {
+		return ipv4WithPort[1];
+	}
+
+	const version = isIP(trimmed.split("%")[0]);
+	if (version === 6) {
+		return normalizeIpv6Subnet(trimmed) ?? trimmed.toLowerCase();
+	}
+
+	return trimmed;
+}
+
 function looksLikeBase64Payload(input: string): boolean {
 	const compact = input.replace(/\s+/g, "");
 	if (compact.length < 256) return false;
@@ -116,12 +170,12 @@ export function extractRequestIp(input: Headers | Request): string | null {
 	const forwarded = normalizeHeaderValue(headers.get(X_FORWARDED_FOR_HEADER));
 	if (forwarded) {
 		const first = forwarded.split(",")[0]?.trim() ?? "";
-		if (first) return first;
+		if (first) return normalizeIpForRateLimit(first);
 	}
 
 	for (const header of FALLBACK_IP_HEADERS) {
 		const value = normalizeHeaderValue(headers.get(header));
-		if (value) return value;
+		if (value) return normalizeIpForRateLimit(value);
 	}
 
 	return null;
