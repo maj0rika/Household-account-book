@@ -24,6 +24,11 @@ const pretendard = localFont({
 });
 
 export const metadata: Metadata = {
+	metadataBase: new URL(
+		process.env.VERCEL_PROJECT_PRODUCTION_URL
+			? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+			: "http://localhost:3000",
+	),
 	title: "가계부 — AI 자동 분류 가계부",
 	description: "자연어로 입력하면 AI가 자동 분류하는 스마트 가계부",
 	manifest: "/manifest.json",
@@ -38,6 +43,19 @@ export const metadata: Metadata = {
 		capable: true,
 		statusBarStyle: "black-translucent",
 		title: "가계부",
+	},
+	openGraph: {
+		type: "website",
+		title: "가계부 — AI 자동 분류 가계부",
+		description: "자연어로 입력하면 AI가 자동 분류하는 스마트 가계부",
+		images: [{ url: "/icons/icon-512.png", width: 512, height: 512, alt: "가계부 앱 아이콘" }],
+		locale: "ko_KR",
+	},
+	twitter: {
+		card: "summary",
+		title: "가계부 — AI 자동 분류 가계부",
+		description: "자연어로 입력하면 AI가 자동 분류하는 스마트 가계부",
+		images: ["/icons/icon-512.png"],
 	},
 };
 

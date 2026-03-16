@@ -1,0 +1,10 @@
+# 공개 페이지만 크롤링 허용, 인증 영역 차단
+User-agent: *
+Allow: /$
+Allow: /terms
+Allow: /privacy
+Disallow: /dashboard
+Disallow: /settings
+Disallow: /api/
+
+Sitemap: https://household-account-book.vercel.app/sitemap.xml
