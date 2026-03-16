@@ -317,6 +317,13 @@ type: start | progress | complete | change | issue
 | 2026-03-10 | 설정 | MiniMax API 키 환경변수 슬롯 추가                                                | [history](./history/2026-03-10-20-minimax-env-key-slot.md)                  |
 | 2026-03-10 | 설정 | MiniMax 텍스트 우선 라우팅 + 이미지 Fireworks 3회 정책 유지                     | [history](./history/2026-03-10-21-minimax-fireworks-kimi-routing.md)        |
 | 2026-03-10 | 제거 | `parse-unified.ts` dead code 제거                                                | [history](./history/2026-03-10-21-parse-unified-dead-code-removal.md)      |
+| 2026-03-16 | 문서 | README 최신화                                                                    | [history](./history/2026-03-16-01-readme-refresh.md)                        |
+| 2026-03-16 | 수정 | Auth/Parse 공개 입력 보안 하드닝                                                 | [history](./history/2026-03-16-02-auth-parse-security-hardening.md)         |
+| 2026-03-16 | 문서 | Auth/Parse 보안 하드닝 결과 문서화                                               | [history](./history/2026-03-16-03-security-hardening-docs.md)               |
+| 2026-03-16 | 수정 | Auth/Parse 보안 PR 리뷰 반영                                                     | [history](./history/2026-03-16-04-security-review-followup.md)              |
+| 2026-03-16 | 수정 | Auth/Parse 보안 추가 리뷰 수정                                                   | [history](./history/2026-03-16-05-security-review-fixes.md)                 |
+| 2026-03-16 | 수정 | Auth/Parse 보안 후속 회귀 수정                                                   | [history](./history/2026-03-16-06-security-followup-fixes.md)               |
+| 2026-03-16 | 수정 | Parse 유저 quota 차감 시점 및 운영 문서 정정                                     | [history](./history/2026-03-16-07-parse-user-quota-and-doc-fix.md)          |
 
 ## [완료] 2차 디자인 시스템 전수검사 (추가 컴포넌트 터치 최적화)
 

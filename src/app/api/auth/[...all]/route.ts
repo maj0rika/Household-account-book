@@ -9,29 +9,12 @@ export const GET = handler.GET;
 
 export async function POST(req: Request) {
 	try {
-		const response = await handler.POST(req);
-		if (response.status >= 400) {
-			const text = await response.clone().text();
-			console.error("[Auth POST]", response.status, text);
-			if (!text) {
-				return NextResponse.json(
-					{
-						error: "Auth error with empty body",
-						status: response.status,
-						url: req.url,
-						baseURL: process.env.BETTER_AUTH_URL,
-					},
-					{ status: response.status },
-				);
-			}
-		}
-		return response;
+		return await handler.POST(req);
 	} catch (e) {
 		console.error("[Auth POST catch]", e);
 		return NextResponse.json(
 			{
-				error: e instanceof Error ? e.message : String(e),
-				stack: e instanceof Error ? e.stack?.split("\n").slice(0, 5) : undefined,
+				error: "인증 요청 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
 			},
 			{ status: 500 },
 		);

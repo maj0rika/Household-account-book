@@ -6,10 +6,41 @@ import { db } from "@/server/db";
 import * as schema from "@/server/db/schema";
 import { categories } from "@/server/db/schema";
 import { DEFAULT_CATEGORIES } from "@/lib/constants";
+import {
+	minimizeSessionIpAddress,
+	minimizeSessionUserAgent,
+} from "@/server/security";
+
+const TRUSTED_ORIGINS = [
+	process.env.BETTER_AUTH_URL,
+	process.env.NEXT_PUBLIC_BETTER_AUTH_URL,
+].filter((value): value is string => Boolean(value));
 
 export const auth = betterAuth({
 	secret: process.env.BETTER_AUTH_SECRET,
 	baseURL: process.env.BETTER_AUTH_URL,
+	advanced: {
+		ipAddress: {
+			ipAddressHeaders: ["x-forwarded-for", "x-real-ip", "cf-connecting-ip"],
+			ipv6Subnet: 64,
+		},
+	},
+	rateLimit: {
+		enabled: true,
+		storage: "database",
+		window: 60,
+		max: 60,
+		customRules: {
+			"/sign-in/email": {
+				window: 10 * 60,
+				max: 5,
+			},
+			"/sign-up/email": {
+				window: 60 * 60,
+				max: 5,
+			},
+		},
+	},
 	session: {
 		expiresIn: 60 * 60 * 24 * 30, // 30일 (초 단위)
 		updateAge: 60 * 60 * 24, // 1일마다 세션 갱신
@@ -21,12 +52,13 @@ export const auth = betterAuth({
 			session: schema.authSessions,
 			account: schema.authAccounts,
 			verification: schema.authVerifications,
+			rateLimit: schema.authRateLimits,
 		},
 	}),
 	emailAndPassword: {
 		enabled: true,
 	},
-	trustedOrigins: [process.env.BETTER_AUTH_URL ?? "http://localhost:3000"],
+	trustedOrigins: TRUSTED_ORIGINS.length > 0 ? TRUSTED_ORIGINS : ["http://localhost:3000"],
 	databaseHooks: {
 		user: {
 			create: {
@@ -44,6 +76,26 @@ export const auth = betterAuth({
 						})),
 					).onConflictDoNothing();
 				},
+			},
+		},
+		session: {
+			create: {
+				before: async (session) => ({
+					data: {
+						...session,
+						ipAddress: minimizeSessionIpAddress(session.ipAddress as string | null | undefined),
+						userAgent: minimizeSessionUserAgent(session.userAgent as string | null | undefined),
+					},
+				}),
+			},
+			update: {
+				before: async (session) => ({
+					data: {
+						...session,
+						ipAddress: minimizeSessionIpAddress(session.ipAddress as string | null | undefined),
+						userAgent: minimizeSessionUserAgent(session.userAgent as string | null | undefined),
+					},
+				}),
 			},
 		},
 	},

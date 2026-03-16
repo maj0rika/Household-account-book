@@ -1,0 +1,261 @@
+import { and, eq } from "drizzle-orm";
+
+import { db } from "@/server/db";
+import { securityEvents, securityRateLimits } from "@/server/db/schema";
+import {
+	type RequestFingerprint,
+	type SecurityEventType,
+	assertTrustedOrigin,
+	buildRequestFingerprint,
+	extractRequestIp,
+	hashSecurityValue,
+	minimizeSessionIpAddress,
+	minimizeSessionUserAgent,
+	sanitizeTextInput,
+	validateImagePayload,
+} from "./policy";
+
+export {
+	assertTrustedOrigin,
+	buildRequestFingerprint,
+	extractRequestIp,
+	hashSecurityValue,
+	minimizeSessionIpAddress,
+	minimizeSessionUserAgent,
+	sanitizeTextInput,
+	validateImagePayload,
+};
+
+export interface RateLimitDecision {
+	allowed: boolean;
+	retryAfterSeconds: number;
+	reason: string;
+	scope: string;
+	keyHash: string;
+}
+
+interface ConsumeRateLimitInput {
+	scope: string;
+	subject: string;
+	max: number;
+	windowSeconds: number;
+	reason: string;
+	blockSeconds?: number;
+	escalateAfter?: number;
+}
+
+type SecurityEventMetadataValue = string | number | boolean | null;
+const DEFAULT_ESCALATION_AFTER = 3;
+const DEFAULT_BLOCK_SECONDS = 15 * 60;
+
+function resolveAnomalyEventType(reason: string): SecurityEventType {
+	if (reason === "origin_mismatch") {
+		return "origin_mismatch";
+	}
+
+	if (reason === "unauthorized_access") {
+		return "unauthorized";
+	}
+
+	if (reason === "base64_only_text" || reason === "invalid_base64_image") {
+		return "suspicious_pattern";
+	}
+
+	return "invalid_input";
+}
+
+function toRetryAfterSeconds(retryAt: Date): number {
+	return Math.max(1, Math.ceil((retryAt.getTime() - Date.now()) / 1000));
+}
+
+export async function recordSecurityEvent(input: {
+	type: SecurityEventType;
+	scope: string;
+	keyHash: string | null;
+	reason: string;
+	metadata?: Record<string, SecurityEventMetadataValue>;
+}): Promise<void> {
+	await db.insert(securityEvents).values({
+		type: input.type,
+		scope: input.scope,
+		keyHash: input.keyHash,
+		reason: input.reason,
+		metadata: input.metadata ?? null,
+	});
+}
+
+export async function consumeRateLimit(
+	input: ConsumeRateLimitInput,
+): Promise<RateLimitDecision> {
+	const keyHash = hashSecurityValue(input.subject, input.scope);
+	const now = new Date();
+	const windowMs = input.windowSeconds * 1000;
+	const escalationAfter = input.escalateAfter ?? DEFAULT_ESCALATION_AFTER;
+	const blockSeconds = input.blockSeconds ?? DEFAULT_BLOCK_SECONDS;
+
+	return db.transaction(async (tx) => {
+		await tx
+			.insert(securityRateLimits)
+			.values({
+				scope: input.scope,
+				keyHash,
+				requestCount: 0,
+				windowStartedAt: now,
+				blockedUntil: null,
+				consecutiveBlocks: 0,
+				lastReason: input.reason,
+				updatedAt: now,
+			})
+			.onConflictDoNothing({
+				target: [securityRateLimits.scope, securityRateLimits.keyHash],
+			});
+
+		const [row] = await tx
+			.select({
+				id: securityRateLimits.id,
+				requestCount: securityRateLimits.requestCount,
+				windowStartedAt: securityRateLimits.windowStartedAt,
+				blockedUntil: securityRateLimits.blockedUntil,
+				consecutiveBlocks: securityRateLimits.consecutiveBlocks,
+			})
+			.from(securityRateLimits)
+			.where(
+				and(
+					eq(securityRateLimits.scope, input.scope),
+					eq(securityRateLimits.keyHash, keyHash),
+				),
+			)
+			.for("update");
+
+		if (!row) {
+			throw new Error("rate limit row를 조회하지 못했습니다.");
+		}
+
+		const requestCount = row.requestCount;
+		const consecutiveBlocks = row.consecutiveBlocks;
+		const windowStartedAt = row.windowStartedAt;
+		const blockedUntil = row.blockedUntil;
+
+		if (blockedUntil && blockedUntil.getTime() > now.getTime()) {
+			return {
+				allowed: false,
+				retryAfterSeconds: toRetryAfterSeconds(blockedUntil),
+				reason: input.reason,
+				scope: input.scope,
+				keyHash,
+			};
+		}
+
+		const windowExpired = now.getTime() - windowStartedAt.getTime() >= windowMs;
+		if (windowExpired) {
+			await tx
+				.update(securityRateLimits)
+				.set({
+					requestCount: 1,
+					windowStartedAt: now,
+					blockedUntil: null,
+					consecutiveBlocks: 0,
+					lastReason: input.reason,
+					updatedAt: now,
+				})
+				.where(eq(securityRateLimits.id, row.id));
+
+			return {
+				allowed: true,
+				retryAfterSeconds: 0,
+				reason: input.reason,
+				scope: input.scope,
+				keyHash,
+			};
+		}
+
+		const nextCount = requestCount + 1;
+		if (nextCount <= input.max) {
+			await tx
+				.update(securityRateLimits)
+				.set({
+					requestCount: nextCount,
+					blockedUntil: null,
+					consecutiveBlocks: 0,
+					lastReason: input.reason,
+					updatedAt: now,
+				})
+				.where(eq(securityRateLimits.id, row.id));
+
+			return {
+				allowed: true,
+				retryAfterSeconds: 0,
+				reason: input.reason,
+				scope: input.scope,
+				keyHash,
+			};
+		}
+
+		const nextConsecutiveBlocks = consecutiveBlocks + 1;
+		const retryAt = nextConsecutiveBlocks >= escalationAfter
+			? new Date(now.getTime() + blockSeconds * 1000)
+			: new Date(windowStartedAt.getTime() + windowMs);
+
+		await tx
+			.update(securityRateLimits)
+			.set({
+				requestCount: nextCount,
+				blockedUntil: retryAt,
+				consecutiveBlocks: nextConsecutiveBlocks,
+				lastReason: input.reason,
+				updatedAt: now,
+			})
+			.where(eq(securityRateLimits.id, row.id));
+
+		return {
+			allowed: false,
+			retryAfterSeconds: toRetryAfterSeconds(retryAt),
+			reason: input.reason,
+			scope: input.scope,
+			keyHash,
+		};
+	});
+}
+
+export function buildRateLimitHeaders(decision: RateLimitDecision): HeadersInit {
+	if (decision.allowed || decision.retryAfterSeconds <= 0) {
+		return {};
+	}
+
+	return {
+		"X-Retry-After": String(decision.retryAfterSeconds),
+	};
+}
+
+export async function consumeIpAnomalyLimit(input: {
+	fingerprint: RequestFingerprint;
+	scope: string;
+	reason: string;
+	metadata?: Record<string, SecurityEventMetadataValue>;
+}): Promise<RateLimitDecision | null> {
+	if (!input.fingerprint.ipAddress) {
+		return null;
+	}
+
+	const decision = await consumeRateLimit({
+		scope: input.scope,
+		subject: input.fingerprint.ipAddress,
+		max: 10,
+		windowSeconds: 10 * 60,
+		reason: input.reason,
+	});
+
+	await recordSecurityEvent({
+		type: resolveAnomalyEventType(input.reason),
+		scope: input.scope,
+		keyHash: input.fingerprint.ipHash,
+		reason: input.reason,
+		metadata: {
+			...(input.metadata ?? {}),
+			blocked: !decision.allowed,
+			retryAfterSeconds: decision.retryAfterSeconds,
+		},
+	});
+
+	return decision;
+}

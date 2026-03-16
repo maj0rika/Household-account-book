@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Wallet } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
+import { mapAuthClientError } from "@/lib/auth-errors";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -33,7 +34,7 @@ export default function LoginPage() {
 		});
 
 		if (error) {
-			setErrorMessage(error.message ?? "로그인에 실패했습니다.");
+			setErrorMessage(mapAuthClientError(error, "login"));
 			setIsLoading(false);
 			return;
 		}
