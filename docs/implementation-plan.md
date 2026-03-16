@@ -214,8 +214,8 @@
 ```markdown
 ---
 date: YYYY-MM-DD
-phase: N
-type: start | progress | complete | change | issue
+phase: N (선택)
+type: feature | fix | refactor | perf | config | remove | docs
 ---
 
 # [제목]
@@ -239,14 +239,23 @@ type: start | progress | complete | change | issue
 
 **히스토리 인덱스**: 이 파일(`implementation-plan.md`)의 하단에 히스토리 링크를 누적한다.
 
+**레거시 허용 범위**:
+
+- 기존 히스토리의 `start | progress | complete | change | issue`는 보존한다.
+- 기존 날짜-순번 중복은 rename 없이 유지하고, 신규 히스토리부터만 중복을 금지한다.
+- 신규 히스토리는 canonical `type`만 사용한다.
+
 ---
 
 ## 히스토리 로그
 
 | 날짜       | 구분 | 제목                                                                               | 링크                                                                        |
 | ---------- | ---- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| 2025-03-09 | 기능 | Deep-Dive 면접 대응 매뉴얼 작성                                                   | [history](./history/2025-03-09-01-interview-deep-dive-manual.md)           |
+| 2025-03-09 | 기능 | 제품 이해 면접 대응 매뉴얼 작성                                                   | [history](./history/2025-03-09-02-interview-product-manual.md)             |
 | 2026-02-24 | 설계 | 프로젝트 설계 완료 (브레인스토밍)                                                  | [brainstorm](./brainstorms/2026-02-24-household-account-book-brainstorm.md) |
 | 2026-02-24 | 계획 | 구현 계획서 작성                                                                   | 이 문서                                                                     |
+| 2026-02-24 | 레거시 완료 | 프로젝트 설계 완료                                                          | [history](./history/2026-02-24-01-project-design-complete.md)              |
 | 2026-02-24 | 완료 | Phase 1 프로젝트 초기화 완료                                                       | [history](./history/2026-02-24-02-phase1-initialization-complete.md)        |
 | 2026-02-24 | 진행 | Phase 2 DB + ORM 진행                                                              | [history](./history/2026-02-24-03-phase2-db-orm-progress.md)                |
 | 2026-02-24 | 진행 | Phase 3 인증 진행                                                                  | [history](./history/2026-02-24-04-phase3-auth-progress.md)                  |
@@ -272,8 +281,14 @@ type: start | progress | complete | change | issue
 | 2026-02-25 | 결정 | Phase4 착수 전 보안 범위 조정: 자산 name + balance 암호화                          | [roadmap-v2](./roadmap-v2-todo-phase-plan.md)                               |
 | 2026-02-25 | 완료 | 페이즈 잔여 마무리: TX-08 리다이렉트/포커스, PF-04 섹션별 pending 2차              | [roadmap-v2](./roadmap-v2-todo-phase-plan.md)                               |
 | 2026-02-25 | 결정 | 암호화 범위 확대: 자산 + 거래/수입/지출 데이터 민감정보 암호화                     | [roadmap-v2](./roadmap-v2-todo-phase-plan.md)                               |
+| 2026-02-26 | 레거시 완료 | 코드 리뷰 버그 수정 완료                                                    | [history](./history/2026-02-26-01-code-review-bugfix-complete.md)          |
+| 2026-02-26 | 레거시 완료 | 계정 필드 암호화 완료                                                       | [history](./history/2026-02-26-02-field-encryption-complete.md)            |
+| 2026-02-26 | 레거시 완료 | 주간 차트 바텀시트 추가                                                     | [history](./history/2026-02-26-03-weekly-barchart-bottomsheet.md)          |
+| 2026-02-26 | 레거시 완료 | 성능 최적화 묶음 적용                                                       | [history](./history/2026-02-26-04-performance-optimization.md)             |
 | 2026-02-26 | 완료 | 디자인 시스템 전수검사 리뷰 및 모바일 사용성(터치 영역) 보완                       | [history](./history/2026-02-26-05-design-system-inspection.md)              |
 | 2026-02-26 | 완료 | 2차: 디자인 시스템 전수검사 모바일 터치 사용성(Select, Switch) 보완                | [history](./history/2026-02-26-06-design-system-inspection-2nd.md)          |
+| 2026-02-26 | 레거시 완료 | 자산-거래 연결 기능 반영                                                    | [history](./history/2026-02-26-07-asset-transaction-linking.md)            |
+| 2026-02-26 | 레거시 완료 | 성능 개선 1차 마무리                                                        | [history](./history/2026-02-26-08-perf-improvement-phase1.md)              |
 | 2026-03-03 | 제거 | Google OAuth 제거 — 커스텀 도메인 미사용으로 인증 검토 통과 불가                   | [history](./history/2026-03-03-01-remove-google-oauth.md)                   |
 | 2026-03-03 | 설정 | Android 패키지 이름 변경 (com.household.app → com.maj0rika.household)              | [history](./history/2026-03-03-02-android-package-rename.md)                |
 | 2026-03-03 | 수정 | 스켈레톤 로딩 디테일 통일 — 모든 탭 풀 스켈레톤 적용                               | [history](./history/2026-03-03-03-skeleton-loading-detail-unify.md)         |
@@ -317,13 +332,18 @@ type: start | progress | complete | change | issue
 | 2026-03-10 | 설정 | MiniMax API 키 환경변수 슬롯 추가                                                | [history](./history/2026-03-10-20-minimax-env-key-slot.md)                  |
 | 2026-03-10 | 설정 | MiniMax 텍스트 우선 라우팅 + 이미지 Fireworks 3회 정책 유지                     | [history](./history/2026-03-10-21-minimax-fireworks-kimi-routing.md)        |
 | 2026-03-10 | 제거 | `parse-unified.ts` dead code 제거                                                | [history](./history/2026-03-10-21-parse-unified-dead-code-removal.md)      |
-| 2026-03-16 | 문서 | README 최신화                                                                    | [history](./history/2026-03-16-01-readme-refresh.md)                        |
-| 2026-03-16 | 수정 | Auth/Parse 공개 입력 보안 하드닝                                                 | [history](./history/2026-03-16-02-auth-parse-security-hardening.md)         |
-| 2026-03-16 | 문서 | Auth/Parse 보안 하드닝 결과 문서화                                               | [history](./history/2026-03-16-03-security-hardening-docs.md)               |
-| 2026-03-16 | 수정 | Auth/Parse 보안 PR 리뷰 반영                                                     | [history](./history/2026-03-16-04-security-review-followup.md)              |
-| 2026-03-16 | 수정 | Auth/Parse 보안 추가 리뷰 수정                                                   | [history](./history/2026-03-16-05-security-review-fixes.md)                 |
-| 2026-03-16 | 수정 | Auth/Parse 보안 후속 회귀 수정                                                   | [history](./history/2026-03-16-06-security-followup-fixes.md)               |
-| 2026-03-16 | 수정 | Parse 유저 quota 차감 시점 및 운영 문서 정정                                     | [history](./history/2026-03-16-07-parse-user-quota-and-doc-fix.md)          |
+| 2026-03-10 | 설정 | Android 최신 Capacitor sync 및 릴리스 빌드 검증                               | [history](./history/2026-03-10-22-android-capacitor-sync-release-build.md) |
+| 2026-03-16 | 문서 | README 최신화                                                                   | [history](./history/2026-03-16-01-readme-refresh.md)                       |
+| 2026-03-16 | 수정 | Auth/Parse 공개 입력 보안 하드닝                                               | [history](./history/2026-03-16-02-auth-parse-security-hardening.md)        |
+| 2026-03-16 | 설정 | 거버넌스·스킬·기록 체계 통합                                                   | [history](./history/2026-03-16-02-governance-skill-record-unification.md)  |
+| 2026-03-16 | 문서 | Auth/Parse 보안 하드닝 결과 문서화                                             | [history](./history/2026-03-16-03-security-hardening-docs.md)              |
+| 2026-03-16 | 수정 | Auth/Parse 보안 PR 리뷰 반영                                                   | [history](./history/2026-03-16-04-security-review-followup.md)             |
+| 2026-03-16 | 수정 | Auth/Parse 보안 추가 리뷰 수정                                                 | [history](./history/2026-03-16-05-security-review-fixes.md)                |
+| 2026-03-16 | 수정 | Auth/Parse 보안 후속 회귀 수정                                                 | [history](./history/2026-03-16-06-security-followup-fixes.md)              |
+| 2026-03-16 | 수정 | Parse 유저 quota 차감 시점 및 운영 문서 정정                                   | [history](./history/2026-03-16-07-parse-user-quota-and-doc-fix.md)         |
+| 2026-03-16 | 문서 | PR 구조 정렬 및 템플릿 추가                                                    | [history](./history/2026-03-16-08-pr-template-alignment.md)                |
+| 2026-03-16 | 설정 | 거버넌스 PR 리뷰 피드백 반영                                                   | [history](./history/2026-03-16-09-review-feedback-governance-followup.md)  |
+| 2026-03-16 | 설정 | 거버넌스 PR rebase 및 보안 회귀 복구                                           | [history](./history/2026-03-16-10-governance-pr-rebase-security-recovery.md) |
 
 ## [완료] 2차 디자인 시스템 전수검사 (추가 컴포넌트 터치 최적화)
 

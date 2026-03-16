@@ -8,7 +8,12 @@ export default defineConfig({
 		},
 	},
 	test: {
-		include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+		include: [
+			"src/**/*.test.ts",
+			"src/**/*.test.tsx",
+			"src/**/__tests__/**/*.ts",
+			"src/**/__tests__/**/*.tsx",
+		],
 		exclude: ["e2e/**", "node_modules/**", ".next/**"],
 	},
 });
