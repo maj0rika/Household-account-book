@@ -12,6 +12,7 @@ import type {
 	UnifiedParseResponse,
 } from "./types";
 import type { Account } from "@/types";
+import { getTodayString } from "@/lib/format";
 
 // 커스텀 에러 클래스 — 문자열 비교 대신 instanceof 사용 (M6)
 export class LLMTimeoutError extends Error {
@@ -208,7 +209,7 @@ export async function parseUnifiedText(
 	options?: { timeoutMs?: number },
 ): Promise<UnifiedParseResponse> {
 	const { client, model, temperature, extra_body } = getLLMConfig(provider);
-	const today = new Date().toISOString().split("T")[0];
+	const today = getTodayString();
 	const timeoutMs = resolveTimeoutMs(options?.timeoutMs, 30000);
 	const providerName = provider ?? "default";
 
@@ -284,7 +285,7 @@ export async function parseUnifiedImage(
 	options?: { timeoutMs?: number },
 ): Promise<UnifiedParseResponse> {
 	const { client, model, temperature, extra_body } = getLLMConfig(provider);
-	const today = new Date().toISOString().split("T")[0];
+	const today = getTodayString();
 	const timeoutMs = resolveTimeoutMs(options?.timeoutMs, 45000);
 	const providerName = provider ?? "default";
 

@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { createSingleTransaction, getUserCategories } from "@/server/actions/transaction";
 import { getAccounts } from "@/server/actions/account";
-import { formatCurrencyInput, parseCurrencyInput } from "@/lib/format";
+import { formatCurrencyInput, parseCurrencyInput, getTodayString } from "@/lib/format";
 import { useDeferredLoading } from "@/hooks/useDeferredLoading";
 import type { Category, Account } from "@/types";
 
@@ -43,7 +43,7 @@ export function ManualInputDialog({ open, onOpenChange }: ManualInputDialogProps
 	const [categories, setCategories] = useState<Category[]>([]);
 	const [accountList, setAccountList] = useState<Account[]>([]);
 
-	const today = new Date().toISOString().split("T")[0];
+	const today = getTodayString();
 	const [type, setType] = useState<"expense" | "income">("expense");
 	const [categoryId, setCategoryId] = useState("");
 	const [accountId, setAccountId] = useState(NO_ACCOUNT);

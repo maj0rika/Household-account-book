@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { getTodayString } from "@/lib/format";
 
 const DAY_HEADERS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -15,7 +16,7 @@ export function CalendarView({ month, data, selectedDate, onDateSelect }: Calend
 	const [year, m] = month.split("-").map(Number);
 	const firstDay = new Date(year, m - 1, 1).getDay();
 	const daysInMonth = new Date(year, m, 0).getDate();
-	const today = new Date().toISOString().split("T")[0];
+	const today = getTodayString();
 
 	const cells: (number | null)[] = [];
 	for (let i = 0; i < firstDay; i++) cells.push(null);

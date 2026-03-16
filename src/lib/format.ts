@@ -40,6 +40,11 @@ export function formatDateLocal(date: Date): string {
 	return `${y}-${m}-${d}`;
 }
 
+// KST 기준 오늘 날짜 문자열 (YYYY-MM-DD)
+export function getTodayString(): string {
+	return formatDateLocal(getKSTDate());
+}
+
 // month 파라미터 검증 유틸리티
 export function isValidMonth(month: string): boolean {
 	const match = month.match(/^(\d{4})-(\d{2})$/);
