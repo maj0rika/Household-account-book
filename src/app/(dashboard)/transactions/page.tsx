@@ -21,12 +21,11 @@ import { MonthlySummaryCard } from "@/components/dashboard/MonthlySummaryCard";
 import { MonthNavigator } from "@/components/dashboard/MonthNavigator";
 import { InteractiveCalendar } from "@/components/dashboard/InteractiveCalendar";
 import { TransactionsLazySections } from "@/components/dashboard/TransactionsLazySections";
-import { PostActionBanner } from "@/components/common/PostActionBanner";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface Props {
-	searchParams: Promise<{ month?: string; saved?: string }>;
+	searchParams: Promise<{ month?: string }>;
 }
 
 // `TransactionsInsightsSection`이 주간 차트 범위를 만들 때 호출한다.
@@ -188,15 +187,6 @@ export default async function TransactionsPage({ searchParams }: Props) {
 	// 고정 거래 자동 적용 — fire-and-forget (페이지 로드를 블로킹하지 않음)
 	autoApplyRecurringTransactions().catch(() => {});
 
-	// 다른 화면에서 저장 후 리다이렉트될 때만 배너를 노출한다.
-	// 메시지 계산을 여기서 끝내 두면 하위 컴포넌트는 문자열만 받아 화면 역할에 집중할 수 있다.
-	const savedMessage = params.saved === "mixed"
-		? "거래/자산 등록이 완료됐어요. 거래 목록으로 이동했어요."
-		: params.saved === "tx"
-			? "거래 저장이 완료됐어요. 최신 거래를 확인해 주세요."
-			: null;
-
-
 	return (
 		<div className="pb-28 md:pb-24">
 			{/* 거래 페이지는 "월 선택 → 요약 → 캘린더 → 상세 인사이트" 순서로 쌓는다.
@@ -204,7 +194,6 @@ export default async function TransactionsPage({ searchParams }: Props) {
 			<Suspense fallback={<MonthNavigatorFallback />}>
 				<MonthNavigator month={month} />
 			</Suspense>
-			<PostActionBanner message={savedMessage} />
 
 			<Suspense fallback={<SummaryFallback />}>
 				<TransactionsSummarySection month={month} />

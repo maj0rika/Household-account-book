@@ -479,11 +479,11 @@ export function AccountParseResultSheet({
 
 					// 혼합 입력 완료 시 거래 목록으로, 자산만 시 자산 대시보드로 이동
 					if (splitMeta) {
-						router.push("/transactions?saved=mixed");
+						router.push("/transactions");
 						return;
 					}
 
-					router.push("/assets?saved=account");
+					router.push("/assets");
 					return;
 				}
 

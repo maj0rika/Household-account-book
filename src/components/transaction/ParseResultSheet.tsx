@@ -547,8 +547,8 @@ export function ParseResultSheet({
 						return;
 					}
 
-					// 단순 거래 저장인 경우 목록 페이지로 이동하며 성공 메시지 파라미터 전달
-					router.push("/transactions?saved=tx");
+					// 단순 거래 저장인 경우 목록 페이지로 이동합니다.
+					router.push("/transactions");
 					return;
 				}
 
