@@ -144,7 +144,7 @@ e2e                    Playwright E2E 테스트
 
 ## 관련 문서
 
-- `docs/implementation-plan.md`: 구현 단계와 히스토리 인덱스;
+- `docs/implementation-plan.md`: 단일 기준 계획 문서, 통합 backlog, 히스토리 인덱스;
 - `docs/design-system.md`: UI 기준과 컴포넌트 규칙;
 - `docs/code-quality.md`: 코드 품질 가이드;
 - `docs/project-identity.md`: 환경변수와 로컬 셋업 책임 범위;

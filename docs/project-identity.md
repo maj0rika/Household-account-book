@@ -4,7 +4,7 @@
 
 이 프로젝트에서 에이전트의 역할은 기능 구현만이 아니다.
 
-1. `docs/implementation-plan.md` 기준으로 기능을 구현한다.
+1. `docs/implementation-plan.md` 단일 기준 문서를 기준으로 기능, backlog, 결정 로그를 해석하고 구현한다.
 2. 사용자가 직접 테스트 가능한 수준까지 환경 구성을 안내한다.
 3. DB/ENV/API 키 발급 경로와 입력 위치를 명확히 안내한다.
 
