@@ -348,3 +348,4 @@ type: feature | fix | refactor | perf | config | remove | docs
 | 2026-03-17 | 문서        | 플로우차트 PDF 빈 페이지 및 여백 제거                                              | [history](./history/2026-03-17-08-pdf-pagination-fix.md)                              |
 | 2026-03-17 | 문서        | 네비게이션 메뉴 최초 진입 플로우 추가                                              | [history](./history/2026-03-17-09-navigation-entry-flows.md)                          |
 | 2026-03-17 | 문서        | 문서 변경 브랜치 핸드오프 준비                                                    | [history](./history/2026-03-17-10-docs-handoff-branch.md)                             |
+| 2026-03-17 | 수정        | Drawer 접근성 및 차트 크기 경고 수정                                              | [history](./history/2026-03-17-11-drawer-accessibility-and-chart-warning.md)          |

@@ -20,6 +20,7 @@ import {
 	DrawerContent,
 	DrawerHeader,
 	DrawerTitle,
+	DrawerDescription,
 	DrawerFooter,
 } from "@/components/ui/drawer";
 import { updateTransaction, deleteTransaction } from "@/server/actions/transaction";
@@ -103,6 +104,9 @@ export function TransactionEditSheet({ open, onOpenChange, transaction: tx, cate
 			<DrawerContent>
 				<DrawerHeader>
 					<DrawerTitle>거래 수정</DrawerTitle>
+					<DrawerDescription>
+						거래의 설명, 금액, 날짜, 유형, 카테고리와 계좌를 수정할 수 있습니다.
+					</DrawerDescription>
 				</DrawerHeader>
 
 				<div className="space-y-4 px-4">

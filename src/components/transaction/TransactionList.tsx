@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from "motion/react";
 
 import { Separator } from "@/components/ui/separator";
 import { groupTransactionsByDate } from "@/lib/format";
+import { blurActiveElement } from "@/lib/accessibility";
 import { TransactionItemContent } from "@/components/transaction/TransactionItemContent";
 import { TransactionEditSheet } from "@/components/transaction/TransactionEditSheet";
 import type { Transaction, Category, Account } from "@/types";
@@ -31,7 +32,10 @@ const TransactionItem = memo(function TransactionItem({
 			exit={{ opacity: 0, x: -60, transition: { duration: 0.2 } }}
 			transition={{ duration: 0.25, ease: "easeOut" }}
 			className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-accent/30 active:bg-accent/50"
-			onClick={() => onEdit(tx)}
+			onClick={() => {
+				blurActiveElement();
+				onEdit(tx);
+			}}
 		>
 			<TransactionItemContent tx={tx} />
 		</motion.button>

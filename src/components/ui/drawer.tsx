@@ -9,12 +9,31 @@
 import * as React from "react"
 import { Drawer as DrawerPrimitive } from "vaul"
 
+import { blurActiveElement } from "@/lib/accessibility"
 import { cn } from "@/lib/utils"
 
 function Drawer({
+  open,
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Root>) {
-  return <DrawerPrimitive.Root data-slot="drawer" {...props} />
+  React.useEffect(() => {
+    if (!open || typeof document === "undefined") {
+      return
+    }
+
+    const activeElement = document.activeElement
+    const isFocusInsideLayer = activeElement instanceof Element
+      && (
+        activeElement.closest("[data-slot='drawer-content']") !== null
+        || activeElement.closest("[data-slot='dialog-content']") !== null
+      )
+
+    if (!isFocusInsideLayer) {
+      blurActiveElement()
+    }
+  }, [open])
+
+  return <DrawerPrimitive.Root data-slot="drawer" open={open} {...props} />
 }
 
 function DrawerTrigger({

@@ -17,6 +17,7 @@ import {
 	DrawerTitle,
 	DrawerDescription,
 } from "@/components/ui/drawer";
+import { blurActiveElement } from "@/lib/accessibility";
 import { formatCurrency, formatRelativeDate } from "@/lib/format";
 import { TransactionItemContent } from "@/components/transaction/TransactionItemContent";
 import { TransactionEditSheet } from "@/components/transaction/TransactionEditSheet";
@@ -87,7 +88,10 @@ export function DayTransactionSheet({ open, onOpenChange, date, transactions, ca
 										initial="hidden"
 										animate="visible"
 										className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/30 active:bg-accent/50"
-										onClick={() => setEditingTx(tx)}
+										onClick={() => {
+											blurActiveElement();
+											setEditingTx(tx);
+										}}
 									>
 										<TransactionItemContent tx={tx} />
 									</motion.button>
