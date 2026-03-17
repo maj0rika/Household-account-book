@@ -301,8 +301,11 @@ export async function executeTextParse(
 
 		lastResult = result;
 
+		// 콘텐츠 에러(OOD, 노이즈 등)는 다른 provider에서도 같은 결과 → 즉시 중단
+		const isRecoverable = isRecoverableProviderFailure(result.error);
 		const fallbackProvider = providers[index + 1];
 		const shouldFallback =
+			isRecoverable &&
 			!!fallbackProvider &&
 			((provider === "minimax" && fallbackProvider === "fireworks") ||
 				(provider === "fireworks" && fallbackProvider === "kimi"));
@@ -310,8 +313,7 @@ export async function executeTextParse(
 			break;
 		}
 
-		const isRecoverable = isRecoverableProviderFailure(result.error);
-		if (provider === "fireworks" && fallbackProvider === "kimi" && isRecoverable) {
+		if (provider === "fireworks" && fallbackProvider === "kimi") {
 			// 복구 가능한 실패만 쿨다운을 걸어 다음 요청부터 바로 Kimi를 우선 사용하게 한다.
 			// 사용량 제한과 별개로 "실패가 반복되는 벤더"를 잠시 우회하는 안전장치다.
 			activateImageFireworksCooldown(sessionId, result.error);
@@ -383,16 +385,16 @@ export async function executeImageParse(
 
 		lastResult = result;
 
+		// 콘텐츠 에러(OOD, 노이즈 등)는 다른 provider에서도 같은 결과 → 즉시 중단
+		const isRecoverable = isRecoverableProviderFailure(result.error);
 		const fallbackProvider = providers[index + 1];
-		const shouldFallback = provider === "fireworks" && fallbackProvider === "kimi";
+		const shouldFallback =
+			isRecoverable && provider === "fireworks" && fallbackProvider === "kimi";
 		if (!shouldFallback) {
 			break;
 		}
 
-		const isRecoverable = isRecoverableProviderFailure(result.error);
-		if (isRecoverable) {
-			activateImageFireworksCooldown(sessionId, result.error);
-		}
+		activateImageFireworksCooldown(sessionId, result.error);
 
 		console.warn("[LLM] image provider fallback", {
 			from: provider,
