@@ -11,7 +11,8 @@ interface LLMConfig {
 	client: OpenAI;
 	model: string;
 	temperature: number;
-	response_format?: { type: "json_object" | "text" };
+	max_tokens: number;
+	response_format?: { type: "json_object" | "text" } | { type: "json_schema"; json_schema: { name: string; schema: Record<string, unknown> } };
 	extra_body?: Record<string, unknown>;
 }
 
@@ -24,8 +25,9 @@ const configs: Record<LLMProvider, () => LLMConfig> = {
 			baseURL: "https://api.minimax.io/v1",
 		}),
 		model: "MiniMax-M2.5",
-		temperature: 0.5,
-		// JSON mode 미적용 — M2.5는 json_object 설정 시 정상 입력을 OOD로 거부하는 문제 확인
+		temperature: 1.0, // 공식 권장값 — M2.5는 temp 1.0에서 최적 성능 설계
+		max_tokens: 2048,
+		response_format: { type: "json_object" },
 		extra_body: {
 			reasoning_split: false,
 		},
@@ -37,6 +39,7 @@ const configs: Record<LLMProvider, () => LLMConfig> = {
 		}),
 		model: "kimi-k2.5",
 		temperature: 1, // K2.5는 temperature 1 고정
+		max_tokens: 2048,
 		response_format: { type: "json_object" },
 		extra_body: {
 			chat_template_kwargs: { thinking: false },
@@ -49,7 +52,50 @@ const configs: Record<LLMProvider, () => LLMConfig> = {
 		}),
 		model: "accounts/fireworks/models/kimi-k2p5",
 		temperature: 1,
-		response_format: { type: "json_object" },
+		max_tokens: 2048,
+		response_format: {
+			type: "json_schema",
+			json_schema: {
+				name: "household_parse",
+				schema: {
+					type: "object",
+					properties: {
+						intent: { type: "string", enum: ["transaction", "account"] },
+						transactions: {
+							type: "array",
+							items: {
+								type: "object",
+								properties: {
+									date: { type: "string" },
+									type: { type: "string", enum: ["expense", "income"] },
+									category: { type: "string" },
+									description: { type: "string" },
+									amount: { type: "number" },
+									isRecurring: { type: "boolean" },
+									dayOfMonth: { type: ["integer", "null"] },
+									suggestedCategory: { type: ["string", "null"] },
+								},
+							},
+						},
+						accounts: {
+							type: "array",
+							items: {
+								type: "object",
+								properties: {
+									name: { type: "string" },
+									type: { type: "string", enum: ["asset", "debt"] },
+									subType: { type: "string" },
+									icon: { type: "string" },
+									balance: { type: "number" },
+								},
+							},
+						},
+						rejected: { type: "boolean" },
+						reason: { type: "string" },
+					},
+				},
+			},
+		},
 	}),
 };
 

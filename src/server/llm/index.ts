@@ -208,7 +208,7 @@ export async function parseUnifiedText(
 	provider?: LLMProvider,
 	options?: { timeoutMs?: number },
 ): Promise<UnifiedParseResponse> {
-	const { client, model, temperature, response_format, extra_body } = getLLMConfig(provider);
+	const { client, model, temperature, max_tokens, response_format, extra_body } = getLLMConfig(provider);
 	const today = getTodayString();
 	const timeoutMs = resolveTimeoutMs(options?.timeoutMs, 30000);
 	const providerName = provider ?? "default";
@@ -228,6 +228,7 @@ export async function parseUnifiedText(
 					{ role: "user", content: userPrompt },
 				],
 				temperature,
+				max_tokens,
 				...(response_format && { response_format }),
 				...extra_body,
 			}, { signal }),
@@ -293,7 +294,7 @@ export async function parseUnifiedImage(
 ): Promise<UnifiedParseResponse> {
 	// 비전 API는 response_format(JSON mode)을 사용하지 않는다.
 	// Fireworks 등에서 비전 + JSON mode 조합 시 이미지 인식이 실패하는 문제가 확인됨.
-	const { client, model, temperature, extra_body } = getLLMConfig(provider);
+	const { client, model, temperature, max_tokens, extra_body } = getLLMConfig(provider);
 	const today = getTodayString();
 	const timeoutMs = resolveTimeoutMs(options?.timeoutMs, 45000);
 	const providerName = provider ?? "default";
@@ -321,6 +322,7 @@ export async function parseUnifiedImage(
 					{ role: "user", content: userContent },
 				],
 				temperature,
+				max_tokens,
 				...extra_body,
 			}, { signal }),
 			timeoutMs,

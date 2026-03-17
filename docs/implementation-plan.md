@@ -350,3 +350,4 @@ type: feature | fix | refactor | perf | config | remove | docs
 | 2026-03-17 | 문서        | 문서 변경 브랜치 핸드오프 준비                                                    | [history](./history/2026-03-17-10-docs-handoff-branch.md)                             |
 | 2026-03-17 | 수정        | Drawer 접근성 및 차트 크기 경고 수정                                              | [history](./history/2026-03-17-11-drawer-accessibility-and-chart-warning.md)          |
 | 2026-03-17 | 수정        | CategoryPieChart 크기 경고 제거                                                   | [history](./history/2026-03-17-12-category-piechart-size-warning-fix.md)              |
+| 2026-03-17 | 성능        | LLM JSON mode + 속도/정확도 최적화                                                | [history](./history/2026-03-17-13-json-mode-structured-output.md)                     |

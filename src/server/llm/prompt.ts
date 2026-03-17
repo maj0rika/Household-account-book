@@ -30,7 +30,7 @@ export function buildSystemPrompt(categories: LLMCategory[], today: string, exis
 	const accountList = formatAccountList(existingAccounts);
 
 	return `당신은 한국어 가계부 입력을 구조화된 JSON으로 변환하는 파서입니다.
-반드시 아래 형식의 JSON 객체 하나만 반환하세요.
+공백을 최소화한 compact JSON 객체 하나만 반환하세요. 설명이나 마크다운 없이 JSON만 출력합니다.
 
 ## 오늘
 ${today}
@@ -135,7 +135,7 @@ ${accountList}
 - balance는 항상 양수 정수입니다. 음수 표기가 있어도 절댓값만 사용합니다.
 
 ## 출력 형식
-반드시 아래 JSON 객체 하나만 반환하세요.
+공백을 최소화한 compact JSON 객체 하나만 반환하세요.
 
 {
   "intent": "transaction" | "account",
