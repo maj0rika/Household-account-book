@@ -2,7 +2,7 @@
 
 // AI 분석 결과를 검수·확정하는 하단 시트 (수정/삭제/카테고리 추가 → 일괄 저장)
 
-import { memo, useState, useTransition, useEffect, useCallback } from "react";
+import { memo, useState, useTransition, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { X, Loader2, ChevronDown, ChevronUp, Repeat, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -108,17 +108,11 @@ interface DraftParsedTransaction {
 	value: ParsedTransaction;
 }
 
-let parsedDraftSequence = 0;
-
-function createParsedDraft(item: ParsedTransaction): DraftParsedTransaction {
-	return {
-		clientKey: `parsed-draft-${parsedDraftSequence++}`,
-		value: item,
-	};
-}
-
 function createParsedDrafts(items: ParsedTransaction[]): DraftParsedTransaction[] {
-	return items.map(createParsedDraft);
+	return items.map((item) => ({
+		clientKey: crypto.randomUUID(),
+		value: item,
+	}));
 }
 
 interface ParseResultSheetProps {
@@ -520,7 +514,10 @@ export function ParseResultSheet({
 		}
 	};
 
-	const parsedItems = draftItems.map((draft) => draft.value);
+	const parsedItems = useMemo(
+		() => draftItems.map((draft) => draft.value),
+		[draftItems],
+	);
 
 	// 현재 리스트 항목 금액 집계 (사용자 수정 시 실시간 반영)
 	const totalExpense = parsedItems

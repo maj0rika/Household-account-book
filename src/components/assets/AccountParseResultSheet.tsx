@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState, useTransition, useEffect } from "react";
+import { memo, useState, useTransition, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { X, Loader2, ChevronDown, ChevronUp, RefreshCw, PlusCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -57,17 +57,11 @@ interface DraftMatchedItem {
 	value: MatchedItem;
 }
 
-let matchedDraftSequence = 0;
-
-function createMatchedDraft(item: MatchedItem): DraftMatchedItem {
-	return {
-		clientKey: `matched-draft-${matchedDraftSequence++}`,
-		value: item,
-	};
-}
-
 function createMatchedDrafts(items: MatchedItem[]): DraftMatchedItem[] {
-	return items.map(createMatchedDraft);
+	return items.map((item) => ({
+		clientKey: crypto.randomUUID(),
+		value: item,
+	}));
 }
 
 /**
@@ -402,7 +396,7 @@ export function AccountParseResultSheet({
 		setErrorMessage(null);
 	}, [initialItems, existingAccounts]);
 
-	const handleParsedChange = (itemId: string, parsed: ParsedAccount) => {
+	const handleParsedChange = useCallback((itemId: string, parsed: ParsedAccount) => {
 		setDraftMatchedItems((prev) =>
 			prev.map((draft) => {
 				if (draft.clientKey !== itemId) return draft;
@@ -412,9 +406,9 @@ export function AccountParseResultSheet({
 				};
 			}),
 		);
-	};
+	}, [existingAccounts]);
 
-	const handleActionToggle = (itemId: string) => {
+	const handleActionToggle = useCallback((itemId: string) => {
 		setDraftMatchedItems((prev) =>
 			prev.map((draft) => {
 				if (draft.clientKey !== itemId || !draft.value.matchedAccount) return draft;
@@ -427,9 +421,9 @@ export function AccountParseResultSheet({
 				};
 			}),
 		);
-	};
+	}, []);
 
-	const handleRemove = (itemId: string) => {
+	const handleRemove = useCallback((itemId: string) => {
 		setDraftMatchedItems((prev) => {
 			const next = prev.filter((draft) => draft.clientKey !== itemId);
 			if (next.length === 0) {
@@ -438,9 +432,12 @@ export function AccountParseResultSheet({
 			}
 			return next;
 		});
-	};
+	}, [onOpenChange]);
 
-	const matchedItems = draftMatchedItems.map((draft) => draft.value);
+	const matchedItems = useMemo(
+		() => draftMatchedItems.map((draft) => draft.value),
+		[draftMatchedItems],
+	);
 
 	// 자산/부채 DB 일괄 저장 (create vs update 분기 + 트랜잭션 처리)
 	const handleSave = () => {

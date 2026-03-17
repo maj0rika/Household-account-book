@@ -95,9 +95,10 @@ export function AccountFormSheet({
 						balance: nextBalance,
 					});
 					if (result.success) {
+						// 낙관적 업데이트용 임시 객체 — 서버 revalidation 후 실제 데이터로 교체됨
 						onCreated?.({
 							id: result.id,
-							userId: account?.userId ?? "",
+							userId: "",
 							name: name.trim(),
 							type,
 							subType,

@@ -82,8 +82,9 @@ export function TransactionEditSheet({
 					date,
 				});
 				if (result.success) {
-					const nextCategory = categories.find((cat) => cat.id === nextCategoryId) ?? null;
-					const nextAccount = accounts.find((acc) => acc.id === nextAccountId) ?? null;
+					// 낙관적 업데이트 — 서버 revalidation 전 즉시 UI 반영
+					const nextCategory = categories.find((cat) => cat.id === nextCategoryId);
+					const nextAccount = accounts.find((acc) => acc.id === nextAccountId);
 					onUpdated?.({
 						...tx,
 						type,
@@ -94,19 +95,10 @@ export function TransactionEditSheet({
 						date,
 						updatedAt: new Date(),
 						category: nextCategory
-							? {
-								id: nextCategory.id,
-								name: nextCategory.name,
-								icon: nextCategory.icon,
-								type: nextCategory.type,
-							}
+							? { id: nextCategory.id, name: nextCategory.name, icon: nextCategory.icon, type: nextCategory.type }
 							: null,
 						account: nextAccount
-							? {
-								id: nextAccount.id,
-								name: nextAccount.name,
-								icon: nextAccount.icon,
-							}
+							? { id: nextAccount.id, name: nextAccount.name, icon: nextAccount.icon }
 							: null,
 					});
 					onOpenChange(false);
