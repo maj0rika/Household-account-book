@@ -1,5 +1,12 @@
 "use server";
 
+// 파일 역할:
+// - 고정 거래 규칙과 실제 월간 거래 생성 사이를 이어 주는 서버 액션 파일이다.
+// 사용 위치:
+// - `src/app/(dashboard)/transactions/page.tsx`에서 이 파일을 import해 상위 흐름에 연결한다;
+// - `src/components/transaction/RecurringTransactionManager.tsx`에서 이 파일을 import해 상위 흐름에 연결한다;
+// 흐름:
+// - 거래 페이지 또는 고정 거래 관리 시트 요청 -> recurring 규칙 조회 -> 대상 월의 실제 거래 시그니처와 비교 -> 아직 없는 거래만 생성 -> 관련 페이지 캐시 갱신 순서로 흐른다;
 import { eq, and, gte, lt } from "drizzle-orm";
 
 import { getAuthUserIdOrThrow } from "@/server/auth";
@@ -10,6 +17,8 @@ import { revalidateRecurringPages } from "@/lib/cache-keys";
 
 const getAuthUserId = getAuthUserIdOrThrow;
 
+// `RecurringTransactionManager.tsx`가 리스트 렌더링 전에 호출한다.
+// 이 함수는 "규칙 테이블"만 읽고, 실제 월간 거래 생성 여부는 다루지 않는다.
 export async function getRecurringTransactions() {
 	const userId = await getAuthUserId();
 
@@ -30,6 +39,7 @@ export async function createRecurringTransaction(data: {
 	try {
 		const userId = await getAuthUserId();
 
+		// 여기서 저장하는 row는 미래 월에도 반복해서 펼쳐질 원본 규칙이다.
 		await db.insert(recurringTransactions).values({
 			userId,
 			categoryId: data.categoryId,
@@ -69,6 +79,7 @@ export async function applyRecurringTransactions(
 	try {
 		const userId = await getAuthUserId();
 
+		// 먼저 "이번 달에 적용할 수 있는 규칙" 전체를 읽어 실제 거래 후보를 만든다.
 		const recurring = await db
 			.select()
 			.from(recurringTransactions)
@@ -91,7 +102,8 @@ export async function applyRecurringTransactions(
 			? `${year + 1}-01-01`
 			: `${year}-${String(m + 1).padStart(2, "0")}-01`;
 
-		// 이미 적용된 거래 조회
+		// `existingRows`는 transactions 테이블에 이미 생성된 실제 고정 거래들이다.
+		// 규칙 테이블과 실제 거래 테이블이 분리돼 있으므로 중복 방지를 위해 월 단위 재조회가 필요하다.
 		const existingRows = await db
 			.select({
 				description: transactions.description,
@@ -115,6 +127,7 @@ export async function applyRecurringTransactions(
 
 		const values = recurring
 			.map((r) => {
+				// 말일을 넘는 dayOfMonth는 해당 월의 마지막 날짜로 보정한다.
 				const day = Math.min(r.dayOfMonth, daysInMonth);
 				const date = `${year}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 				return {
@@ -128,6 +141,7 @@ export async function applyRecurringTransactions(
 					isRecurring: true,
 				};
 			})
+			// 시그니처 비교는 "같은 규칙이 이미 같은 날짜/금액/설명으로 생성됐는지"를 보는 핵심 중복 방지 로직이다.
 			.filter((v) => !existingSet.has(`${v.type}|${v.description}|${v.amount}|${v.date}`));
 
 		const alreadyApplied = recurring.length - values.length;
@@ -197,6 +211,7 @@ export async function checkRecurringApplied(
 		const daysInMonth = new Date(year, m, 0).getDate();
 		let applied = 0;
 		for (const r of recurring) {
+			// 규칙별로 "이번 달에 대응되는 실제 거래가 하나라도 있는지"를 계산한다.
 			const day = Math.min(r.dayOfMonth, daysInMonth);
 			const date = `${year}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 			if (existingSet.has(`${r.type}|${r.description}|${r.amount}|${date}`)) {
@@ -232,7 +247,8 @@ export async function autoApplyRecurringTransactions(): Promise<number> {
 			? `${year + 1}-01-01`
 			: `${year}-${String(month + 1).padStart(2, "0")}-01`;
 
-		// 활성화된 고정 거래 중 오늘 이전 날짜인 것
+		// 자동 적용은 페이지 로드 때 조용히 실행되므로,
+		// 오늘 기준으로 이미 생성됐어야 하는 규칙만 추려 최소 작업만 수행한다.
 		const recurring = await db
 			.select()
 			.from(recurringTransactions)
@@ -268,7 +284,8 @@ export async function autoApplyRecurringTransactions(): Promise<number> {
 			existingRows.map((r) => `${r.type}|${r.description}|${r.amount}|${r.date}`),
 		);
 
-		// 아직 적용 안 된 건만 필터
+		// `newValues`는 "지금 생성해도 되는 실제 거래"만 남긴 결과다.
+		// 사용자가 수동 적용을 여러 번 눌러도 같은 시그니처는 다시 들어가지 않는다.
 		const newValues = dueItems
 			.map((r) => {
 				const day = Math.min(r.dayOfMonth, daysInMonth);
@@ -292,7 +309,8 @@ export async function autoApplyRecurringTransactions(): Promise<number> {
 
 		return newValues.length;
 	} catch {
-		// 자동 적용 실패는 조용히 무시 (사용자 경험 방해 안 함)
+		// 이 함수는 거래 페이지 초기 렌더 중 백그라운드로 호출된다.
+		// 여기서 예외를 던지면 페이지 진입 UX가 깨지므로 조용히 0으로 삼킨다.
 		return 0;
 	}
 }

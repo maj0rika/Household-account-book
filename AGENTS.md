@@ -80,7 +80,7 @@ feat(auth): 인앱 계정 삭제 기능 추가
 fix(ui): Recharts 청크 로드 오류 수정
 refactor(llm): 자동 재시도 제거 및 abort signal 추가
 perf(ui): 거래 화면 초기 요청 수 감소
-chore: .gitignore에 면접 PDF 파일 제외 추가
+chore: .gitignore에 개인 PDF 파일 제외 추가
 docs: 히스토리 로그 추가 (프롬프트, 캐시, LLM 수정)
 ```
 

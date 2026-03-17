@@ -172,7 +172,7 @@
 - [x] 필터 조합 (AND)
 - [x] 검색 결과 내 통계 (건수, 합계)
 
-### Phase 17: AI 학습 개선 + 음성 입력
+### Phase 17: AI 피드백 개선 + 음성 입력
 
 - [ ] 사용자 수정 피드백 반영 (파싱 정확도 향상)
 - [ ] 음성 입력 (Web Speech API / Capacitor 마이크)
@@ -251,8 +251,6 @@ type: feature | fix | refactor | perf | config | remove | docs
 
 | 날짜       | 구분        | 제목                                                                               | 링크                                                                                  |
 | ---------- | ----------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| 2025-03-09 | 기능        | Deep-Dive 면접 대응 매뉴얼 작성                                                    | [history](./history/2025-03-09-01-interview-deep-dive-manual.md)                      |
-| 2025-03-09 | 기능        | 제품 이해 면접 대응 매뉴얼 작성                                                    | [history](./history/2025-03-09-02-interview-product-manual.md)                        |
 | 2026-02-24 | 설계        | 프로젝트 설계 완료 (브레인스토밍)                                                  | [brainstorm](./brainstorms/2026-02-24-household-account-book-brainstorm.md)           |
 | 2026-02-24 | 계획        | 구현 계획서 작성                                                                   | 이 문서                                                                               |
 | 2026-02-24 | 레거시 완료 | 프로젝트 설계 완료                                                                 | [history](./history/2026-02-24-01-project-design-complete.md)                         |
@@ -308,7 +306,6 @@ type: feature | fix | refactor | perf | config | remove | docs
 | 2026-03-09 | 기능        | 계정 삭제 기능 추가 (Google Play 정책 준수)                                        | [history](./history/2026-03-09-18-delete-account-feature.md)                          |
 | 2026-03-09 | 계획        | 카드 부채/음수 지출 TODO 구체화                                                    | [history](./history/2026-03-09-23-credit-card-billing-negative-expense-todo.md)       |
 | 2026-03-10 | 설정        | 작업 규칙/로컬 설정/검토 자산 정리                                                 | [history](./history/2026-03-10-01-worktree-cleanup-review-assets.md)                  |
-| 2026-03-10 | 수정        | 면접 준비 문서 재정렬 + React/Next 압축 튜토리얼 추가 + 오래된 설명 사실 검증      | [history](./history/2026-03-10-02-doc-prep-refresh.md)                                |
 | 2026-03-10 | 리팩터      | 핵심 흐름 유지보수 주석 보강                                                       | [history](./history/2026-03-10-03-maintainability-comments-pass.md)                   |
 | 2026-03-10 | 수정        | 자산/부채 파싱 결과 편집 시 기존 계정 재매칭 누락 수정                             | [history](./history/2026-03-10-04-account-parse-rematch-fix.md)                       |
 | 2026-03-10 | 수정        | 파싱 결과 시트 중첩 버튼 구조 수정                                                 | [history](./history/2026-03-10-05-parse-sheet-nested-button-fix.md)                   |
@@ -342,3 +339,6 @@ type: feature | fix | refactor | perf | config | remove | docs
 | 2026-03-16 | 설정        | 거버넌스 PR 리뷰 피드백 반영                                                       | [history](./history/2026-03-16-09-review-feedback-governance-followup.md)             |
 | 2026-03-16 | 설정        | 거버넌스 PR rebase 및 보안 회귀 복구                                               | [history](./history/2026-03-16-10-governance-pr-rebase-security-recovery.md)          |
 | 2026-03-16 | 문서        | 문서와 구현 설명 정합성 정리                                                       | [history](./history/2026-03-16-11-doc-sync-alignment.md)                              |
+| 2026-03-17 | 문서        | Recharts CategoryPieChart 크기 경고 원인 기록                                      | [history](./history/2026-03-17-01-recharts-category-piechart-warning.md)              |
+| 2026-03-17 | 문서        | 전역 한글 주석 보강                                                                | [history](./history/2026-03-17-03-global-korean-comments.md)                          |
+| 2026-03-17 | 설정        | 개인 문서 참조 및 키워드 정리                                                      | [history](./history/2026-03-17-04-private-doc-reference-cleanup.md)                   |

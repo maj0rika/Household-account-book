@@ -1,5 +1,11 @@
 "use client";
 
+// 파일 역할:
+// - 통계 화면에서 쓰이는 시각화 UI 파일이다.
+// 사용 위치:
+// - 직접 import 경로가 드러나지 않는 진입점이거나, 프레임워크/테스트 러너가 런타임에 호출한다;
+// 흐름:
+// - 상위 페이지/섹션 컴포넌트가 데이터를 내려주면, 이 파일이 상태와 이벤트를 정리해 하위 UI 프리미티브에 전달한다;
 import { useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "motion/react";

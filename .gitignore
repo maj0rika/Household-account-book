@@ -59,8 +59,22 @@ next-env.d.ts
 .claude/settings.local.json
 .serena/memories/
 
-# 학습/면접 자료 (개인용)
-docs/interview-*.md
-docs/interview-*.pdf
+# 개인 참고 자료
+docs/*questions*.md
+docs/*deep-dive*.md
+docs/*live-demo*.md
+docs/fe-code-*.md
+docs/*-summary.md
+docs/*-job-prep.md
+docs/*-pressure-qa.md
+docs/*-product.md
+docs/*-cheatsheet.md
+docs/*-learning.md
+docs/*.pdf
+docs/pdf/
 docs/tutorial/
-docs/history/*interview*
+docs/history/*doc-prep*
+docs/history/*doc-pdf-sync*
+docs/history/*deep-dive-manual.md
+docs/history/*product-manual.md
+docs/pipeline-state/*pdf-sync.md

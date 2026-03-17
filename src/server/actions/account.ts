@@ -1,5 +1,13 @@
 "use server";
 
+// 파일 역할:
+// - 자산/부채 계정 CRUD와 파싱 결과 저장을 담당하는 서버 액션 파일이다.
+// 사용 위치:
+// - `src/app/(dashboard)/assets/page.tsx`에서 이 파일을 import해 상위 흐름에 연결한다;
+// - `src/app/(dashboard)/layout.tsx`에서 이 파일을 import해 상위 흐름에 연결한다;
+// - `src/app/(dashboard)/transactions/page.tsx`에서 이 파일을 import해 상위 흐름에 연결한다;
+// 흐름:
+// - 자산 화면/파싱 시트 요청 -> `getAuthUserIdOrThrow()`로 사용자 확인 -> accounts 테이블 읽기/쓰기 -> 필요한 암복호화 -> `revalidateAccountPages()` 호출 순서로 흐른다;
 import { and, eq, desc } from "drizzle-orm";
 
 import { getAuthUserIdOrThrow } from "@/server/auth";
@@ -11,6 +19,8 @@ import type { Account, AccountSummary } from "@/types";
 
 const getAuthUserId = getAuthUserIdOrThrow;
 
+// `assets/page.tsx`, `transactions/page.tsx`, 계정 선택 시트가 이 함수를 호출한다.
+// DB에는 암호문이 저장되어 있으므로, UI로 내려가기 전에 이름과 잔액을 모두 복호화한다.
 export async function getAccounts(): Promise<Account[]> {
 	const userId = await getAuthUserId();
 
@@ -20,6 +30,8 @@ export async function getAccounts(): Promise<Account[]> {
 		.where(and(eq(accounts.userId, userId), eq(accounts.isActive, true)))
 		.orderBy(accounts.type, accounts.sortOrder, desc(accounts.createdAt));
 
+	// row는 DB 원본이고, 반환 객체는 UI 전용 Account DTO다.
+	// 여기서 암호화 필드를 평문으로 바꾸지 않으면 렌더링과 파서 매칭이 모두 깨진다.
 	return rows.map((row) => ({
 		id: row.id,
 		userId: row.userId,
@@ -35,6 +47,8 @@ export async function getAccounts(): Promise<Account[]> {
 	}));
 }
 
+// 자산 화면 상단 순자산 카드가 호출한다.
+// `balance`는 문자열 암호문이라 DB SUM을 쓸 수 없어 애플리케이션 레벨에서 직접 합산한다.
 export async function getAccountSummary(): Promise<AccountSummary> {
 	const userId = await getAuthUserId();
 
@@ -51,6 +65,7 @@ export async function getAccountSummary(): Promise<AccountSummary> {
 	let totalDebts = 0;
 	for (const row of rows) {
 		const balance = decryptNumber(row.balance);
+		// 같은 balance라도 계정 타입에 따라 자산/부채 버킷이 갈린다.
 		if (row.type === "asset") totalAssets += balance;
 		if (row.type === "debt") totalDebts += balance;
 	}
@@ -72,6 +87,8 @@ export async function createAccount(data: {
 	try {
 		const userId = await getAuthUserId();
 
+		// 생성 시점부터 이름과 잔액을 암호화해 저장해야
+		// 이후 조회/파싱/보안 경로가 같은 전제를 유지한다.
 		const [row] = await db
 			.insert(accounts)
 			.values({
@@ -104,6 +121,8 @@ export async function updateAccount(
 	try {
 		const userId = await getAuthUserId();
 
+		// 부분 업데이트를 허용해 입력 시트가 바뀐 필드만 보낼 수 있게 한다.
+		// undefined는 전개 조건으로 걸러 기존 컬럼을 덮어쓰지 않도록 한다.
 		await db
 			.update(accounts)
 			.set({
@@ -137,9 +156,12 @@ export async function upsertParsedAccountsBatch(
 			return { success: false, error: "저장할 항목이 없습니다." };
 		}
 
+		// 자산 파싱 결과 시트는 create/update가 섞여서 저장될 수 있다.
+		// 하나라도 실패하면 전체를 롤백해야 시트와 실제 DB 상태가 어긋나지 않는다.
 		await db.transaction(async (tx) => {
 			for (const item of items) {
 				if (item.action === "update") {
+					// update 경로는 기존 계정과 재매칭된 항목을 덮어쓸 때 사용한다.
 					const result = await tx
 						.update(accounts)
 						.set({
@@ -156,6 +178,7 @@ export async function upsertParsedAccountsBatch(
 						throw new Error("수정할 계정을 찾을 수 없습니다.");
 					}
 				} else {
+					// create 경로는 "신규"로 판정된 파싱 항목을 새 계정으로 저장한다.
 					await tx.insert(accounts).values({
 						userId,
 						name: encrypt(item.name),
@@ -184,7 +207,7 @@ export async function deleteAccount(
 	try {
 		const userId = await getAuthUserId();
 
-		// 소프트 삭제 (isActive = false)
+		// 거래 이력과의 참조를 보존해야 하므로 실제 row 삭제 대신 소프트 삭제를 사용한다.
 		await db
 			.update(accounts)
 			.set({ isActive: false, updatedAt: new Date() })

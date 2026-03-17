@@ -1,3 +1,11 @@
+// 파일 역할:
+// - Better Auth 설정, 세션 최소화 훅, 서버 공통 인증 헬퍼를 모아 둔 파일이다.
+// 사용 위치:
+// - `src/app/(dashboard)/layout.tsx`에서 이 파일을 import해 상위 흐름에 연결한다;
+// - `src/app/(dashboard)/settings/page.tsx`에서 이 파일을 import해 상위 흐름에 연결한다;
+// - `src/app/api/auth/[...all]/route.ts`에서 이 파일을 import해 상위 흐름에 연결한다;
+// 흐름:
+// - 로그인/회원가입 요청 또는 서버 렌더링 진입 -> Better Auth가 세션을 읽고 갱신 -> 이 파일의 헬퍼가 recoverable 오류를 흡수하거나 사용자 ID만 추출해 상위 계층에 넘긴다;
 import { headers } from "next/headers";
 import { APIError, betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -63,6 +71,8 @@ export const auth = betterAuth({
 		user: {
 			create: {
 				after: async (user) => {
+					// 가입 직후 기본 카테고리를 심어 두면
+					// 첫 거래 입력, 파싱, 설정 화면이 모두 같은 기본 전제를 공유할 수 있다.
 					// 가입 직후 기본 카테고리를 생성해 첫 거래 입력이 바로 가능하게 한다.
 					// 별도 온보딩 단계로 미루면 파서와 저장 액션이 "카테고리 없음" 예외를 반복 처리해야 한다.
 					await db.insert(categories).values(
@@ -82,6 +92,7 @@ export const auth = betterAuth({
 			create: {
 				before: async (session) => ({
 					data: {
+						// 세션에는 원본 IP/UA를 그대로 남기지 않고 비식별화 값만 저장한다.
 						...session,
 						ipAddress: minimizeSessionIpAddress(session.ipAddress as string | null | undefined),
 						userAgent: minimizeSessionUserAgent(session.userAgent as string | null | undefined),
@@ -106,6 +117,8 @@ const RECOVERABLE_SESSION_ERROR_MESSAGES = new Set([
 	"Session expired. Re-authenticate to perform this action.",
 ]);
 
+// 토큰 만료처럼 사용자가 다시 로그인하면 회복 가능한 오류만 null로 바꾼다.
+// 그 외 오류는 실제 장애일 수 있으므로 그대로 던져야 한다.
 function isRecoverableSessionError(error: unknown): error is APIError {
 	if (!(error instanceof APIError)) {
 		return false;
@@ -116,6 +129,7 @@ function isRecoverableSessionError(error: unknown): error is APIError {
 
 export async function getServerSession() {
 	try {
+		// App Router 서버 컴포넌트가 가장 자주 쓰는 세션 조회 진입점이다.
 		return await auth.api.getSession({
 			headers: await headers(),
 		});
@@ -130,6 +144,7 @@ export async function getServerSession() {
 
 export async function getRequestSession(requestHeaders: Headers) {
 	try {
+		// Route Handler는 `next/headers` 대신 이미 받은 요청 헤더를 사용해야 한다.
 		return await auth.api.getSession({
 			headers: requestHeaders,
 		});
@@ -145,6 +160,7 @@ export async function getRequestSession(requestHeaders: Headers) {
 export async function getAuthUserIdOrThrow(): Promise<string> {
 	const session = await getServerSession();
 
+	// 대부분의 서버 액션은 사용자 ID만 있으면 되므로 이 헬퍼를 공통 진입점으로 쓴다.
 	if (!session?.user?.id) {
 		throw new Error("인증이 필요합니다.");
 	}

@@ -1,3 +1,11 @@
+// 파일 역할:
+// - 도메인 공용 타입 정의 파일이다.
+// 사용 위치:
+// - `src/components/assets/AccountFormSheet.tsx`에서 이 파일을 import해 상위 흐름에 연결한다;
+// - `src/components/assets/AccountList.tsx`에서 이 파일을 import해 상위 흐름에 연결한다;
+// - `src/components/assets/AccountParseResultSheet.tsx`에서 이 파일을 import해 상위 흐름에 연결한다;
+// 흐름:
+// - 상위 호출자가 입력을 넘기고, 이 파일이 자신의 책임 범위만 처리한 뒤 결과를 반환하는 구조다;
 export interface Transaction {
 	id: string;
 	userId: string;

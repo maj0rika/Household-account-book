@@ -1,5 +1,11 @@
 "use client";
 
+// 파일 역할:
+// - 자산/부채 화면에서 쓰이는 도메인 UI 파일이다.
+// 사용 위치:
+// - `src/app/(dashboard)/assets/page.tsx`에서 이 파일을 import해 상위 흐름에 연결한다;
+// 흐름:
+// - 상위 페이지/섹션 컴포넌트가 데이터를 내려주면, 이 파일이 상태와 이벤트를 정리해 하위 UI 프리미티브에 전달한다;
 import { useState, useTransition } from "react";
 import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";

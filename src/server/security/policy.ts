@@ -1,3 +1,10 @@
+// 파일 역할:
+// - parse API와 인증 계층이 공통으로 쓰는 요청 검증/정규화/비식별화 정책 파일이다.
+// 사용 위치:
+// - `src/server/lib/__tests__/security.test.ts`에서 이 파일을 import해 상위 흐름에 연결한다;
+// - `src/server/security/index.ts`에서 이 파일을 import해 상위 흐름에 연결한다;
+// 흐름:
+// - Route Handler/인증 로직이 원본 헤더나 입력을 넘기면 -> 이 파일이 길이/형식/IP/origin을 정규화하고 검증 -> 상위 계층이 차단 여부와 로그 정책을 결정한다;
 import { createHmac } from "crypto";
 import { isIP } from "node:net";
 
@@ -48,6 +55,7 @@ function getSecuritySecret(): string {
 	return secret;
 }
 
+// 신뢰할 수 있는 origin 목록은 환경변수 둘 중 실제로 파싱 가능한 값만 남긴다.
 function getOriginCandidates(): string[] {
 	return [
 		process.env.BETTER_AUTH_URL,
@@ -64,12 +72,14 @@ function getOriginCandidates(): string[] {
 		.filter((value): value is string => Boolean(value));
 }
 
+// 빈 문자열과 공백만 있는 헤더는 모두 null로 접어 이후 분기 조건을 단순화한다.
 function normalizeHeaderValue(value: string | null): string | null {
 	if (!value) return null;
 	const trimmed = value.trim();
 	return trimmed ? trimmed : null;
 }
 
+// IPv6는 개별 주소 단위로 저장하면 개인정보 노출과 과한 분산이 생길 수 있어 /64 단위로 축약한다.
 function normalizeIpv6Subnet(value: string): string | null {
 	const [withoutZone] = value.split("%");
 	const embeddedIpv4Index = withoutZone.lastIndexOf(":");
@@ -99,6 +109,7 @@ function normalizeIpv6Subnet(value: string): string | null {
 	return `${expanded.slice(0, 4).join(":")}::/64`;
 }
 
+// rate limit 키는 "같은 사용자/같은 네트워크"가 안정적으로 같은 버킷에 들어가도록 정규화한다.
 function normalizeIpForRateLimit(value: string): string {
 	const trimmed = value.trim();
 	if (!trimmed) return trimmed;
@@ -130,6 +141,8 @@ function looksLikeBase64Payload(input: string): boolean {
 	return BASE64_ONLY_REGEX.test(compact);
 }
 
+// `looksLikeBase64Payload()`보다 강한 검증이다.
+// 실제 디코드/재인코드가 가능한 경우만 true를 줘 이미지 위장 텍스트를 더 강하게 잡아낸다.
 function isStrictBase64Payload(input: string): boolean {
 	const compact = input.replace(/\s+/g, "");
 	if (!compact) return false;
@@ -144,6 +157,8 @@ function isStrictBase64Payload(input: string): boolean {
 }
 
 export function hashSecurityValue(value: string, namespace = "general"): string {
+	// 원본 IP/세션/유저 ID는 그대로 저장하지 않고
+	// namespace를 섞은 HMAC 해시로만 보관해 추적성과 비식별화를 동시에 챙긴다.
 	const digest = createHmac("sha256", getSecuritySecret())
 		.update(`${SECURITY_DIGEST_VERSION}:${namespace}:`)
 		.update(value)
@@ -182,6 +197,8 @@ export function extractRequestIp(input: Headers | Request): string | null {
 }
 
 export function assertTrustedOrigin(request: Request): boolean {
+	// `parse` API의 첫 번째 방어선이다.
+	// origin이 비어 있더라도 referer로 한 번 더 판정해 모바일 웹뷰/브라우저 차이를 흡수한다.
 	const trustedOrigins = getOriginCandidates();
 	if (trustedOrigins.length === 0) return true;
 
@@ -208,6 +225,8 @@ export function buildRequestFingerprint(
 ): RequestFingerprint {
 	const ipAddress = extractRequestIp(request);
 
+	// 상위 rate limit 계층은 이 fingerprint를 그대로 받아
+	// IP 단위, 세션 단위, 사용자 단위 정책을 상황에 맞게 조합한다.
 	return {
 		ipAddress,
 		ipHash: ipAddress ? hashSecurityValue(ipAddress, "ip") : null,
@@ -234,6 +253,8 @@ export function sanitizeTextInput(input: string): {
 	const lineCount = normalized ? normalized.split("\n").length : 0;
 	const length = normalized.length;
 
+	// parse route에서 가장 먼저 호출되는 텍스트 정책이다.
+	// 여기서 걸러진 입력은 LLM/OOD 필터로 내려가지 않고 바로 보안 이벤트 대상이 된다.
 	if (!normalized) {
 		return {
 			ok: false,
@@ -262,6 +283,7 @@ export function sanitizeTextInput(input: string): {
 	}
 
 	if (looksLikeBase64Payload(normalized)) {
+		// base64로 가득 찬 텍스트는 이미지 payload 우회나 비정상 요청일 가능성이 높아 차단한다.
 		return {
 			ok: false,
 			code: "base64_only_text",
@@ -299,6 +321,8 @@ export function validateImagePayload(input: {
 		base64Length: input.base64Length,
 	};
 
+	// 이 함수는 이미지 파서로 내려가기 전의 최종 관문이다.
+	// mime/type, 파일 크기, base64 형식이 모두 맞아야만 LLM provider 호출로 넘어간다.
 	if (!PARSE_INPUT_POLICY.allowedImageMimeTypes.includes(normalizedMimeType)) {
 		return {
 			ok: false,

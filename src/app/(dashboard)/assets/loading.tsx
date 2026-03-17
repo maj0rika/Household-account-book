@@ -1,3 +1,9 @@
+// 파일 역할:
+// - App Router Suspense 로딩 UI 파일이다.
+// 사용 위치:
+// - App Router가 `/assets` 경로를 렌더링할 때 직접 사용한다;
+// 흐름:
+// - 라우트 진입점에서 필요한 데이터 조회와 화면 조합을 맡고, 세부 상호작용은 하위 컴포넌트로 위임한다;
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 

@@ -1,3 +1,9 @@
+// 파일 역할:
+// - 거래 홈 화면의 서버 엔트리이자 월별 데이터 조합 오케스트레이터 파일이다.
+// 사용 위치:
+// - App Router가 `/transactions` 경로를 렌더링할 때 직접 사용한다;
+// 흐름:
+// - 라우트 진입 -> 월 파라미터 확정 -> 고정 거래 자동 적용 예약 -> 월 네비게이터/요약/캘린더/인사이트를 각 Suspense 경계로 분리 렌더링 -> 하위 클라이언트 컴포넌트가 상호작용을 이어받는 구조다;
 import { Suspense, cache } from "react";
 
 import {
@@ -23,6 +29,8 @@ interface Props {
 	searchParams: Promise<{ month?: string; saved?: string; focus?: string }>;
 }
 
+// `TransactionsInsightsSection`이 주간 차트 범위를 만들 때 호출한다.
+// 현재 월이면 "오늘까지 최근 7일", 과거 월이면 "그 달의 마지막 7일"을 계산해 차트 기준을 일정하게 맞춘다.
 function getWeeklyRangeByMonth(month: string): { weekDates: string[]; startDate: string; endDateExclusive: string } {
 	const [year, monthNum] = month.split("-").map(Number);
 	const monthStart = new Date(year, monthNum - 1, 1);
@@ -115,6 +123,8 @@ function InsightsFallback() {
 	);
 }
 
+// `/transactions`의 요약 카드 전용 서버 섹션이다.
+// 상단 요약은 가장 먼저 읽히는 정보라 독립 Suspense로 분리해 다른 섹션 지연과 분리한다.
 async function TransactionsSummarySection({ month }: { month: string }) {
 	const summary = await getMonthlySummary(month);
 	return <MonthlySummaryCard summary={summary} month={month} />;
@@ -179,6 +189,8 @@ export default async function TransactionsPage({ searchParams }: Props) {
 	// 고정 거래 자동 적용 — fire-and-forget (페이지 로드를 블로킹하지 않음)
 	autoApplyRecurringTransactions().catch(() => {});
 
+	// 다른 화면에서 저장 후 리다이렉트될 때만 배너를 노출한다.
+	// 메시지 계산을 여기서 끝내 두면 하위 컴포넌트는 문자열만 받아 화면 역할에 집중할 수 있다.
 	const savedMessage = params.saved === "mixed"
 		? "거래/자산 등록이 완료됐어요. 거래 목록으로 이동했어요."
 		: params.saved === "tx"

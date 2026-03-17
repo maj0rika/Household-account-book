@@ -19,4 +19,4 @@ type: remove
 ## 결정 사항
 
 - 웹 파싱 요청은 이미 `NaturalInputBar`가 `/api/parse`만 호출하므로 `parse-unified.ts`는 유지 가치가 없다;
-- dead code 삭제와 함께 면접/설계 문서의 stale 설명을 정리해 코드-문서 불일치를 줄인다;
+- dead code 삭제와 함께 관련 문서의 stale 설명을 정리해 코드-문서 불일치를 줄인다;

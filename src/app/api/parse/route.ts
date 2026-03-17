@@ -1,3 +1,9 @@
+// 파일 역할:
+// - 자연어/이미지 입력을 가계부 파싱 파이프라인으로 연결하는 API Route Handler 파일이다.
+// 사용 위치:
+// - `src/components/transaction/NaturalInputBar.tsx`, `src/components/assets/AccountFormSheet.tsx` 같은 입력 UI가 `/api/parse`로 요청을 보낼 때 직접 진입한다;
+// 흐름:
+// - 요청 진입 -> origin/인증/속도 제한 검사 -> 텍스트 또는 이미지 입력 검증 -> `executeTextParse()` 또는 `executeImageParse()` 호출 -> JSON 응답 반환 순서로 흐른다;
 import { NextResponse } from "next/server";
 
 import { getRequestSession } from "@/server/auth";
@@ -18,6 +24,8 @@ function jsonError(
 	status: number,
 	headers?: HeadersInit,
 ) {
+	// 실패 응답 포맷을 한 곳에서 맞춰 두면
+	// 각 분기에서 상태 코드와 rate-limit 헤더만 넘겨도 된다.
 	return NextResponse.json({ success: false, error }, { status, headers });
 }
 
@@ -25,6 +33,8 @@ async function consumeUserParseLimit(
 	userId: string,
 	contentType: string,
 ): Promise<NextResponse | null> {
+	// 사용자 단위 제한은 "누가" 과도하게 파서를 쓰는지를 막는 2차 방어선이다.
+	// IP 제한과 별도로 둬서 로그인 사용자도 짧은 시간에 남용하지 못하게 만든다.
 	const userDecision = await consumeRateLimit({
 		scope: "parse:user",
 		subject: userId,
@@ -56,9 +66,12 @@ async function consumeUserParseLimit(
 }
 
 export async function POST(request: Request) {
+	// 세션이 없더라도 origin mismatch 같은 이상 징후는 추적해야 하므로
+	// 인증 전 fingerprint를 먼저 만들어 둔다.
 	const unauthFingerprint = buildRequestFingerprint(request, null);
 
 	if (!assertTrustedOrigin(request)) {
+		// 신뢰되지 않은 origin은 즉시 거절하되, 반복 시도는 anomaly limit로 따로 관리한다.
 		const decision = await consumeIpAnomalyLimit({
 			fingerprint: unauthFingerprint,
 			scope: "parse:public:ip",
@@ -83,6 +96,7 @@ export async function POST(request: Request) {
 	const fingerprint = buildRequestFingerprint(request, session);
 
 	if (!session?.user) {
+		// parse API는 개인 데이터와 LLM 사용량을 소모하므로 익명 접근을 허용하지 않는다.
 		const decision = await consumeIpAnomalyLimit({
 			fingerprint,
 			scope: "parse:public:ip",
@@ -102,7 +116,8 @@ export async function POST(request: Request) {
 
 	const contentType = request.headers.get("content-type") ?? "";
 
-	// multipart/form-data → 이미지 파싱
+	// `multipart/form-data`는 브라우저 파일 업로드 경로다.
+	// 이미지와 보조 텍스트를 같이 읽어 이미지 파서로 넘긴다.
 	if (contentType.includes("multipart/form-data")) {
 		const formData = await request.formData().catch(() => null);
 		if (!formData) {
@@ -143,6 +158,7 @@ export async function POST(request: Request) {
 		const arrayBuffer = await file.arrayBuffer();
 		const imageBase64 = Buffer.from(arrayBuffer).toString("base64");
 		const mimeType = file.type || "image/jpeg";
+		// 이미지 정책 검증은 LLM 호출보다 앞서 끝내야 비용과 공격 표면을 줄일 수 있다.
 		const validation = validateImagePayload({
 			mimeType,
 			byteLength: file.size,
@@ -204,6 +220,7 @@ export async function POST(request: Request) {
 		const sanitizedText = sanitizeTextInput(rawTextInput);
 		const textInput = sanitizedText.ok ? sanitizedText.value : "";
 
+		// 이미지 파서는 세션 ID를 함께 받아 provider usage/cooldown 정책을 적용한다.
 		const result = await executeImageParse(
 			imageBase64,
 			mimeType,
@@ -216,7 +233,7 @@ export async function POST(request: Request) {
 		return NextResponse.json(result, { status });
 	}
 
-	// application/json → 텍스트 파싱
+	// `application/json`은 자연어 입력 바의 기본 요청 형식이다.
 	const body = await request.json().catch(() => null);
 	if (!body || typeof body.input !== "string") {
 		const decision = await consumeIpAnomalyLimit({
@@ -238,6 +255,8 @@ export async function POST(request: Request) {
 	const sanitizedInput = sanitizeTextInput(body.input);
 
 	if (typeof body.imageBase64 === "string" && body.imageBase64) {
+		// JSON 안에 imageBase64를 실어 보내는 호환 경로도 남겨 두었다.
+		// 과거 클라이언트도 동일한 보안 검증을 타도록 여기서 다시 체크한다.
 		if (typeof body.mimeType !== "string" || !body.mimeType) {
 			const decision = await consumeIpAnomalyLimit({
 				fingerprint,
@@ -286,6 +305,8 @@ export async function POST(request: Request) {
 			return userLimitResponse;
 		}
 
+		// JSON 이미지 경로도 결국 이미지 파서로 합류하므로
+		// form-data 경로와 같은 세션 제한을 적용한다.
 		const imageDecision = await consumeRateLimit({
 			scope: "parse:image:session",
 			subject: session.session.id,
@@ -327,6 +348,7 @@ export async function POST(request: Request) {
 	}
 
 	if (!sanitizedInput.ok) {
+		// 잘못된 텍스트 입력은 OOD/LLM 단계로 내리지 않고 즉시 보안 이벤트와 함께 종료한다.
 		const decision = await consumeIpAnomalyLimit({
 			fingerprint,
 			scope: "parse:public:ip",
@@ -349,6 +371,8 @@ export async function POST(request: Request) {
 		return userLimitResponse;
 	}
 
+	// 텍스트 파서는 sanitize를 통과한 값만 받아
+	// 이후 provider 폴백 로직이 항상 정규화된 입력을 기준으로 움직이게 만든다.
 	const result = await executeTextParse(
 		sanitizedInput.value,
 		session.user.id,
