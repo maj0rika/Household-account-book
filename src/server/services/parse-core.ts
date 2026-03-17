@@ -26,20 +26,23 @@ import type { LLMCategory } from "@/server/llm/prompt";
 import type { UnifiedParseResponse } from "@/server/llm/types";
 import type { Account } from "@/types";
 
-const SHORT_TEXT_PROVIDER_THRESHOLD = 100; // "단순 텍스트" 판별 기준
+const SHORT_TEXT_PROVIDER_THRESHOLD = 500; // "단순 텍스트" 판별 기준
 
 // 세션별 이미지 Fireworks 사용 카운터 (인메모리)
 // key: sessionId, value: { count, lastUsed }
 // 로그아웃 → 재로그인 시 새 세션 ID가 발급되므로 자동 리셋
 // 인메모리 — 서버 재시작 시 초기화됨 (엄격한 제한 필요 시 Redis/DB 전환)
-const IMAGE_FIREWORKS_FREE_LIMIT = 3;      // 세션당 이미지 Fireworks 우선 호출 횟수
-const MAX_MAP_SIZE = 1000;                 // 메모리 누수 방지용 상한
+const IMAGE_FIREWORKS_FREE_LIMIT = 3; // 세션당 이미지 Fireworks 우선 호출 횟수
+const MAX_MAP_SIZE = 1000; // 메모리 누수 방지용 상한
 const IMAGE_FIREWORKS_FAILURE_COOLDOWN_MS = 10 * 60 * 1000; // 장애 후 10분간 해당 세션에서 회피
-const imageFireworksUsageMap = new Map<string, {
-	count: number;           // 성공 응답 누적 횟수
-	lastUsed: number;        // 마지막 사용 타임스탬프 (prune 기준)
-	blockedUntil?: number;   // 쿨다운 해제 시각 (장애 시 설정)
-}>();
+const imageFireworksUsageMap = new Map<
+	string,
+	{
+		count: number; // 성공 응답 누적 횟수
+		lastUsed: number; // 마지막 사용 타임스탬프 (prune 기준)
+		blockedUntil?: number; // 쿨다운 해제 시각 (장애 시 설정)
+	}
+>();
 
 // 오래된 엔트리 정리 (24시간 초과)
 function pruneStaleImageFireworksEntries(): void {
@@ -110,10 +113,7 @@ function resolveTextProviders(input: string): LLMProvider[] {
 function resolveImageProviders(sessionId: string): LLMProvider[] {
 	// 정책 우선순위 #1: 기존 3회 룰
 	if (canUseImageFireworks(sessionId)) {
-		return dedupeProviders([
-			"fireworks",
-			hasKimi() ? "kimi" : null,
-		]);
+		return dedupeProviders(["fireworks", hasKimi() ? "kimi" : null]);
 	}
 
 	// 이미지/긴 입력은 Kimi 우선
@@ -131,26 +131,28 @@ function resolveImageProviders(sessionId: string): LLMProvider[] {
 function isRecoverableProviderFailure(message: string): boolean {
 	const normalized = message.toLowerCase();
 
-	return normalized.includes("llm 응답 시간 초과")
-		|| normalized.includes("llmtimeouterror")
-		|| normalized.includes("request was aborted")
-		|| normalized.includes("fetch failed")
-		|| normalized.includes("network")
-		|| normalized.includes("connection")
-		|| normalized.includes("forbidden")
-		|| normalized.includes("response")
-		|| normalized.includes("응답이 비어")
-		|| normalized.includes("응답 형식")
-		|| normalized.includes("파싱 결과가 비어")
-		|| normalized.includes("unexpected end of json input")
-		|| normalized.includes("rate limit")
-		|| normalized.includes("401")
-		|| normalized.includes("403")
-		|| normalized.includes("429")
-		|| normalized.includes("500")
-		|| normalized.includes("502")
-		|| normalized.includes("503")
-		|| normalized.includes("504");
+	return (
+		normalized.includes("llm 응답 시간 초과") ||
+		normalized.includes("llmtimeouterror") ||
+		normalized.includes("request was aborted") ||
+		normalized.includes("fetch failed") ||
+		normalized.includes("network") ||
+		normalized.includes("connection") ||
+		normalized.includes("forbidden") ||
+		normalized.includes("response") ||
+		normalized.includes("응답이 비어") ||
+		normalized.includes("응답 형식") ||
+		normalized.includes("파싱 결과가 비어") ||
+		normalized.includes("unexpected end of json input") ||
+		normalized.includes("rate limit") ||
+		normalized.includes("401") ||
+		normalized.includes("403") ||
+		normalized.includes("429") ||
+		normalized.includes("500") ||
+		normalized.includes("502") ||
+		normalized.includes("503") ||
+		normalized.includes("504")
+	);
 }
 
 function activateImageFireworksCooldown(sessionId: string, reason: string): void {
@@ -179,10 +181,7 @@ function normalizeParseFailure(
 ): UnifiedParseResponse {
 	if (result.success) return result;
 
-	if (
-		result.error.includes("LLM 응답 시간 초과")
-		|| result.error.includes("LLMTimeoutError")
-	) {
+	if (result.error.includes("LLM 응답 시간 초과") || result.error.includes("LLMTimeoutError")) {
 		return { success: false, error: mapTimeoutErrorMessage(timeoutMs, isImage) };
 	}
 
@@ -192,9 +191,9 @@ function normalizeParseFailure(
 // 입력 길이에 따른 단계별 타임아웃 — 짧은 입력에 긴 타임아웃을 주면 UX 저하
 function resolveTextTimeoutMs(input: string): number {
 	const textLength = input.trim().length;
-	if (textLength <= SHORT_TEXT_PROVIDER_THRESHOLD) return 45000;   // ~45s: 단순 입력 ("CU 3500")
-	if (textLength <= 400) return 70000;   // ~70s: 중간 길이
-	return 100000;                          // ~100s: 긴 입력/복수 거래
+	if (textLength <= SHORT_TEXT_PROVIDER_THRESHOLD) return 45000; // ~45s: 단순 입력 ("CU 3500")
+	if (textLength <= 400) return 70000; // ~70s: 중간 길이
+	return 100000; // ~100s: 긴 입력/복수 거래
 }
 
 function resolveImageTimeoutMs(textInput: string): number {
@@ -303,10 +302,10 @@ export async function executeTextParse(
 		lastResult = result;
 
 		const fallbackProvider = providers[index + 1];
-		const shouldFallback = !!fallbackProvider && (
-			(provider === "minimax" && fallbackProvider === "fireworks")
-			|| (provider === "fireworks" && fallbackProvider === "kimi")
-		);
+		const shouldFallback =
+			!!fallbackProvider &&
+			((provider === "minimax" && fallbackProvider === "fireworks") ||
+				(provider === "fireworks" && fallbackProvider === "kimi"));
 		if (!shouldFallback) {
 			break;
 		}
@@ -326,7 +325,11 @@ export async function executeTextParse(
 		});
 	}
 
-	return normalizeParseFailure(lastResult ?? { success: false, error: "파싱 실패: 알 수 없는 오류" }, timeoutMs, false);
+	return normalizeParseFailure(
+		lastResult ?? { success: false, error: "파싱 실패: 알 수 없는 오류" },
+		timeoutMs,
+		false,
+	);
 }
 
 /**
@@ -399,5 +402,9 @@ export async function executeImageParse(
 		});
 	}
 
-	return normalizeParseFailure(lastResult ?? { success: false, error: "이미지 파싱 실패: 알 수 없는 오류" }, timeoutMs, true);
+	return normalizeParseFailure(
+		lastResult ?? { success: false, error: "이미지 파싱 실패: 알 수 없는 오류" },
+		timeoutMs,
+		true,
+	);
 }

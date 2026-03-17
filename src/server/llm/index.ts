@@ -208,7 +208,7 @@ export async function parseUnifiedText(
 	provider?: LLMProvider,
 	options?: { timeoutMs?: number },
 ): Promise<UnifiedParseResponse> {
-	const { client, model, temperature, extra_body } = getLLMConfig(provider);
+	const { client, model, temperature, response_format, extra_body } = getLLMConfig(provider);
 	const today = getTodayString();
 	const timeoutMs = resolveTimeoutMs(options?.timeoutMs, 30000);
 	const providerName = provider ?? "default";
@@ -228,6 +228,7 @@ export async function parseUnifiedText(
 					{ role: "user", content: userPrompt },
 				],
 				temperature,
+				...(response_format && { response_format }),
 				...extra_body,
 			}, { signal }),
 			timeoutMs,
@@ -238,8 +239,14 @@ export async function parseUnifiedText(
 			throw new Error("LLM 응답이 비어 있습니다.");
 		}
 
-		const jsonStr = extractJSON(content);
-		const parsed = JSON.parse(jsonStr);
+		// JSON mode 응답은 순수 JSON — 직접 파싱 시도, 실패 시 extractJSON 폴백
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(content);
+		} catch {
+			const jsonStr = extractJSON(content);
+			parsed = JSON.parse(jsonStr);
+		}
 		const result = parseUnifiedResponse(parsed);
 
 		console.info("[LLM] text parse success", {
@@ -284,6 +291,8 @@ export async function parseUnifiedImage(
 	provider?: LLMProvider,
 	options?: { timeoutMs?: number },
 ): Promise<UnifiedParseResponse> {
+	// 비전 API는 response_format(JSON mode)을 사용하지 않는다.
+	// Fireworks 등에서 비전 + JSON mode 조합 시 이미지 인식이 실패하는 문제가 확인됨.
 	const { client, model, temperature, extra_body } = getLLMConfig(provider);
 	const today = getTodayString();
 	const timeoutMs = resolveTimeoutMs(options?.timeoutMs, 45000);
@@ -322,6 +331,7 @@ export async function parseUnifiedImage(
 			throw new Error("LLM 응답이 비어 있습니다.");
 		}
 
+		// 비전 API는 JSON mode 미적용 — 마크다운 코드블록 등 비정형 응답을 extractJSON으로 처리
 		const jsonStr = extractJSON(content);
 		const parsed = JSON.parse(jsonStr);
 		const result = parseUnifiedResponse(parsed);

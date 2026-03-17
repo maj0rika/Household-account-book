@@ -11,6 +11,7 @@ interface LLMConfig {
 	client: OpenAI;
 	model: string;
 	temperature: number;
+	response_format?: { type: "json_object" | "text" };
 	extra_body?: Record<string, unknown>;
 }
 
@@ -23,9 +24,10 @@ const configs: Record<LLMProvider, () => LLMConfig> = {
 			baseURL: "https://api.minimax.io/v1",
 		}),
 		model: "MiniMax-M2.5",
-		temperature: 1,
+		temperature: 0.5,
+		response_format: { type: "json_object" },
 		extra_body: {
-			reasoning_split: true,
+			reasoning_split: false,
 		},
 	}),
 	kimi: () => ({
@@ -35,6 +37,7 @@ const configs: Record<LLMProvider, () => LLMConfig> = {
 		}),
 		model: "kimi-k2.5",
 		temperature: 1, // K2.5는 temperature 1 고정
+		response_format: { type: "json_object" },
 		extra_body: {
 			chat_template_kwargs: { thinking: false },
 		},
@@ -46,6 +49,7 @@ const configs: Record<LLMProvider, () => LLMConfig> = {
 		}),
 		model: "accounts/fireworks/models/kimi-k2p5",
 		temperature: 1,
+		response_format: { type: "json_object" },
 	}),
 };
 

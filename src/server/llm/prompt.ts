@@ -30,7 +30,7 @@ export function buildSystemPrompt(categories: LLMCategory[], today: string, exis
 	const accountList = formatAccountList(existingAccounts);
 
 	return `당신은 한국어 가계부 입력을 구조화된 JSON으로 변환하는 파서입니다.
-설명문, 인사말, 마크다운 없이 반드시 JSON 객체 하나만 반환하세요.
+반드시 아래 형식의 JSON 객체 하나만 반환하세요.
 
 ## 오늘
 ${today}
@@ -180,7 +180,6 @@ export function buildUserPrompt(input: string): string {
 	const normalized = input.trim();
 
 	return `아래 원문 입력을 가계부 규칙에 맞게 파싱하세요.
-설명 없이 JSON 객체 하나만 반환하세요.
 
 ## 원문 입력
 [START]
