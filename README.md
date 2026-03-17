@@ -41,7 +41,6 @@ AI 자연어 입력과 이미지/은행 알림 파싱을 이용해 거래를 기
 - Better Auth 인증 경로는 DB 기반 `rateLimit`로 보호됩니다;
 - `/api/parse`는 Origin 검증, 텍스트/이미지 입력 상한, 유저/세션/IP 기준 요청 제한을 적용합니다;
 - 세션 `ipAddress`, `userAgent`는 raw 값 대신 해시로 최소화 저장합니다;
-- 상세 운영 정책은 `docs/security-hardening.md`를 참고합니다;
 
 ## 빠른 시작
 
@@ -137,19 +136,15 @@ npm run cap:run:android
 src/app                Next.js App Router 페이지와 API Route
 src/components         대시보드, 거래, 자산, 통계, 설정 UI
 src/server             DB, Server Actions, LLM, 서비스 로직
-docs                   구현 계획, 디자인 시스템, 히스토리, 파이프라인 상태
+docs                   공개용 디자인 및 품질 문서
 android / ios          Capacitor 네이티브 프로젝트
 e2e                    Playwright E2E 테스트
 ```
 
 ## 관련 문서
 
-- `docs/implementation-plan.md`: 단일 기준 계획 문서, 통합 backlog, 히스토리 인덱스;
 - `docs/design-system.md`: UI 기준과 컴포넌트 규칙;
 - `docs/code-quality.md`: 코드 품질 가이드;
-- `docs/project-identity.md`: 환경변수와 로컬 셋업 책임 범위;
-- `docs/security-hardening.md`: Auth/Parse 공개 입력 보안 정책과 운영 체크리스트;
-- `docs/history/`: 변경 기록;
 
 ## 참고
 

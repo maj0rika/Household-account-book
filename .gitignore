@@ -78,3 +78,15 @@ docs/history/*doc-pdf-sync*
 docs/history/*deep-dive-manual.md
 docs/history/*product-manual.md
 docs/pipeline-state/*pdf-sync.md
+
+# 내부 운영 문서 로컬 유지
+docs/brainstorms/
+docs/history/
+docs/interview/
+docs/implementation-plan.md
+docs/pipeline-state/
+docs/pipeline-state-template.md
+docs/project-identity.md
+docs/roadmap-v2-todo-phase-plan.md
+docs/security-hardening.md
+docs/subagent-pipeline.md
