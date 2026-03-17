@@ -152,18 +152,41 @@ function parseUnifiedResponse(parsed: unknown): { intent: "transaction" | "accou
 
 // 타임아웃시 AbortSignal로 HTTP 요청 자체를 취소하여 "늦은 200 OK" 유령 응답을 방지
 // withTimeout(fn, 45000) → 45초 내 응답 없으면 LLMTimeoutError throw
+// externalSignal이 전달되면 외부에서도 abort 가능 (동시 경쟁 패자 취소용)
 async function withTimeout<T>(
 	task: (signal: AbortSignal) => Promise<T>,
 	ms: number,
+	externalSignal?: AbortSignal,
 ): Promise<T> {
 	const controller = new AbortController();
 	const timeoutId = setTimeout(() => {
 		controller.abort(new LLMTimeoutError());
 	}, ms);
 
+	// 외부 signal(동시 경쟁 패자 취소)을 내부 controller에 연결
+	function onExternalAbort() {
+		controller.abort(externalSignal?.reason ?? new Error("external abort"));
+	}
+	if (externalSignal) {
+		if (externalSignal.aborted) {
+			clearTimeout(timeoutId);
+			throw externalSignal.reason instanceof Error
+				? externalSignal.reason
+				: new Error("external abort");
+		}
+		externalSignal.addEventListener("abort", onExternalAbort, { once: true });
+	}
+
 	try {
 		return await task(controller.signal);
 	} catch (error) {
+		// 외부 abort(레이스 패자)는 AbortError로 전파
+		if (externalSignal?.aborted) {
+			throw externalSignal.reason instanceof Error
+				? externalSignal.reason
+				: new Error("external abort");
+		}
+
 		if (controller.signal.aborted) {
 			const reason = controller.signal.reason;
 			if (reason instanceof Error) {
@@ -175,6 +198,7 @@ async function withTimeout<T>(
 		throw error;
 	} finally {
 		clearTimeout(timeoutId);
+		externalSignal?.removeEventListener("abort", onExternalAbort);
 	}
 }
 
@@ -206,7 +230,7 @@ export async function parseUnifiedText(
 	categories: LLMCategory[],
 	existingAccounts: Account[] = [],
 	provider?: LLMProvider,
-	options?: { timeoutMs?: number },
+	options?: { timeoutMs?: number; signal?: AbortSignal },
 ): Promise<UnifiedParseResponse> {
 	const { client, model, temperature, extra_body } = getLLMConfig(provider);
 	const today = getTodayString();
@@ -219,7 +243,11 @@ export async function parseUnifiedText(
 	const startedAt = Date.now();
 
 	try {
-		// 사용자 1회 요청은 벤더 1회 호출만 수행한다.
+		// 외부에서 abort 될 수 있으면 빠르게 탈출
+		if (options?.signal?.aborted) {
+			throw new Error("external abort");
+		}
+
 		const response = await withTimeout(
 			(signal) => client.chat.completions.create({
 				model,
@@ -231,6 +259,7 @@ export async function parseUnifiedText(
 				...extra_body,
 			}, { signal }),
 			timeoutMs,
+			options?.signal,
 		);
 
 		const content = response.choices[0]?.message?.content;

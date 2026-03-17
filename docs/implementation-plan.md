@@ -353,3 +353,4 @@ type: feature | fix | refactor | perf | config | remove | docs
 | 2026-03-17 | 성능        | Server Action 데이터 캐싱 (unstable_cache) 적용                                    | [history](./history/2026-03-17-14-unstable-cache-server-actions.md)                   |
 | 2026-03-17 | 수정        | 저장/수정 후 부분 UI 갱신 개선                                                     | [history](./history/2026-03-17-15-save-edit-partial-ui-updates.md)                    |
 | 2026-03-17 | 리팩터링    | 저장/수정 후 부분 갱신 흐름 단순화                                                 | [history](./history/2026-03-17-16-partial-update-flow-refactor.md)                    |
+| 2026-03-17 | 성능        | 텍스트 파싱 동시 경쟁 전략 (first-success-wins) 전환                               | [history](./history/2026-03-17-17-text-parse-race-strategy.md)                        |
