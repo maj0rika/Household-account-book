@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import {
 	Dialog,
 	DialogContent,
+	DialogDescription,
 	DialogHeader,
 	DialogTitle,
 	DialogFooter,
@@ -118,6 +119,7 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
 				<DialogContent>
 					<DialogHeader>
 						<DialogTitle>카테고리 추가</DialogTitle>
+						<DialogDescription>지출 또는 수입 카테고리를 새로 등록합니다.</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-4">
 						<div>

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import {
 	Dialog,
 	DialogContent,
+	DialogDescription,
 	DialogHeader,
 	DialogTitle,
 	DialogFooter,
@@ -156,6 +157,7 @@ export function BudgetForm({ month, budgets, categories }: BudgetFormProps) {
 				<DialogContent>
 					<DialogHeader>
 						<DialogTitle>예산 추가</DialogTitle>
+						<DialogDescription>월 예산을 새로 등록할 카테고리와 금액을 입력합니다.</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-4">
 						<div>
@@ -205,6 +207,7 @@ export function BudgetForm({ month, budgets, categories }: BudgetFormProps) {
 				<DialogContent>
 					<DialogHeader>
 						<DialogTitle>예산 수정</DialogTitle>
+						<DialogDescription>선택한 예산 항목의 금액을 수정합니다.</DialogDescription>
 					</DialogHeader>
 					{editTarget && (
 						<div className="space-y-4">
