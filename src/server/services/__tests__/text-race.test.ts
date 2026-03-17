@@ -22,48 +22,50 @@ async function raceFirstSuccess(
 	}
 
 	const controllers = tasks.map(() => new AbortController());
-	// 실제 구현처럼 Promise.any 밖에서 실패 메시지를 따로 수집해
-	// 모든 task가 실패한 경우 마지막 에러를 검증할 수 있게 한다.
-	const failures: Array<{ name: string; error: string }> = [];
 
-	const wrappedTasks = tasks.map(async (task, index) => {
+	const wrappedTasks = tasks.map((task, index) => {
 		const controller = controllers[index];
-		try {
-			const result = await task.run(controller.signal);
-			if (result.success) {
-				return { name: task.name, result, index };
-			}
-
-			// success:false는 테스트에서도 "다음 후보 탐색"을 의미하므로 reject로 변환한다.
-			throw { name: task.name, index, error: result.error };
-		} catch (error) {
-			const failure = error && typeof error === "object" && "error" in error
-				? error as { name: string; index: number; error: string }
-				: {
-					name: task.name,
-					index,
+		return task.run(controller.signal)
+			.then((result) => ({ name: task.name, result, index }))
+			.catch((error) => ({
+				name: task.name,
+				result: {
+					success: false as const,
 					error: `파싱 실패: ${error instanceof Error ? error.message : String(error)}`,
-				};
-
-			failures.push({ name: failure.name, error: failure.error });
-			throw failure;
-		}
+				},
+				index,
+			}));
 	});
 
-	try {
-		// raceTextProviders와 동일하게 첫 성공만 채택한다.
-		const winner = await Promise.any(wrappedTasks);
-		for (let i = 0; i < controllers.length; i++) {
-			if (i !== winner.index) controllers[i].abort();
+	return new Promise<UnifiedParseResponse>((resolve) => {
+		let settled = false;
+		let completedCount = 0;
+		const failures: Array<{ name: string; error: string }> = [];
+
+		for (const wrappedTask of wrappedTasks) {
+			wrappedTask.then(({ name, result, index }) => {
+				if (settled) return;
+
+				if (result.success) {
+					settled = true;
+					for (let i = 0; i < controllers.length; i++) {
+						if (i !== index) controllers[i].abort();
+					}
+					resolve(result);
+					return;
+				}
+
+				failures.push({ name, error: result.success ? "" : result.error });
+				completedCount++;
+
+				if (completedCount === tasks.length) {
+					settled = true;
+					const lastFailure = failures[failures.length - 1];
+					resolve({ success: false, error: lastFailure?.error ?? "알 수 없는 오류" });
+				}
+			});
 		}
-		// 패자 abort 이후에도 테스트 런타임에 미정리 promise가 남지 않게 한다.
-		void Promise.allSettled(wrappedTasks);
-		return winner.result;
-	} catch {
-		// 전부 실패한 경우에만 수집한 실패 목록을 읽는다.
-		const lastFailure = failures[failures.length - 1];
-		return { success: false, error: lastFailure?.error ?? "알 수 없는 오류" };
-	}
+	});
 }
 
 // 지연 후 결과를 반환하는 mock task 생성

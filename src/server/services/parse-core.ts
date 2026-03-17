@@ -313,8 +313,8 @@ export async function executeTextParse(
 //   5. 전부 실패 시, 복구 가능한 에러보다 콘텐츠 에러를 우선 반환 (더 유의미)
 //
 // reject 누수 방지:
-//   - Promise.any가 내부적으로 rejection을 수집한다.
-//   - 승자 결정 후 남은 promise는 abort + allSettled로 정리한다.
+//   - Promise.race가 아닌 수동 루프 — 모든 promise에 .catch 핸들러 부착
+//   - 승자 결정 후 남은 promise는 abort + catch 흡수
 async function raceTextProviders(
 	providers: LLMProvider[],
 	processedInput: string,
@@ -322,106 +322,80 @@ async function raceTextProviders(
 	existingAccounts: Account[],
 	timeoutMs: number,
 ): Promise<UnifiedParseResponse> {
-	// Promise.any의 성공 조건을 명시적으로 표현해
-	// "첫 success 응답만 채택" 규칙을 타입 수준에서도 드러낸다.
-	interface ProviderRaceSuccess {
-		provider: LLMProvider;
-		index: number;
-		result: Extract<UnifiedParseResponse, { success: true }>;
-	}
-
-	// Promise.any는 reject 이유를 AggregateError.errors에 모으므로
-	// provider별 실패 원인을 이후 pickBestFailure에서 재사용할 수 있게 구조화한다.
-	interface ProviderRaceFailure {
-		provider: LLMProvider;
-		index: number;
-		error: string;
-	}
-
-	// 외부 예외와 우리가 의도적으로 던진 race 실패 객체를 구분한다.
-	const isProviderRaceFailure = (value: unknown): value is ProviderRaceFailure => {
-		if (!value || typeof value !== "object") return false;
-		const candidate = value as Partial<ProviderRaceFailure>;
-		return typeof candidate.provider === "string"
-			&& typeof candidate.index === "number"
-			&& typeof candidate.error === "string";
-	};
-
 	// 각 provider별 독립 AbortController — 승자 외 나머지를 개별 취소
 	const controllers = providers.map(() => new AbortController());
-	// Promise.any는 첫 성공만 반환하므로, 실패 원인은 별도 버퍼에 모아 두었다가
-	// 모든 provider가 실패했을 때 가장 의미 있는 메시지를 선택한다.
-	const failures: Array<{ provider: LLMProvider; error: string }> = [];
-	// 승자 확정 뒤 abort된 패자가 늦게 reject 되더라도 실패 로그에 다시 쌓지 않기 위한 플래그다.
-	let winnerIndex = -1;
 
-	// provider별 promise를 Promise.any용 성공/실패 흐름으로 변환한다.
-	const tasks: Array<Promise<ProviderRaceSuccess>> = providers.map(async (provider, index) => {
+	// provider별 promise 생성 — { provider, result } 형태로 감싸서 승자 식별
+	const tasks = providers.map((provider, index) => {
 		const controller = controllers[index];
-		try {
-			const result = await parseUnifiedText(
-				processedInput,
-				userCategories,
-				existingAccounts,
-				provider,
-				{ timeoutMs, signal: controller.signal },
-			);
 
-			if (result.success) {
-				return { provider, result, index };
-			}
-
-			// success:false 응답은 Promise.any 입장에서는 "다음 후보를 보라"는 실패이므로
-			// provider 메타데이터를 붙여 reject 경로로 보낸다.
-			throw {
-				provider,
-				index,
-				error: result.error,
-			} satisfies ProviderRaceFailure;
-		} catch (error) {
-			const failure = isProviderRaceFailure(error)
-				? error
-				: {
-					provider,
-					index,
-					error: `파싱 실패: ${error instanceof Error ? error.message : String(error)}`,
-				};
-
-			if (winnerIndex !== -1 && controller.signal.aborted) {
-				throw failure;
-			}
-
-			// 승자 확정 전의 실패만 집계해야 전체 실패 시 우선순위 선택이 정확해진다.
-			failures.push({ provider: failure.provider, error: failure.error });
-			console.warn("[LLM] text race provider failed", {
-				provider: failure.provider,
-				error: failure.error,
-			});
-			throw failure;
-		}
+		return parseUnifiedText(
+			processedInput,
+			userCategories,
+			existingAccounts,
+			provider,
+			{ timeoutMs, signal: controller.signal },
+		).then((result) => ({ provider, result, index }));
 	});
 
-	try {
-		// 첫 성공 하나만 resolve되고, 나머지는 내부적으로 reject 수집된다.
-		const winner = await Promise.any(tasks);
-		winnerIndex = winner.index;
+	// 모든 promise에 rejection 핸들러 부착 — unhandled rejection 방지
+	// (abort로 인한 거부도 여기서 흡수)
+	const safeTasks = tasks.map((task) =>
+		task.catch((error) => ({
+			provider: "unknown" as LLMProvider,
+			result: {
+				success: false as const,
+				error: `파싱 실패: ${error instanceof Error ? error.message : String(error)}`,
+			},
+			index: -1,
+		})),
+	);
 
-		console.info("[LLM] text race winner", { provider: winner.provider });
+	// 모든 결과를 수집하면서 첫 성공을 감지하는 수동 레이스
+	return new Promise<UnifiedParseResponse>((resolve) => {
+		let settled = false;
+		let completedCount = 0;
+		const failures: Array<{ provider: LLMProvider; error: string }> = [];
 
-		// 이미 승자가 정해졌으므로 나머지 HTTP 요청은 즉시 중단해 비용과 지연을 줄인다.
-		for (let i = 0; i < controllers.length; i++) {
-			if (i !== winner.index) controllers[i].abort();
+		for (const safeTask of safeTasks) {
+			safeTask.then(({ provider, result, index }) => {
+				// 이미 승자가 결정된 후 도착한 결과는 무시
+				if (settled) return;
+
+				if (result.success) {
+					// 첫 번째 성공 — 승자 확정
+					settled = true;
+
+					console.info("[LLM] text race winner", { provider });
+
+					// 패자 promise 취소 — HTTP 요청 자체를 abort
+					for (let i = 0; i < controllers.length; i++) {
+						if (i !== index) controllers[i].abort();
+					}
+
+					resolve(result);
+					return;
+				}
+
+				// 실패 기록
+				const errorMsg = result.success ? "" : result.error;
+				failures.push({ provider, error: errorMsg });
+				completedCount++;
+
+				console.warn("[LLM] text race provider failed", {
+					provider,
+					error: errorMsg,
+					remaining: providers.length - completedCount,
+				});
+
+				// 모든 provider가 실패한 경우 — 가장 유의미한 에러 반환
+				if (completedCount === providers.length) {
+					settled = true;
+					resolve(pickBestFailure(failures));
+				}
+			});
 		}
-		// abort된 패자 promise가 백그라운드에서 마무리될 때 unhandled rejection이 남지 않게 정리한다.
-		void Promise.allSettled(tasks);
-
-		return winner.result;
-	} catch (error) {
-		if (!(error instanceof AggregateError)) {
-			throw error;
-		}
-		return pickBestFailure(failures);
-	}
+	});
 }
 
 // 여러 provider 실패 중 사용자에게 가장 유의미한 에러를 선택
