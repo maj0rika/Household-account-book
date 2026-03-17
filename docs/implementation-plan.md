@@ -357,3 +357,4 @@ type: feature | fix | refactor | perf | config | remove | docs
 | 2026-03-17 | 제거        | 자산 파싱 저장 후 성공 배너 제거                                                   | [history](./history/2026-03-17-18-asset-parse-success-banner-removal.md)              |
 | 2026-03-17 | 제거        | 저장 완료 배너 전체 제거                                                           | [history](./history/2026-03-17-19-post-action-banner-removal.md)                      |
 | 2026-03-17 | 수정        | Dialog Description 누락으로 발생한 접근성 경고 제거                                | [history](./history/2026-03-17-20-dialog-description-warning-fix.md)                  |
+| 2026-03-17 | 성능        | 거래 화면 초기 응답 지연 완화                                                      | [history](./history/2026-03-17-21-transactions-ttfb-reduction.md)                     |

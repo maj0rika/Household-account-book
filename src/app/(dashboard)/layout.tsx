@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 
 import { getServerSession } from "@/server/auth";
@@ -19,13 +20,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
 		redirect("/login");
 	}
 
-	// 전역 입력 시트가 어느 탭에서 열려도 즉시 동작할 수 있도록
-	// 카테고리/계정 기본 데이터를 레이아웃 단계에서 한 번 준비한다.
-	const [initialCategories, initialAccounts] = await Promise.all([
-		getUserCategories(),
-		getAccounts(),
-	]);
-
 	return (
 		<ManualInputProvider>
 			{/* 공통 네비게이션과 전역 입력 UI를 레이아웃에 올려
@@ -37,10 +31,25 @@ export default async function DashboardLayout({ children }: { children: React.Re
 				<BottomTabBar />
 			</div>
 			<GlobalManualInputDialog />
-			<UnifiedInputSection
-				initialCategories={initialCategories}
-				initialAccounts={initialAccounts}
-			/>
+			<Suspense fallback={null}>
+				<UnifiedInputSectionLoader />
+			</Suspense>
 		</ManualInputProvider>
+	);
+}
+
+async function UnifiedInputSectionLoader() {
+	// 전역 입력 시트 초기값은 첫 HTML보다 늦게 도착해도 되므로
+	// 별도 Suspense 경계로 분리해 대시보드 TTFB를 막지 않는다.
+	const [initialCategories, initialAccounts] = await Promise.all([
+		getUserCategories(),
+		getAccounts(),
+	]);
+
+	return (
+		<UnifiedInputSection
+			initialCategories={initialCategories}
+			initialAccounts={initialAccounts}
+		/>
 	);
 }

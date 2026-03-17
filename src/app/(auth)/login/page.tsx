@@ -36,7 +36,7 @@ export default function LoginPage() {
 			email,
 			password,
 			rememberMe,
-			callbackURL: "/",
+			callbackURL: "/transactions",
 		});
 
 		if (error) {
@@ -45,8 +45,7 @@ export default function LoginPage() {
 			return;
 		}
 
-		router.push("/");
-		router.refresh();
+		router.replace("/transactions");
 	};
 
 	return (

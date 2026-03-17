@@ -35,7 +35,7 @@ export default function RegisterPage() {
 			name,
 			email,
 			password,
-			callbackURL: "/",
+			callbackURL: "/transactions",
 		});
 
 		if (error) {
@@ -44,8 +44,7 @@ export default function RegisterPage() {
 			return;
 		}
 
-		router.push("/");
-		router.refresh();
+		router.replace("/transactions");
 	};
 
 	return (

@@ -6,6 +6,7 @@
 // - `src/app/api/auth/[...all]/route.ts`에서 이 파일을 import해 상위 흐름에 연결한다;
 // 흐름:
 // - 로그인/회원가입 요청 또는 서버 렌더링 진입 -> Better Auth가 세션을 읽고 갱신 -> 이 파일의 헬퍼가 recoverable 오류를 흡수하거나 사용자 ID만 추출해 상위 계층에 넘긴다;
+import { cache } from "react";
 import { headers } from "next/headers";
 import { APIError, betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -127,9 +128,10 @@ function isRecoverableSessionError(error: unknown): error is APIError {
 	return RECOVERABLE_SESSION_ERROR_MESSAGES.has(error.body?.message ?? "");
 }
 
-export async function getServerSession() {
+const loadServerSession = cache(async () => {
 	try {
-		// App Router 서버 컴포넌트가 가장 자주 쓰는 세션 조회 진입점이다.
+		// 같은 요청 안에서는 동일 세션을 재사용해
+		// 레이아웃/페이지/Server Action fan-out의 중복 조회를 줄인다.
 		return await auth.api.getSession({
 			headers: await headers(),
 		});
@@ -140,6 +142,10 @@ export async function getServerSession() {
 
 		throw error;
 	}
+});
+
+export async function getServerSession() {
+	return loadServerSession();
 }
 
 export async function getRequestSession(requestHeaders: Headers) {
