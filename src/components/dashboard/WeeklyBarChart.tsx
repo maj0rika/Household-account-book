@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from "recharts";
 import { motion } from "motion/react";
 
+import { blurActiveElement } from "@/lib/accessibility";
 import { getKSTDate, formatDateLocal } from "@/lib/format";
 import { DayTransactionSheet } from "@/components/dashboard/DayTransactionSheet";
 import type { DailyExpense, Transaction, Category } from "@/types";
@@ -38,6 +39,7 @@ export function WeeklyBarChart({ data, weekDates, transactions, categories }: We
 	const maxAmount = Math.max(...chartData.map((d) => d.amount), 1);
 
 	const handleSelectDay = (date: string) => {
+		blurActiveElement();
 		setSelectedDate((prev) => (prev === date ? null : date));
 	};
 

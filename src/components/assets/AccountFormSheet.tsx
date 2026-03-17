@@ -18,6 +18,7 @@ import {
 	DrawerContent,
 	DrawerHeader,
 	DrawerTitle,
+	DrawerDescription,
 	DrawerFooter,
 } from "@/components/ui/drawer";
 import { createAccount, updateAccount } from "@/server/actions/account";
@@ -109,6 +110,9 @@ export function AccountFormSheet({ open, onOpenChange, mode, account, defaultTyp
 					<DrawerTitle>
 						{mode === "create" ? (type === "asset" ? "자산 추가" : "부채 추가") : "계정 수정"}
 					</DrawerTitle>
+					<DrawerDescription>
+						계정 이름, 세부 유형, 아이콘과 현재 금액을 입력하거나 수정합니다.
+					</DrawerDescription>
 				</DrawerHeader>
 
 				<div className="space-y-4 px-4">

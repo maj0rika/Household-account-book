@@ -63,7 +63,7 @@ export function TransactionsLazySections({
 	useRenderPerf("transactions-lazy-sections");
 
 	return (
-		<div style={{ contentVisibility: "auto", containIntrinsicBlockSize: "700px" }}>
+		<div>
 			<Separator className="my-2" />
 			<WeeklyBarChart data={dailyExpenses} weekDates={weekDates} transactions={transactions} categories={categories} />
 			<Separator className="my-2" />
