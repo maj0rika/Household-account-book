@@ -342,3 +342,9 @@ type: feature | fix | refactor | perf | config | remove | docs
 | 2026-03-17 | 문서        | Recharts CategoryPieChart 크기 경고 원인 기록                                      | [history](./history/2026-03-17-01-recharts-category-piechart-warning.md)              |
 | 2026-03-17 | 문서        | 전역 한글 주석 보강                                                                | [history](./history/2026-03-17-03-global-korean-comments.md)                          |
 | 2026-03-17 | 설정        | 개인 문서 참조 및 키워드 정리                                                      | [history](./history/2026-03-17-04-private-doc-reference-cleanup.md)                   |
+| 2026-03-17 | 문서        | 전체 사용자 플로우 차트 및 PDF 문서화                                              | [history](./history/2026-03-17-05-user-flowchart-docs.md)                             |
+| 2026-03-17 | 문서        | 플로우차트 세로형 재구성 및 PDF 가독성 개선                                        | [history](./history/2026-03-17-06-flowchart-readability-fix.md)                       |
+| 2026-03-17 | 문서        | 플로우차트 중간 밀도 재조정 및 PDF 재출력                                          | [history](./history/2026-03-17-07-flowchart-density-rebalance.md)                     |
+| 2026-03-17 | 문서        | 플로우차트 PDF 빈 페이지 및 여백 제거                                              | [history](./history/2026-03-17-08-pdf-pagination-fix.md)                              |
+| 2026-03-17 | 문서        | 네비게이션 메뉴 최초 진입 플로우 추가                                              | [history](./history/2026-03-17-09-navigation-entry-flows.md)                          |
+| 2026-03-17 | 문서        | 문서 변경 브랜치 핸드오프 준비                                                    | [history](./history/2026-03-17-10-docs-handoff-branch.md)                             |
