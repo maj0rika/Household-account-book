@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell } from "recharts";
 import { motion } from "motion/react";
 
 import { formatCurrency } from "@/lib/format";
@@ -62,31 +62,29 @@ export function CategoryPieChart({ data, month }: CategoryPieChartProps) {
 			<h3 className="mb-3 text-sm font-semibold">카테고리별 지출</h3>
 			<div className="flex items-center gap-4">
 				<div className="relative h-[140px] w-[140px] shrink-0">
-					<ResponsiveContainer width="100%" height="100%">
-						<PieChart>
-							<Pie
-								data={data}
-								dataKey="amount"
-								nameKey="categoryName"
-								cx="50%"
-								cy="50%"
-								innerRadius={40}
-								outerRadius={65}
-								strokeWidth={2}
-								stroke="var(--background)"
-								animationDuration={800}
-								animationBegin={200}
-								onClick={(_, index) => {
-									const target = typeof index === "number" ? data[index] : null;
-									if (target) goToCategoryDetail(target.categoryId);
-								}}
-							>
-								{data.map((_, index) => (
-									<Cell key={index} fill={COLORS[index % COLORS.length]} style={{ cursor: "pointer" }} />
-								))}
-							</Pie>
-						</PieChart>
-					</ResponsiveContainer>
+					<PieChart width={140} height={140}>
+						<Pie
+							data={data}
+							dataKey="amount"
+							nameKey="categoryName"
+							cx="50%"
+							cy="50%"
+							innerRadius={40}
+							outerRadius={65}
+							strokeWidth={2}
+							stroke="var(--background)"
+							animationDuration={800}
+							animationBegin={200}
+							onClick={(_, index) => {
+								const target = typeof index === "number" ? data[index] : null;
+								if (target) goToCategoryDetail(target.categoryId);
+							}}
+						>
+							{data.map((_, index) => (
+								<Cell key={index} fill={COLORS[index % COLORS.length]} style={{ cursor: "pointer" }} />
+							))}
+						</Pie>
+					</PieChart>
 					<div className="absolute inset-0 flex flex-col items-center justify-center">
 						<span className="text-[10px] text-muted-foreground">총 지출</span>
 						<span className="text-xs font-bold">{formatCurrency(total)}</span>
