@@ -25,7 +25,7 @@ const configs: Record<LLMProvider, () => LLMConfig> = {
 		}),
 		model: "MiniMax-M2.5",
 		temperature: 0.5,
-		response_format: { type: "json_object" },
+		// JSON mode 미적용 — M2.5는 json_object 설정 시 정상 입력을 OOD로 거부하는 문제 확인
 		extra_body: {
 			reasoning_split: false,
 		},
