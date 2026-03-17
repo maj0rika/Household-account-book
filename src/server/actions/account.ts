@@ -64,6 +64,8 @@ const cachedGetAccountSummary = unstable_cache(
 			.from(accounts)
 			.where(and(eq(accounts.userId, userId), eq(accounts.isActive, true)));
 
+		// 잔액 컬럼이 암호화돼 있어 DB 집계만으로는 순자산을 바로 계산할 수 없다.
+		// 따라서 각 row를 복호화한 뒤 애플리케이션 레벨에서 자산/부채/순자산을 다시 합산한다.
 		let totalAssets = 0;
 		let totalDebts = 0;
 		for (const row of rows) {
@@ -166,6 +168,8 @@ export async function upsertParsedAccountsBatch(
 			return { success: false, error: "저장할 항목이 없습니다." };
 		}
 
+		// 파싱 시트의 최종 draft는 create/update가 섞여 들어오므로
+		// 일부만 반영된 상태를 남기지 않기 위해 전체 배치를 하나의 트랜잭션으로 처리한다.
 		// 자산 파싱 결과 시트는 create/update가 섞여서 저장될 수 있다.
 		// 하나라도 실패하면 전체를 롤백해야 시트와 실제 DB 상태가 어긋나지 않는다.
 		await db.transaction(async (tx) => {

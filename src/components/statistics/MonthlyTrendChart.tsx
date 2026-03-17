@@ -9,6 +9,7 @@ interface MonthlyTrendChartProps {
 }
 
 export function MonthlyTrendChart({ data }: MonthlyTrendChartProps) {
+	// 서버 trend 응답을 Recharts가 바로 읽는 프레젠테이션 전용 shape로 한 번 변환한다.
 	const chartData = data.map((d) => ({
 		month: d.month.slice(5),
 		수입: d.income,

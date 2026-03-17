@@ -34,6 +34,8 @@ export function DeleteAccountDialog({ open, onOpenChange }: DeleteAccountDialogP
 
 	// Dialog 닫힐 때 상태 초기화 (삭제 진행 중에는 닫기 차단)
 	const handleOpenChange = (nextOpen: boolean) => {
+		// 삭제 요청 중에 닫히면 비밀번호 입력 상태와 서버 처리 상태가 어긋날 수 있어
+		// pending 동안에는 사용자가 다이얼로그를 닫지 못하게 막는다.
 		if (!nextOpen && isPending) return;
 		if (!nextOpen) {
 			setPassword("");
@@ -53,6 +55,8 @@ export function DeleteAccountDialog({ open, onOpenChange }: DeleteAccountDialogP
 					return;
 				}
 
+				// DB 삭제와 브라우저 세션 정리는 분리돼 있으므로
+				// 서버 성공 후 클라이언트 세션도 명시적으로 정리하고 로그인 화면으로 보낸다.
 				// 세션 정리 후 로그인 페이지로 이동
 				await authClient.signOut();
 				router.push("/login");

@@ -9,6 +9,8 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "@/server/auth";
 
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
+	// 인증 화면도 서버에서 먼저 세션을 확인해
+	// 로그인 폼이 잠깐 보였다가 사라지는 플래시를 막는다.
 	const session = await getServerSession();
 
 	if (session?.user) {

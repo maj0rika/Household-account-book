@@ -99,6 +99,8 @@ export function AccountList({ accounts }: { accounts: Account[] }) {
 	const [addingType, setAddingType] = useState<"asset" | "debt" | null>(null);
 
 	useEffect(() => {
+		// 삭제/수정 직후에는 로컬 상태로 즉시 반응하되,
+		// 서버 revalidation 결과가 오면 props를 다시 진실 공급원으로 삼아 덮어쓴다.
 		setLocalAccounts(accounts);
 	}, [accounts]);
 
@@ -111,6 +113,8 @@ export function AccountList({ accounts }: { accounts: Account[] }) {
 			try {
 				const result = await deleteAccount(id);
 				if (result.success) {
+					// soft delete가 서버에서 성공한 뒤에만 로컬 목록에서 제거하고,
+					// 최종 정합성은 이후 revalidation 결과로 다시 맞춘다.
 					setLocalAccounts((prev) => prev.filter((account) => account.id !== id));
 					setEditingAccount((prev) => (prev?.id === id ? null : prev));
 				}

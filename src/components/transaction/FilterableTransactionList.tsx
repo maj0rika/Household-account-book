@@ -1,11 +1,11 @@
 "use client";
 
 // 파일 역할:
-// - 거래 화면에서 재사용되는 도메인 UI 파일이다.
+// - 거래 목록 위에 로컬 검색/유형/카테고리 필터 UI를 얹는 클라이언트 컴포넌트다.
 // 사용 위치:
-// - 직접 import 경로가 드러나지 않는 진입점이거나, 프레임워크/테스트 러너가 런타임에 호출한다;
+// - 거래 페이지가 월 기준 거래 배열과 카테고리/계정 목록을 내려줄 때 함께 렌더링된다;
 // 흐름:
-// - 상위 페이지/섹션 컴포넌트가 데이터를 내려주면, 이 파일이 상태와 이벤트를 정리해 하위 UI 프리미티브에 전달한다;
+// - 서버에서 받은 거래 배열은 그대로 두고, 검색어는 Enter 시점에만 적용해 로컬 필터 상태로 목록을 좁힌다;
 import { useState, useMemo, useCallback } from "react";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";

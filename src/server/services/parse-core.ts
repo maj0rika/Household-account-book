@@ -108,7 +108,7 @@ function resolveImageProviders(sessionId: string): LLMProvider[] {
 		]);
 	}
 
-	// 이미지/긴 입력은 Kimi 우선
+	// Fireworks 우선 사용 조건을 넘겼거나 쿨다운 중이면 Kimi를 먼저 시도한다.
 	if (hasKimi()) return ["kimi"];
 
 	// 최후 폴백
@@ -117,9 +117,9 @@ function resolveImageProviders(sessionId: string): LLMProvider[] {
 	return [];
 }
 
-// 폴백을 시도할 가치가 있는 실패인지 판단
-// true: 타임아웃/네트워크/서버 오류 → 다른 provider로 재시도
-// false: 콘텐츠 오류/입력 오류 → 다른 provider로도 같은 결과이므로 즉시 중단
+// 폴백을 시도할 가치가 있는 실패인지 판단한다.
+// true면 같은 payload로 다음 provider를 계속 시도하고, false면 현재 provider 응답을 최종 실패 후보로 취급한다.
+// 실제 중단 여부는 텍스트/이미지 호출부의 폴백 루프가 결정한다.
 function isRecoverableProviderFailure(message: string): boolean {
 	const normalized = message.toLowerCase();
 
@@ -241,7 +241,7 @@ async function getUserAccounts(userId: string): Promise<Account[]> {
 	}));
 }
 
-// 코어 텍스트 파싱 — Server Action / API 라우트 공용
+// 코어 텍스트 파싱 — 현재는 `/api/parse` route handler가 호출하는 텍스트 파싱 진입점이다.
 // OOD 필터 → 카테고리·계좌 병렬 조회 → 모든 provider 동시 경쟁 (first-success-wins)
 export async function executeTextParse(
 	input: string,
@@ -258,6 +258,8 @@ export async function executeTextParse(
 		return { success: false, error: OOD_ERROR_MESSAGE };
 	}
 
+	// 이후 단건 호출과 경쟁 호출이 같은 실행 컨텍스트를 공유하도록
+	// 입력 특성과 환경 상태를 먼저 확정한다.
 	// provider(AI 제공자) 및 timeout(제한 시간) 결정
 	const providers = resolveTextProviders();
 	const timeoutMs = resolveTextTimeoutMs(input);
@@ -274,6 +276,8 @@ export async function executeTextParse(
 	// 은행 메시지 전처리 (불필요한 공백이나 특수문자 제거)
 	const processedInput = isBankMessage(input) ? preprocessBankMessage(input) : input;
 
+	// provider가 하나뿐이면 경쟁 제어용 controller/bookkeeping 비용을 생략하고
+	// 가장 짧은 경로로 단건 호출만 수행한다.
 	// provider가 1개면 동시 경쟁 불필요 — 단건 호출로 최적화
 	if (providers.length === 1) {
 		const result = await parseUnifiedText(
@@ -286,6 +290,8 @@ export async function executeTextParse(
 		return normalizeParseFailure(result, timeoutMs, false);
 	}
 
+	// Promise.any만으로는 승자 확정, 패자 abort, 실패 수집을 같이 제어하기 어려워
+	// 별도 경쟁 루프로 내려가 첫 성공 응답만 채택한다.
 	// 모든 provider를 동시 호출하고 첫 성공 응답 반환
 	const result = await raceTextProviders(
 		providers,
@@ -410,7 +416,7 @@ function pickBestFailure(
 
 /**
  * 코어 이미지 파싱 — 세션 추출 없이 userId/sessionId를 직접 받는다.
- * Server Action과 API 라우트 모두에서 사용.
+ * 현재는 `/api/parse` route handler가 이미지/혼합 입력을 처리할 때 사용한다.
  */
 export async function executeImageParse(
 	imageBase64: string,
@@ -460,6 +466,8 @@ export async function executeImageParse(
 		lastResult = result;
 
 		const fallbackProvider = providers[index + 1];
+		// 이미지 경로는 텍스트처럼 동시 경쟁하지 않고 순차 폴백 정책을 따른다.
+		// 현재는 Fireworks 실패 시 Kimi 한 단계까지만 허용해 비용과 지연을 통제한다.
 		const shouldFallback = provider === "fireworks" && fallbackProvider === "kimi";
 		if (!shouldFallback) {
 			break;

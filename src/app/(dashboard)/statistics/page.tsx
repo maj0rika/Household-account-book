@@ -55,6 +55,7 @@ function DetailFallback() {
 }
 
 async function StatisticsSummarySection({ month }: { month: string }) {
+	// 상단 요약은 월 이동 직후 가장 먼저 읽히는 카드라 별도 섹션으로 분리한다.
 	const summary = await getMonthlySummary(month);
 	return <MonthlySummaryCard summary={summary} month={month} />;
 }
@@ -66,6 +67,8 @@ async function StatisticsDetailSection({
 	month: string;
 	selectedCategoryId: string | null;
 }) {
+	// 추이와 카테고리 랭킹은 서로 다른 쿼리지만 둘 다 상세 영역에만 쓰이므로
+	// 한 섹션 안에서 병렬 조회 후 지연 렌더링한다.
 	const [trend, ranking] = await Promise.all([
 		getMonthlyTrend(6),
 		getCategoryRanking(month),
@@ -87,6 +90,7 @@ async function StatisticsDetailSection({
 export default async function StatisticsPage({ searchParams }: Props) {
 	const params = await searchParams;
 	const month = params.month ?? getCurrentMonth();
+	// 카테고리 선택은 URL 쿼리로 들고 다녀 월 이동과 공유 링크에도 같은 상태를 유지한다.
 	const selectedCategoryId = params.category ?? null;
 
 	return (

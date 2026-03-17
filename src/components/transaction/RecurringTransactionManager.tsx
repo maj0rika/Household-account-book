@@ -61,6 +61,8 @@ export function RecurringTransactionManager() {
 	const [dayOfMonth, setDayOfMonth] = useState("1");
 
 	const loadData = () => {
+		// 규칙 목록, 카테고리 메타데이터, 이번 달 적용 여부를 함께 초기화하고
+		// 항목 유무에 따라 기본 펼침 상태도 조정한다.
 		getRecurringTransactions().then((data) => {
 			const list = data as RecurringItem[];
 			setItems(list);

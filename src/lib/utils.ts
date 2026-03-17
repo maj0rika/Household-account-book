@@ -1,11 +1,5 @@
-// 파일 역할:
-// - 클라이언트와 서버가 함께 쓰는 공용 유틸 파일이다.
-// 사용 위치:
-// - `src/components/dashboard/CalendarView.tsx`에서 이 파일을 import해 상위 흐름에 연결한다;
-// - `src/components/layout/BottomTabBar.tsx`에서 이 파일을 import해 상위 흐름에 연결한다;
-// - `src/components/layout/Sidebar.tsx`에서 이 파일을 import해 상위 흐름에 연결한다;
-// 흐름:
-// - 각 컴포넌트가 조건부 class 조각을 넘기면, 이 파일이 `clsx`로 1차 합치고 `tailwind-merge`로 충돌 클래스를 정리해 최종 className 문자열을 돌려준다;
+// 공용 `cn()` 유틸이다.
+// shadcn/ui 프리미티브와 도메인 컴포넌트가 Tailwind 클래스 충돌 없이 className을 합칠 때 사용한다.
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 

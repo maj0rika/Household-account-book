@@ -5,7 +5,7 @@
 // 사용 위치:
 // - App Router가 `/register` 경로를 렌더링할 때 직접 사용한다;
 // 흐름:
-// - 라우트 진입점에서 필요한 데이터 조회와 화면 조합을 맡고, 세부 상호작용은 하위 컴포넌트로 위임한다;
+// - 클라이언트에서 회원가입 폼 상태를 관리하고 `authClient.signUp.email()` 성공 시 `/transactions`로 즉시 이동한다;
 import { type FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -31,6 +31,8 @@ export default function RegisterPage() {
 		setIsLoading(true);
 		setErrorMessage(null);
 
+		// 회원가입 직후에도 로그인과 같은 경로 정책을 써서
+		// 성공 후 기본 진입점이 항상 `/transactions` 하나로 모이게 한다.
 		const { error } = await authClient.signUp.email({
 			name,
 			email,

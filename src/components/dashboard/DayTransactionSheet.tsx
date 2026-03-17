@@ -45,6 +45,8 @@ export function DayTransactionSheet({ open, onOpenChange, date, transactions, ca
 	const [editingTx, setEditingTx] = useState<Transaction | null>(null);
 
 	const dayLabel = formatRelativeDate(date);
+	// 상단 요약은 전달받은 날짜별 거래 배열에서 즉시 계산하고,
+	// 항목을 누르면 같은 시트 맥락 안에서 하위 편집 시트를 중첩해서 연다.
 	const totalExpense = transactions.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
 	const totalIncome = transactions.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
 

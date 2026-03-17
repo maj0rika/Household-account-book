@@ -121,6 +121,8 @@ export async function createTransactions(
 		}
 
 		const normalizedItems = items.map((item) => {
+			// 파서가 비워 두거나 공백만 돌려준 필드는 저장 직전에 한 번 더 정규화해
+			// 카테고리/설명 누락 때문에 저장이 갈라지지 않게 막는다.
 			const normalizedCategory = normalizeCategoryName(item.category || defaultCategoryName(item.type));
 			const finalCategory = normalizedCategory || defaultCategoryName(item.type);
 			return {
@@ -129,6 +131,8 @@ export async function createTransactions(
 				description: item.description.trim() || finalCategory,
 			};
 		});
+		// 파싱 결과를 저장 가능한 형태로 다듬는 1차 정규화 단계다.
+		// 이후 카테고리 보정, 일반 거래 저장, recurring 후보화가 모두 이 배열을 기준으로 진행된다.
 
 		// 1) 기존 카테고리 로드
 		let userCategories = await db
@@ -148,6 +152,8 @@ export async function createTransactions(
 		}
 
 		if (missingMap.size > 0) {
+			// 확인 시트에서 추천 카테고리를 그대로 저장하더라도
+			// 최종 저장 시점에는 카테고리 미존재 오류로 끊기지 않게 서버에서 한 번 더 보정한다.
 			// 누락된 카테고리 일괄 삽입
 			await db
 				.insert(categories)
@@ -190,6 +196,7 @@ export async function createTransactions(
 		const recurringCandidates = normalizedItems
 			.filter((item) => item.isRecurring)
 			.map((item) => {
+				// dayOfMonth가 비정상 값으로 들어와도 recurring rule이 깨지지 않게 1~31 범위로 보정한다.
 				const day = item.dayOfMonth ?? new Date(item.date).getDate();
 				const dayOfMonth = Math.max(1, Math.min(31, day));
 				return {
@@ -203,7 +210,10 @@ export async function createTransactions(
 					date: item.date,
 				};
 			});
+		// recurring 항목은 일반 거래와 분리해 규칙 row와 이번 달 즉시 반영분을 함께 만들 준비를 한다.
 
+		// 중복 판정, 거래/규칙 insert, 계좌 잔액 반영을 같은 트랜잭션에 묶어
+		// 부분 저장과 TOCTOU를 막는다.
 		// 트랜잭션 내부에서 중복 판정 + 삽입을 원자적으로 수행 (TOCTOU 방지)
 		const savedCount = await db.transaction(async (tx) => {
 			// 기존 고정거래 조회 (트랜잭션 내에서 일관된 스냅샷)
@@ -246,6 +256,8 @@ export async function createTransactions(
 
 			if (regularValues.length > 0) {
 				await tx.insert(transactions).values(regularValues);
+				// 거래 row만 저장하면 연결 계좌 잔액과 장부가 어긋나므로
+				// 계좌가 있는 항목은 같은 트랜잭션 안에서 잔액까지 함께 맞춘다.
 				// 연결 계좌 잔액 반영
 				for (const item of regularValues) {
 					await adjustAccountBalance(tx, item.accountId, item.type, item.amount);
@@ -278,6 +290,8 @@ export async function createTransactions(
 						isRecurring: true,
 					})),
 				);
+				// 반복 규칙과 이번 달 즉시 반영분을 같이 남겨야
+				// 현재 월 집계와 다음 달 자동 생성 기준이 동시에 유지된다.
 				// 고정 거래는 "자동 생성된 이번 달 거래"와 "반복 규칙"을 함께 남겨야 한다.
 				// 그래야 현재 월 집계에 즉시 반영되면서도 다음 달 자동 생성의 기준을 유지할 수 있다.
 			}
@@ -321,6 +335,7 @@ const cachedGetTransactions = unstable_cache(
 // DB 쿼리 실체 — 캐시 래퍼와 필터 경로 양쪽에서 재사용한다.
 async function queryTransactions(userId: string, month: string, filters?: TransactionFilters): Promise<Transaction[]> {
 	const startDate = `${month}-01`;
+	// 월별 조회는 `[이번 달 1일, 다음 달 1일)` 반열린 구간으로 계산해 말일/타임존 경계 오차를 줄인다.
 	const [year, m] = month.split("-").map(Number);
 	const nextMonth = m === 12 ? `${year + 1}-01-01` : `${year}-${String(m + 1).padStart(2, "0")}-01`;
 

@@ -66,6 +66,8 @@ async function consumeUserParseLimit(
 }
 
 export async function POST(request: Request) {
+	// 하나의 route에서 json 자연어 입력과 multipart 이미지 입력을 모두 받는다.
+	// 공통 보안 검증을 먼저 통과시킨 뒤 payload 형태에 따라 텍스트/이미지 파서로 분기한다.
 	// 세션이 없더라도 origin mismatch 같은 이상 징후는 추적해야 하므로
 	// 인증 전 fingerprint를 먼저 만들어 둔다.
 	const unauthFingerprint = buildRequestFingerprint(request, null);

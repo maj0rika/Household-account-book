@@ -239,6 +239,8 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 
 	// 파싱 실행 — requestId 증가 + 이전 요청 abort + API 호출
 	const executeParse = useCallback(async (submission: ParseSubmission) => {
+		// 새 요청을 현재 요청으로 승격하고 이전 요청은 취소한다.
+		// 성공 시 결과 전달과 draft 정리를, 실패 시 최신 요청 기준 에러 상태 갱신을 담당한다.
 		const requestId = ++requestIdRef.current;
 		const trimmedInput = submission.input.trim();
 		const isLongTask = !!submission.imageData || trimmedInput.length > 100;
@@ -283,6 +285,8 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 			console.error("[NaturalInputBar] 파싱 요청 실패", e);
 			setError("요청 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
 		} finally {
+			// 오래 걸린 이전 요청이 뒤늦게 끝나도 최신 요청의 로딩 상태를 덮어쓰지 않도록
+			// 현재 최신 requestId를 가진 요청만 cleanup 권한을 가진다.
 			if (requestAbortRef.current?.signal.aborted || requestId === requestIdRef.current) {
 				requestAbortRef.current = null;
 			}

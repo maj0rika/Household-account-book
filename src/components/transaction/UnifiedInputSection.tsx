@@ -71,6 +71,8 @@ export function UnifiedInputSection({
 				}
 			})();
 
+			// 거래 저장으로 서버 상태가 바뀔 수 있으므로 시트 종료 직후 스냅샷을 다시 맞춘다.
+			// 혼합 입력이면 같은 입력 결과에 포함된 자산 시트를 이어서 열어 후속 단계를 연결한다.
 			// 혼합 입력 시 거래 저장/닫기 후 자산 시트 이어서 표시
 			if (deferAccountSheet && parsedAccounts.length > 0) {
 				setAccountSheetOpen(true);
@@ -87,6 +89,8 @@ export function UnifiedInputSection({
 	useEffect(() => {
 		let mounted = true;
 
+		// 자산 시트는 거래 시트처럼 카테고리를 바꾸진 않지만
+		// 계좌 생성/수정 결과는 다음 입력 즉시 반영되어야 하므로 계좌 목록만 재동기화한다.
 		if (prevAccountOpen.current && !accountSheetOpen) {
 			void (async () => {
 				try {
@@ -115,9 +119,13 @@ export function UnifiedInputSection({
 		const hasAccounts = accountCount > 0;
 
 		// 혼합 입력 여부를 저장하여 시트에 가이드 문구 표시용으로 사용
+		// 단일 입력창의 결과를 거래 시트 상태와 자산 시트 상태로 분해해
+		// 이후 UI 전이를 부모 오케스트레이터가 순차적으로 예약한다.
 		setSplitMeta(hasTransactions && hasAccounts ? { transactionCount, accountCount } : null);
 
 		if (hasTransactions) {
+			// 거래가 하나라도 있으면 항상 거래 시트를 먼저 열어
+			// 사용자가 저장 순서를 예측 가능하게 유지한다.
 			setParsedTransactions(result.transactions);
 			setTxSheetOpen(true);
 		}

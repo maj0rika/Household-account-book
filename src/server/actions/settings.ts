@@ -18,6 +18,8 @@ export async function addCategory(data: {
 	try {
 		const userId = await getAuthUserId();
 
+		// 현재는 카테고리 정렬 UI가 없어서
+		// 새 카테고리를 같은 유형 목록의 마지막 순서로 붙이는 정책을 유지한다.
 		// 기존 카테고리 수 조회 (sortOrder용)
 		const existing = await db
 			.select({ id: categories.id })
@@ -68,6 +70,8 @@ export async function deleteUserAccount(
 	try {
 		const userId = await getAuthUserId();
 
+		// 계정 삭제는 되돌릴 수 없는 작업이라
+		// Better Auth credential 해시를 다시 검증한 뒤에만 최종 삭제로 내려간다.
 		// credential 계정에서 해시된 비밀번호 조회
 		const [account] = await db
 			.select({ password: authAccounts.password })
@@ -92,6 +96,8 @@ export async function deleteUserAccount(
 			return { success: false, error: "비밀번호가 일치하지 않습니다." };
 		}
 
+		// 실제 삭제는 authUsers 한 건만 제거하고,
+		// 세션/카테고리/거래/자산 데이터 정리는 FK CASCADE에 맡긴다.
 		// 사용자 삭제 — CASCADE로 sessions, accounts, categories, transactions 등 전부 삭제
 		await db.delete(authUsers).where(eq(authUsers.id, userId));
 

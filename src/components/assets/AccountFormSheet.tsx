@@ -74,6 +74,8 @@ export function AccountFormSheet({
 	const balanceFieldId = "account-form-balance";
 
 	const handleTypeChange = (newType: "asset" | "debt") => {
+		// 유형이 바뀌면 이전 유형에 묶여 있던 세부 유형/아이콘이 남지 않도록
+		// 기본 조합을 함께 리셋한다.
 		setType(newType);
 		setSubType(newType === "asset" ? "bank" : "credit_card");
 		setIcon(newType === "asset" ? "🏦" : "💳");
@@ -95,6 +97,8 @@ export function AccountFormSheet({
 						balance: nextBalance,
 					});
 					if (result.success) {
+						// 서버 revalidation이 최종 정합성을 맞추더라도
+						// 생성 직후 목록 체감을 위해 로컬 콜백으로 먼저 반영한다.
 						// 낙관적 업데이트용 임시 객체 — 서버 revalidation 후 실제 데이터로 교체됨
 						onCreated?.({
 							id: result.id,
@@ -119,6 +123,8 @@ export function AccountFormSheet({
 						subType,
 					});
 					if (result.success) {
+						// 수정도 같은 이유로 로컬 snapshot을 먼저 갱신해
+						// 시트가 닫히는 순간 목록이 바로 바뀌도록 맞춘다.
 						onUpdated?.({
 							...account,
 							name: name.trim(),

@@ -48,6 +48,8 @@ export function MonthNavigator({ month }: { month: string }) {
 	const pushWithMonth = useCallback((targetMonth: string) => {
 		const end = perfStart("action:month-navigate");
 		const params = new URLSearchParams(searchParams.toString());
+		// 현재 월은 기본 진입 상태라 쿼리에서 생략하고,
+		// 월 전환 시 focusDate는 범위 불일치를 막기 위해 항상 같이 초기화한다.
 		if (targetMonth === currentMonth) {
 			params.delete("month");
 		} else {
@@ -75,6 +77,8 @@ export function MonthNavigator({ month }: { month: string }) {
 
 		const newMonthStr = `${newYear}-${String(newMonth).padStart(2, "0")}`;
 		startTransition(() => {
+			// 연말/연초 경계에서는 연도까지 함께 보정하고,
+			// URL 전환은 transition으로 감싸 버튼 입력을 막지 않게 유지한다.
 			pushWithMonth(newMonthStr);
 		});
 	};

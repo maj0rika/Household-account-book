@@ -51,6 +51,8 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
 			try {
 				const result = await addCategory({ name: name.trim(), icon, type });
 				if (result.success) {
+					// 실패 시에는 입력을 남겨 바로 수정 재시도할 수 있게 하고,
+					// 성공했을 때만 모달을 닫고 폼 상태를 초기화한다.
 					setOpen(false);
 					setName("");
 					setIcon("📦");

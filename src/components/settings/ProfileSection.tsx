@@ -21,6 +21,8 @@ export function ProfileSection({ user }: ProfileSectionProps) {
 	const [deleteOpen, setDeleteOpen] = useState(false);
 
 	const handleLogout = async () => {
+		// 세션 쿠키를 먼저 정리한 뒤 이동해야
+		// 뒤로 가기나 보호 페이지 재진입 시 오래된 인증 상태가 남지 않는다.
 		await authClient.signOut();
 		router.push("/login");
 	};

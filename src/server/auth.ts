@@ -1,11 +1,10 @@
 // 파일 역할:
 // - Better Auth 설정, 세션 최소화 훅, 서버 공통 인증 헬퍼를 모아 둔 파일이다.
 // 사용 위치:
-// - `src/app/(dashboard)/layout.tsx`에서 이 파일을 import해 상위 흐름에 연결한다;
-// - `src/app/(dashboard)/settings/page.tsx`에서 이 파일을 import해 상위 흐름에 연결한다;
-// - `src/app/api/auth/[...all]/route.ts`에서 이 파일을 import해 상위 흐름에 연결한다;
+// - 서버 레이아웃, 루트 페이지, API Route, Server Action이 같은 세션 해석 규칙을 공유할 때 사용한다;
+// - Better Auth route handler와 인증 보호가 필요한 서버 코드의 공통 허브다;
 // 흐름:
-// - 로그인/회원가입 요청 또는 서버 렌더링 진입 -> Better Auth가 세션을 읽고 갱신 -> 이 파일의 헬퍼가 recoverable 오류를 흡수하거나 사용자 ID만 추출해 상위 계층에 넘긴다;
+// - 요청 단위 세션 조회를 `cache()`로 재사용하고, recoverable 세션 오류만 `null`로 흡수한 뒤 상위 계층에 세션 또는 사용자 ID를 넘긴다;
 import { cache } from "react";
 import { headers } from "next/headers";
 import { APIError, betterAuth } from "better-auth";
@@ -145,6 +144,7 @@ const loadServerSession = cache(async () => {
 });
 
 export async function getServerSession() {
+	// 서버 컴포넌트와 서버 액션은 이 함수를 공통 진입점으로 사용한다.
 	return loadServerSession();
 }
 

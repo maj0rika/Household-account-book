@@ -45,6 +45,8 @@ export function CategoryPieChart({ data, month }: CategoryPieChartProps) {
 
 	const goToCategoryDetail = (categoryId: string) => {
 		startTransition(() => {
+			// 대시보드 요약 차트 클릭을 통계 상세 필터로 연결하고,
+			// 현재 월을 함께 넘겨 같은 기간 맥락을 유지한다.
 			const params = new URLSearchParams(searchParams.toString());
 			params.set("month", month);
 			params.set("category", categoryId);

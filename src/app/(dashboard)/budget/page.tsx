@@ -35,6 +35,8 @@ export default async function BudgetPage({ searchParams }: Props) {
 	const params = await searchParams;
 	const month = params.month ?? getCurrentMonth();
 
+	// 예산 진행률과 생성 폼이 같은 월/카테고리 기준을 보도록
+	// 서버에서 먼저 한 스냅샷으로 묶어 내려준다.
 	const [budgets, categories] = await Promise.all([
 		getBudgetsWithSpent(month),
 		getUserCategories(),

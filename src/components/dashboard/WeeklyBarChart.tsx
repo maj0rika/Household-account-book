@@ -39,6 +39,8 @@ export function WeeklyBarChart({ data, weekDates, transactions, categories }: We
 	const maxAmount = Math.max(...chartData.map((d) => d.amount), 1);
 
 	const handleSelectDay = (date: string) => {
+		// 같은 날짜를 다시 누르면 선택을 해제하고,
+		// 다른 날짜를 누르면 DayTransactionSheet가 읽을 날짜를 교체한다.
 		blurActiveElement();
 		setSelectedDate((prev) => (prev === date ? null : date));
 	};

@@ -82,6 +82,8 @@ export function TransactionEditSheet({
 					date,
 				});
 				if (result.success) {
+					// 서버 revalidation이 최종 정합성을 맞추더라도
+					// 체감 반응성을 위해 시트가 닫히기 전에 로컬 snapshot도 함께 갱신한다.
 					// 낙관적 업데이트 — 서버 revalidation 전 즉시 UI 반영
 					const nextCategory = categories.find((cat) => cat.id === nextCategoryId);
 					const nextAccount = accounts.find((acc) => acc.id === nextAccountId);

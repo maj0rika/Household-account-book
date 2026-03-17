@@ -53,6 +53,8 @@ export function ManualInputDialog({ open, onOpenChange }: ManualInputDialogProps
 
 	useEffect(() => {
 		if (open) {
+			// 전역 입력 시트나 설정 변경 직후에도 최신 서버 상태를 반영하기 위해
+			// 다이얼로그를 열 때마다 카테고리와 계좌 목록을 다시 읽는다.
 			Promise.all([getUserCategories(), getAccounts()]).then(([cats, accs]) => {
 				setCategories(cats as Category[]);
 				setAccountList(accs);

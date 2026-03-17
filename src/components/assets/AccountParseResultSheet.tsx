@@ -112,6 +112,8 @@ function resolveMatchedItem(
 	existingAccounts: Account[],
 	previousItem?: MatchedItem,
 ): MatchedItem {
+	// 초회 자동 매칭, 편집 후 exact rematch, 초기 매칭 복원, 신규 생성 전환을
+	// 하나의 결정 트리로 묶어 자산 시트의 저장 모드를 일관되게 유지한다.
 	if (!previousItem) {
 		const matchedAccount = findInitialMatch(parsed, existingAccounts);
 
@@ -391,6 +393,8 @@ export function AccountParseResultSheet({
 	// 컴포넌트가 열리거나 데이터가 들어오면, AI가 분석한 각 항목을 기존 계정과 대조합니다.
 	// 매칭되는 계정이 있으면 '업데이트(수정)', 없으면 '신규(생성)' 액션을 기본값으로 설정합니다.
 	useEffect(() => {
+		// 시트 재오픈이나 기존 계정 목록 갱신 시
+		// 현재 기준으로 파싱 결과를 다시 매칭해 로컬 draft를 새로 초기화한다.
 		const matched = initialItems.map((parsed) => resolveMatchedItem(parsed, existingAccounts));
 		setDraftMatchedItems(createMatchedDrafts(matched));
 		setErrorMessage(null);
@@ -447,6 +451,8 @@ export function AccountParseResultSheet({
 		startTransition(async () => {
 			startLoading(); // 지연된 로딩 스피너 시작
 			try {
+				// 로컬 draft를 서버 액션 입력 형태로 변환한 뒤
+				// 저장 성공 시 호출 컨텍스트에 맞는 화면(`/transactions` 또는 `/assets`)으로 복귀한다.
 				// 서버 액션: 각 항목의 액션 타입에 따라 매핑하여 전달
 				const result = await upsertParsedAccountsBatch(
 					matchedItems.map((item) => {

@@ -35,11 +35,14 @@ export function CategoryRankingList({ data, selectedCategoryId, month }: Categor
 	const searchParams = useSearchParams();
 
 	const filteredData = useMemo(() => {
+		// 통계 상세는 로컬 상태가 아니라 URL의 `category` 쿼리를 진실 공급원으로 삼는다.
 		if (!selectedCategoryId) return data;
 		return data.filter((item) => item.categoryId === selectedCategoryId);
 	}, [data, selectedCategoryId]);
 
 	const clearCategoryFilter = () => {
+		// 상세 필터만 지우고 현재 월 쿼리는 유지해
+		// 같은 기간 안에서 전체 카테고리 목록으로 되돌아간다.
 		const params = new URLSearchParams(searchParams.toString());
 		params.delete("category");
 		params.set("month", month);

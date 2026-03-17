@@ -542,6 +542,8 @@ export function ParseResultSheet({
 				if (result.success) {
 					onOpenChange(false); // 시트 닫기
 
+					// 거래 저장과 다음 화면 전이는 분리한다.
+					// 혼합 입력이면 여기서는 닫기만 하고, 다음 자산 단계는 부모 오케스트레이터가 이어서 연다.
 					// 만약 '혼합 입력(거래+자산)' Flow 중이라면, 부모 오케스트레이터가 자산 시트를 열도록 유도합니다.
 					if (splitMeta) {
 						return;

@@ -182,6 +182,7 @@ async function TransactionsInsightsSection({
 export default async function TransactionsPage({ searchParams }: Props) {
 	const params = await searchParams;
 	const rawMonth = params.month ?? getCurrentMonth();
+	// 잘못된 month 쿼리가 들어와도 거래 화면은 항상 유효한 월 하나로 수렴시킨다.
 	const month = isValidMonth(rawMonth) ? rawMonth : getCurrentMonth();
 
 	// 고정 거래 자동 적용 — fire-and-forget (페이지 로드를 블로킹하지 않음)
