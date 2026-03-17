@@ -1,5 +1,7 @@
 "use server";
 
+import { unstable_cache } from "next/cache";
+
 // 파일 역할:
 // - 자산/부채 계정 CRUD와 파싱 결과 저장을 담당하는 서버 액션 파일이다.
 // 사용 위치:
@@ -14,67 +16,75 @@ import { getAuthUserIdOrThrow } from "@/server/auth";
 import { db } from "@/server/db";
 import { accounts } from "@/server/db/schema";
 import { encrypt, decryptString, encryptNumber, decryptNumber } from "@/server/lib/crypto";
-import { revalidateAccountPages } from "@/lib/cache-keys";
+import { revalidateAccountPages, CacheTags } from "@/lib/cache-keys";
 import type { Account, AccountSummary } from "@/types";
 
 const getAuthUserId = getAuthUserIdOrThrow;
 
 // `assets/page.tsx`, `transactions/page.tsx`, 계정 선택 시트가 이 함수를 호출한다.
 // DB에는 암호문이 저장되어 있으므로, UI로 내려가기 전에 이름과 잔액을 모두 복호화한다.
+const cachedGetAccounts = unstable_cache(
+	async (userId: string): Promise<Account[]> => {
+		const rows = await db
+			.select()
+			.from(accounts)
+			.where(and(eq(accounts.userId, userId), eq(accounts.isActive, true)))
+			.orderBy(accounts.type, accounts.sortOrder, desc(accounts.createdAt));
+
+		return rows.map((row) => ({
+			id: row.id,
+			userId: row.userId,
+			name: decryptString(row.name),
+			type: row.type,
+			subType: row.subType,
+			icon: row.icon,
+			balance: decryptNumber(row.balance),
+			sortOrder: row.sortOrder,
+			isActive: row.isActive,
+			createdAt: row.createdAt,
+			updatedAt: row.updatedAt,
+		}));
+	},
+	["accounts-list"],
+	{ tags: [CacheTags.accounts], revalidate: 120 },
+);
+
 export async function getAccounts(): Promise<Account[]> {
 	const userId = await getAuthUserId();
-
-	const rows = await db
-		.select()
-		.from(accounts)
-		.where(and(eq(accounts.userId, userId), eq(accounts.isActive, true)))
-		.orderBy(accounts.type, accounts.sortOrder, desc(accounts.createdAt));
-
-	// row는 DB 원본이고, 반환 객체는 UI 전용 Account DTO다.
-	// 여기서 암호화 필드를 평문으로 바꾸지 않으면 렌더링과 파서 매칭이 모두 깨진다.
-	return rows.map((row) => ({
-		id: row.id,
-		userId: row.userId,
-		name: decryptString(row.name),
-		type: row.type,
-		subType: row.subType,
-		icon: row.icon,
-		balance: decryptNumber(row.balance),
-		sortOrder: row.sortOrder,
-		isActive: row.isActive,
-		createdAt: row.createdAt,
-		updatedAt: row.updatedAt,
-	}));
+	return cachedGetAccounts(userId);
 }
 
-// 자산 화면 상단 순자산 카드가 호출한다.
-// `balance`는 문자열 암호문이라 DB SUM을 쓸 수 없어 애플리케이션 레벨에서 직접 합산한다.
+const cachedGetAccountSummary = unstable_cache(
+	async (userId: string): Promise<AccountSummary> => {
+		const rows = await db
+			.select({
+				type: accounts.type,
+				balance: accounts.balance,
+			})
+			.from(accounts)
+			.where(and(eq(accounts.userId, userId), eq(accounts.isActive, true)));
+
+		let totalAssets = 0;
+		let totalDebts = 0;
+		for (const row of rows) {
+			const balance = decryptNumber(row.balance);
+			if (row.type === "asset") totalAssets += balance;
+			if (row.type === "debt") totalDebts += balance;
+		}
+
+		return {
+			totalAssets,
+			totalDebts,
+			netWorth: totalAssets - totalDebts,
+		};
+	},
+	["account-summary"],
+	{ tags: [CacheTags.accounts], revalidate: 120 },
+);
+
 export async function getAccountSummary(): Promise<AccountSummary> {
 	const userId = await getAuthUserId();
-
-	// 암호화된 balance는 DB SUM 불가 → 전체 조회 후 애플리케이션 레벨 합산
-	const rows = await db
-		.select({
-			type: accounts.type,
-			balance: accounts.balance,
-		})
-		.from(accounts)
-		.where(and(eq(accounts.userId, userId), eq(accounts.isActive, true)));
-
-	let totalAssets = 0;
-	let totalDebts = 0;
-	for (const row of rows) {
-		const balance = decryptNumber(row.balance);
-		// 같은 balance라도 계정 타입에 따라 자산/부채 버킷이 갈린다.
-		if (row.type === "asset") totalAssets += balance;
-		if (row.type === "debt") totalDebts += balance;
-	}
-
-	return {
-		totalAssets,
-		totalDebts,
-		netWorth: totalAssets - totalDebts,
-	};
+	return cachedGetAccountSummary(userId);
 }
 
 export async function createAccount(data: {
