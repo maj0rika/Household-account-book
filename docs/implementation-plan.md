@@ -351,3 +351,4 @@ type: feature | fix | refactor | perf | config | remove | docs
 | 2026-03-17 | 수정        | Drawer 접근성 및 차트 크기 경고 수정                                               | [history](./history/2026-03-17-11-drawer-accessibility-and-chart-warning.md)          |
 | 2026-03-17 | 수정        | CategoryPieChart ResponsiveContainer 크기 경고 제거                                | [history](./history/2026-03-17-13-category-piechart-responsive-container-fix.md)      |
 | 2026-03-17 | 성능        | Server Action 데이터 캐싱 (unstable_cache) 적용                                    | [history](./history/2026-03-17-14-unstable-cache-server-actions.md)                   |
+| 2026-03-17 | 수정        | 저장/수정 후 부분 UI 갱신 개선                                                     | [history](./history/2026-03-17-15-save-edit-partial-ui-updates.md)                    |

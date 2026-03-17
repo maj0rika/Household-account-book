@@ -5,7 +5,7 @@ import { PostActionBanner } from "@/components/common/PostActionBanner";
 import { Separator } from "@/components/ui/separator";
 
 interface Props {
-	searchParams: Promise<{ saved?: string; focus?: string }>;
+	searchParams: Promise<{ saved?: string }>;
 }
 
 export default async function AssetsPage({ searchParams }: Props) {
@@ -20,16 +20,12 @@ export default async function AssetsPage({ searchParams }: Props) {
 		? "자산/부채 저장이 완료됐어요. 자산 목록으로 이동했어요."
 		: null;
 
-	const focusTarget = params.focus === "accounts" ? "assets-account-list" : undefined;
-
 	return (
 		<div className="pb-28 md:pb-24">
-			<PostActionBanner message={savedMessage} targetId={focusTarget} />
+			<PostActionBanner message={savedMessage} />
 			<NetWorthCard summary={summary} />
 			<Separator className="my-2" />
-			<div id="assets-account-list">
-				<AccountList accounts={accounts} />
-			</div>
+			<AccountList accounts={accounts} />
 		</div>
 	);
 }

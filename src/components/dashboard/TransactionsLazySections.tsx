@@ -47,7 +47,6 @@ interface TransactionsLazySectionsProps {
 	transactions: Transaction[];
 	categories: Category[];
 	accounts: Account[];
-	listSectionId?: string;
 }
 
 export function TransactionsLazySections({
@@ -58,7 +57,6 @@ export function TransactionsLazySections({
 	transactions,
 	categories,
 	accounts,
-	listSectionId,
 }: TransactionsLazySectionsProps) {
 	useRenderPerf("transactions-lazy-sections");
 
@@ -71,9 +69,7 @@ export function TransactionsLazySections({
 			<Separator className="my-2" />
 			<RecurringTransactionManager />
 			<Separator className="my-2" />
-			<div id={listSectionId}>
-				<FilterableTransactionList transactions={transactions} categories={categories} accounts={accounts} />
-			</div>
+			<FilterableTransactionList transactions={transactions} categories={categories} accounts={accounts} />
 		</div>
 	);
 }

@@ -26,7 +26,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface Props {
-	searchParams: Promise<{ month?: string; saved?: string; focus?: string }>;
+	searchParams: Promise<{ month?: string; saved?: string }>;
 }
 
 // `TransactionsInsightsSection`이 주간 차트 범위를 만들 때 호출한다.
@@ -176,7 +176,6 @@ async function TransactionsInsightsSection({
 			transactions={transactions}
 			categories={categories}
 			accounts={accounts}
-			listSectionId="transactions-list-section"
 		/>
 	);
 }
@@ -197,7 +196,6 @@ export default async function TransactionsPage({ searchParams }: Props) {
 			? "거래 저장이 완료됐어요. 최신 거래를 확인해 주세요."
 			: null;
 
-	const focusTarget = params.focus === "list" ? "transactions-list-section" : undefined;
 
 	return (
 		<div className="pb-28 md:pb-24">
@@ -206,7 +204,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
 			<Suspense fallback={<MonthNavigatorFallback />}>
 				<MonthNavigator month={month} />
 			</Suspense>
-			<PostActionBanner message={savedMessage} targetId={focusTarget} />
+			<PostActionBanner message={savedMessage} />
 
 			<Suspense fallback={<SummaryFallback />}>
 				<TransactionsSummarySection month={month} />

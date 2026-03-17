@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { memo, useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { X, Loader2, ChevronDown, ChevronUp, RefreshCw, PlusCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -50,6 +50,24 @@ interface MatchedItem {
 	initialParsed: ParsedAccount;
 	matchedAccount: Account | null; // null = 신규 생성
 	action: "create" | "update"; // 기본값: 매칭되면 update, 아니면 create
+}
+
+interface DraftMatchedItem {
+	clientKey: string;
+	value: MatchedItem;
+}
+
+let matchedDraftSequence = 0;
+
+function createMatchedDraft(item: MatchedItem): DraftMatchedItem {
+	return {
+		clientKey: `matched-draft-${matchedDraftSequence++}`,
+		value: item,
+	};
+}
+
+function createMatchedDrafts(items: MatchedItem[]): DraftMatchedItem[] {
+	return items.map(createMatchedDraft);
 }
 
 /**
@@ -157,18 +175,20 @@ function resolveMatchedItem(
 }
 
 // 개별 자산/부채 항목 편집 카드 (신규/업데이트 전환, 아코디언 상세 편집)
-function EditableAccountItem({
+const EditableAccountItem = memo(function EditableAccountItem({
+	itemId,
 	item,
 	index,
 	onParsedChange,
 	onToggleAction,
 	onRemove,
 }: {
+	itemId: string;
 	item: MatchedItem;
 	index: number;
-	onParsedChange: (index: number, parsed: ParsedAccount) => void;
-	onToggleAction: (index: number) => void;
-	onRemove: (index: number) => void;
+	onParsedChange: (itemId: string, parsed: ParsedAccount) => void;
+	onToggleAction: (itemId: string) => void;
+	onRemove: (itemId: string) => void;
 }) {
 	const [expanded, setExpanded] = useState(false);
 	const { parsed, matchedAccount, action } = item;
@@ -215,7 +235,7 @@ function EditableAccountItem({
 							? `${parsed.name} 저장 방식을 신규로 변경`
 							: `${parsed.name} 저장 방식을 업데이트로 변경`}
 						className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-						onClick={() => onToggleAction(index)}
+						onClick={() => onToggleAction(itemId)}
 					>
 						<Badge
 							variant={action === "update" ? "outline" : "default"}
@@ -239,7 +259,7 @@ function EditableAccountItem({
 					size="icon"
 					aria-label={`${parsed.name} 항목 삭제`}
 					className="h-7 w-7 shrink-0"
-					onClick={() => onRemove(index)}
+					onClick={() => onRemove(itemId)}
 				>
 					<X className="h-3.5 w-3.5" />
 				</Button>
@@ -271,7 +291,7 @@ function EditableAccountItem({
 							<Input
 								id={nameFieldId}
 								value={parsed.name}
-								onChange={(e) => onParsedChange(index, { ...parsed, name: e.target.value })}
+								onChange={(e) => onParsedChange(itemId, { ...parsed, name: e.target.value })}
 								className="h-8 text-sm"
 							/>
 						</div>
@@ -283,7 +303,7 @@ function EditableAccountItem({
 								<Select
 									value={parsed.type}
 									onValueChange={(value) =>
-										onParsedChange(index, {
+										onParsedChange(itemId, {
 											...parsed,
 											type: value as "asset" | "debt",
 											subType: value === "asset" ? "bank" : "credit_card",
@@ -305,7 +325,7 @@ function EditableAccountItem({
 								<Select
 									value={parsed.subType}
 									onValueChange={(value) =>
-										onParsedChange(index, { ...parsed, subType: value as ParsedAccount["subType"] })
+										onParsedChange(itemId, { ...parsed, subType: value as ParsedAccount["subType"] })
 									}
 								>
 									<SelectTrigger className="h-8 text-sm" aria-label="세부 유형">
@@ -333,7 +353,7 @@ function EditableAccountItem({
 								inputMode="numeric"
 								value={formatCurrencyInput(String(parsed.balance))}
 								onChange={(e) =>
-									onParsedChange(index, {
+									onParsedChange(itemId, {
 										...parsed,
 										balance: Number(parseCurrencyInput(e.target.value)) || 0,
 									})
@@ -346,7 +366,7 @@ function EditableAccountItem({
 			</AnimatePresence>
 		</div>
 	);
-}
+});
 
 interface AccountParseResultSheetProps {
 	open: boolean;
@@ -370,7 +390,7 @@ export function AccountParseResultSheet({
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 	const { showSpinner, startLoading, stopLoading } = useDeferredLoading(200);
-	const [matchedItems, setMatchedItems] = useState<MatchedItem[]>([]);
+	const [draftMatchedItems, setDraftMatchedItems] = useState<DraftMatchedItem[]>([]);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
 	// [라이프사이클: 초기 분석 결과와 프로젝트 계정 목록 매칭]
@@ -378,34 +398,40 @@ export function AccountParseResultSheet({
 	// 매칭되는 계정이 있으면 '업데이트(수정)', 없으면 '신규(생성)' 액션을 기본값으로 설정합니다.
 	useEffect(() => {
 		const matched = initialItems.map((parsed) => resolveMatchedItem(parsed, existingAccounts));
-		setMatchedItems(matched);
+		setDraftMatchedItems(createMatchedDrafts(matched));
 		setErrorMessage(null);
 	}, [initialItems, existingAccounts]);
 
-	const handleParsedChange = (index: number, parsed: ParsedAccount) => {
-		setMatchedItems((prev) =>
-			prev.map((item, i) => {
-				if (i !== index) return item;
-				return resolveMatchedItem(parsed, existingAccounts, item);
-			}),
-		);
-	};
-
-	const handleActionToggle = (index: number) => {
-		setMatchedItems((prev) =>
-			prev.map((item, i) => {
-				if (i !== index || !item.matchedAccount) return item;
+	const handleParsedChange = (itemId: string, parsed: ParsedAccount) => {
+		setDraftMatchedItems((prev) =>
+			prev.map((draft) => {
+				if (draft.clientKey !== itemId) return draft;
 				return {
-					...item,
-					action: item.action === "update" ? "create" : "update",
+					...draft,
+					value: resolveMatchedItem(parsed, existingAccounts, draft.value),
 				};
 			}),
 		);
 	};
 
-	const handleRemove = (index: number) => {
-		setMatchedItems((prev) => {
-			const next = prev.filter((_, i) => i !== index);
+	const handleActionToggle = (itemId: string) => {
+		setDraftMatchedItems((prev) =>
+			prev.map((draft) => {
+				if (draft.clientKey !== itemId || !draft.value.matchedAccount) return draft;
+				return {
+					...draft,
+					value: {
+						...draft.value,
+						action: draft.value.action === "update" ? "create" : "update",
+					},
+				};
+			}),
+		);
+	};
+
+	const handleRemove = (itemId: string) => {
+		setDraftMatchedItems((prev) => {
+			const next = prev.filter((draft) => draft.clientKey !== itemId);
 			if (next.length === 0) {
 				// 즉시 닫으면 리액트 상태 업데이트 중 충돌이 날 수 있어 마이크로태스크로 미룹니다.
 				queueMicrotask(() => onOpenChange(false));
@@ -414,9 +440,11 @@ export function AccountParseResultSheet({
 		});
 	};
 
+	const matchedItems = draftMatchedItems.map((draft) => draft.value);
+
 	// 자산/부채 DB 일괄 저장 (create vs update 분기 + 트랜잭션 처리)
 	const handleSave = () => {
-		if (matchedItems.length === 0) return;
+		if (draftMatchedItems.length === 0) return;
 		setErrorMessage(null);
 
 		startTransition(async () => {
@@ -454,11 +482,11 @@ export function AccountParseResultSheet({
 
 					// 혼합 입력 완료 시 거래 목록으로, 자산만 시 자산 대시보드로 이동
 					if (splitMeta) {
-						router.push("/transactions?saved=mixed&focus=list");
+						router.push("/transactions?saved=mixed");
 						return;
 					}
 
-					router.push("/assets?saved=account&focus=accounts");
+					router.push("/assets?saved=account");
 					return;
 				}
 
@@ -493,10 +521,11 @@ export function AccountParseResultSheet({
 				</DrawerHeader>
 
 				<div className="max-h-[50vh] overflow-y-auto px-4">
-					{matchedItems.map((item, index) => (
+					{draftMatchedItems.map((draft, index) => (
 						<EditableAccountItem
-							key={`${item.parsed.name}-${item.parsed.balance}-${index}`}
-							item={item}
+							key={draft.clientKey}
+							itemId={draft.clientKey}
+							item={draft.value}
 							index={index}
 							onParsedChange={handleParsedChange}
 							onToggleAction={handleActionToggle}

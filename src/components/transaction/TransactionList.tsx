@@ -6,7 +6,7 @@
 // - `src/components/transaction/FilterableTransactionList.tsx`에서 이 파일을 import해 상위 흐름에 연결한다;
 // 흐름:
 // - 상위 페이지/섹션 컴포넌트가 데이터를 내려주면, 이 파일이 상태와 이벤트를 정리해 하위 UI 프리미티브에 전달한다;
-import { useState, useCallback, memo } from "react";
+import { useState, useCallback, useEffect, memo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 
 import { Separator } from "@/components/ui/separator";
@@ -51,14 +51,29 @@ export function TransactionList({
 	categories: Category[];
 	accounts?: Account[];
 }) {
+	const [localTransactions, setLocalTransactions] = useState<Transaction[]>(transactions);
 	const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+
+	useEffect(() => {
+		setLocalTransactions(transactions);
+	}, [transactions]);
 
 	// 콜백 안정화 — TransactionItem의 memo가 효과를 발휘하도록
 	const handleEdit = useCallback((tx: Transaction) => {
 		setEditingTx(tx);
 	}, []);
 
-	if (transactions.length === 0) {
+	const handleUpdated = useCallback((updatedTx: Transaction) => {
+		setLocalTransactions((prev) => prev.map((tx) => (tx.id === updatedTx.id ? updatedTx : tx)));
+		setEditingTx(updatedTx);
+	}, []);
+
+	const handleDeleted = useCallback((transactionId: string) => {
+		setLocalTransactions((prev) => prev.filter((tx) => tx.id !== transactionId));
+		setEditingTx(null);
+	}, []);
+
+	if (localTransactions.length === 0) {
 		return (
 			<motion.div
 				initial={{ opacity: 0 }}
@@ -72,7 +87,7 @@ export function TransactionList({
 		);
 	}
 
-	const groups = groupTransactionsByDate(transactions);
+	const groups = groupTransactionsByDate(localTransactions);
 
 	return (
 		<>
@@ -105,6 +120,8 @@ export function TransactionList({
 					transaction={editingTx}
 					categories={categories}
 					accounts={accounts}
+					onUpdated={handleUpdated}
+					onDeleted={handleDeleted}
 				/>
 			)}
 		</>

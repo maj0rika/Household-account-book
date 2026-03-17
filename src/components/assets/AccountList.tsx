@@ -6,7 +6,7 @@
 // - `src/app/(dashboard)/assets/page.tsx`에서 이 파일을 import해 상위 흐름에 연결한다;
 // 흐름:
 // - 상위 페이지/섹션 컴포넌트가 데이터를 내려주면, 이 파일이 상태와 이벤트를 정리해 하위 UI 프리미티브에 전달한다;
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useCallback, memo } from "react";
 import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -17,7 +17,7 @@ import { deleteAccount } from "@/server/actions/account";
 import { AccountFormSheet } from "@/components/assets/AccountFormSheet";
 import type { Account } from "@/types";
 
-function AccountItem({
+const AccountItem = memo(function AccountItem({
 	account,
 	onEdit,
 	onDelete,
@@ -76,7 +76,7 @@ function AccountItem({
 			</div>
 		</motion.div>
 	);
-}
+});
 
 function getSubTypeLabel(subType: string): string {
 	const labels: Record<string, string> = {
@@ -94,22 +94,43 @@ function getSubTypeLabel(subType: string): string {
 export function AccountList({ accounts }: { accounts: Account[] }) {
 	const [isPending, startTransition] = useTransition();
 	const { showSpinner, startLoading, stopLoading } = useDeferredLoading(200);
+	const [localAccounts, setLocalAccounts] = useState<Account[]>(accounts);
 	const [editingAccount, setEditingAccount] = useState<Account | null>(null);
 	const [addingType, setAddingType] = useState<"asset" | "debt" | null>(null);
 
-	const assets = accounts.filter((a) => a.type === "asset");
-	const debts = accounts.filter((a) => a.type === "debt");
+	useEffect(() => {
+		setLocalAccounts(accounts);
+	}, [accounts]);
 
-	const handleDelete = (id: string) => {
+	const assets = localAccounts.filter((a) => a.type === "asset");
+	const debts = localAccounts.filter((a) => a.type === "debt");
+
+	const handleDelete = useCallback((id: string) => {
 		startTransition(async () => {
 			startLoading();
 			try {
-				await deleteAccount(id);
+				const result = await deleteAccount(id);
+				if (result.success) {
+					setLocalAccounts((prev) => prev.filter((account) => account.id !== id));
+					setEditingAccount((prev) => (prev?.id === id ? null : prev));
+				}
 			} finally {
 				stopLoading();
 			}
 		});
-	};
+	}, [startLoading, stopLoading]);
+
+	const handleUpdated = useCallback((updatedAccount: Account) => {
+		setLocalAccounts((prev) => prev.map((account) => (account.id === updatedAccount.id ? updatedAccount : account)));
+		setEditingAccount(updatedAccount);
+	}, []);
+
+	const handleCreated = useCallback((createdAccount: Account) => {
+		setLocalAccounts((prev) => {
+			const nextSortOrder = prev.filter((account) => account.type === createdAccount.type).length;
+			return [...prev, { ...createdAccount, sortOrder: nextSortOrder }];
+		});
+	}, []);
 
 	return (
 		<>
@@ -201,6 +222,7 @@ export function AccountList({ accounts }: { accounts: Account[] }) {
 					onOpenChange={(open) => { if (!open) setEditingAccount(null); }}
 					mode="edit"
 					account={editingAccount}
+					onUpdated={handleUpdated}
 				/>
 			)}
 
@@ -211,6 +233,7 @@ export function AccountList({ accounts }: { accounts: Account[] }) {
 					onOpenChange={(open) => { if (!open) setAddingType(null); }}
 					mode="create"
 					defaultType={addingType}
+					onCreated={handleCreated}
 				/>
 			)}
 		</>

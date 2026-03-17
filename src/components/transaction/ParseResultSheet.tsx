@@ -2,7 +2,7 @@
 
 // AI 분석 결과를 검수·확정하는 하단 시트 (수정/삭제/카테고리 추가 → 일괄 저장)
 
-import { useState, useTransition, useEffect, useCallback } from "react";
+import { memo, useState, useTransition, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { X, Loader2, ChevronDown, ChevronUp, Repeat, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -103,6 +103,24 @@ function upsertLocalCategory(
 	return [...prev, next];
 }
 
+interface DraftParsedTransaction {
+	clientKey: string;
+	value: ParsedTransaction;
+}
+
+let parsedDraftSequence = 0;
+
+function createParsedDraft(item: ParsedTransaction): DraftParsedTransaction {
+	return {
+		clientKey: `parsed-draft-${parsedDraftSequence++}`,
+		value: item,
+	};
+}
+
+function createParsedDrafts(items: ParsedTransaction[]): DraftParsedTransaction[] {
+	return items.map(createParsedDraft);
+}
+
 interface ParseResultSheetProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -121,7 +139,8 @@ interface ParseResultSheetProps {
  * 분석된 결과 배열 중 '한 건'의 내역을 담당하는 컴포넌트입니다.
  * 요약 뷰와 확장된 편집 뷰 두 가지 모드를 가집니다.
  */
-function EditableItem({
+const EditableItem = memo(function EditableItem({
+	itemId,
 	item,
 	index,
 	categories,
@@ -131,13 +150,14 @@ function EditableItem({
 	onAddCategory,
 	isAddingCategory,
 }: {
+	itemId: string;
 	item: ParsedTransaction;
 	index: number;
 	categories: Category[];
 	accounts?: Account[];
-	onUpdate: (index: number, updated: ParsedTransaction) => void;
-	onRemove: (index: number) => void;
-	onAddCategory: (index: number, name: string, type: "income" | "expense") => void;
+	onUpdate: (itemId: string, updated: ParsedTransaction) => void;
+	onRemove: (itemId: string) => void;
+	onAddCategory: (itemId: string, name: string, type: "income" | "expense") => void;
 	isAddingCategory: boolean;
 }) {
 	const [expanded, setExpanded] = useState(false);
@@ -182,7 +202,7 @@ function EditableItem({
 					variant="ghost"
 					size="icon"
 					className="h-7 w-7 shrink-0"
-					onClick={() => onRemove(index)}
+					onClick={() => onRemove(itemId)}
 				>
 					<X className="h-3.5 w-3.5" />
 				</Button>
@@ -200,7 +220,7 @@ function EditableItem({
 						variant="outline"
 						className="h-6 px-2 text-xs"
 						disabled={isAddingCategory}
-						onClick={() => onAddCategory(index, item.suggestedCategory!, item.type)}
+						onClick={() => onAddCategory(itemId, item.suggestedCategory!, item.type)}
 					>
 						{isAddingCategory ? (
 							<Loader2 className="h-3 w-3 animate-spin" />
@@ -227,7 +247,7 @@ function EditableItem({
 							<Input
 								value={item.description}
 								// 입력 변경 시 부모 상태 즉시 동기화
-								onChange={(e) => onUpdate(index, { ...item, description: e.target.value })}
+								onChange={(e) => onUpdate(itemId, { ...item, description: e.target.value })}
 								className="h-8 text-sm"
 							/>
 						</div>
@@ -242,7 +262,7 @@ function EditableItem({
 									value={formatCurrencyInput(String(item.amount))}
 									onChange={(e) => {
 										const digits = parseCurrencyInput(e.target.value);
-										onUpdate(index, { ...item, amount: digits ? Number(digits) : 0 });
+										onUpdate(itemId, { ...item, amount: digits ? Number(digits) : 0 });
 									}}
 									className="h-8 text-sm"
 								/>
@@ -253,7 +273,7 @@ function EditableItem({
 									type="date"
 									value={item.date}
 									// 날짜 선택 시 해당 항목의 date 필드만 교체합니다.
-									onChange={(e) => onUpdate(index, { ...item, date: e.target.value })}
+									onChange={(e) => onUpdate(itemId, { ...item, date: e.target.value })}
 									className="h-8 text-sm"
 								/>
 							</div>
@@ -266,7 +286,7 @@ function EditableItem({
 								<Select
 									value={item.category}
 									// 카테고리 직접 선택 시 AI 추천(suggestedCategory) 표시는 제거합니다.
-									onValueChange={(value) => onUpdate(index, { ...item, category: value, suggestedCategory: undefined })}
+									onValueChange={(value) => onUpdate(itemId, { ...item, category: value, suggestedCategory: undefined })}
 								>
 									<SelectTrigger className="h-8 text-sm">
 										<SelectValue />
@@ -285,7 +305,7 @@ function EditableItem({
 								<Select
 									value={item.type}
 									onValueChange={(value) =>
-										onUpdate(index, {
+										onUpdate(itemId, {
 											...item,
 											type: value as "income" | "expense",
 											category: value === "income" ? "기타 수입" : "기타 지출",
@@ -311,7 +331,7 @@ function EditableItem({
 									checked={item.isRecurring ?? false}
 									// 고정 거래 토글 시, 활성화된 경우 현재 날짜를 기반으로 '매월 N일' 기본값을 설정합니다.
 									onCheckedChange={(checked) =>
-										onUpdate(index, {
+										onUpdate(itemId, {
 											...item,
 											isRecurring: checked,
 											dayOfMonth: checked ? (item.dayOfMonth ?? new Date(item.date).getDate()) : undefined,
@@ -331,7 +351,7 @@ function EditableItem({
 										max={31}
 										value={item.dayOfMonth ?? ""}
 										// 매월 몇 일인지 숫자를 변경할 때의 핸들러입니다.
-										onChange={(e) => onUpdate(index, { ...item, dayOfMonth: Number(e.target.value) || undefined })}
+										onChange={(e) => onUpdate(itemId, { ...item, dayOfMonth: Number(e.target.value) || undefined })}
 										className="h-7 w-14 text-center text-xs"
 									/>
 									<Label className="text-xs text-muted-foreground">일</Label>
@@ -346,7 +366,7 @@ function EditableItem({
 								<Select
 									value={item.accountId ?? NO_ACCOUNT}
 									onValueChange={(value) =>
-										onUpdate(index, { ...item, accountId: value === NO_ACCOUNT ? null : value })
+										onUpdate(itemId, { ...item, accountId: value === NO_ACCOUNT ? null : value })
 									}
 								>
 									<SelectTrigger className="h-8 text-sm">
@@ -383,7 +403,7 @@ function EditableItem({
 			</AnimatePresence>
 		</div>
 	);
-}
+});
 
 /**
  * [메인 컴포넌트: ParseResultSheet]
@@ -400,7 +420,7 @@ export function ParseResultSheet({
 	const router = useRouter();
 
 	// 로컬 상태: 분석된 내역들과 카테고리 목록을 관리합니다.
-	const [items, setItems] = useState<ParsedTransaction[]>(initialItems);
+	const [draftItems, setDraftItems] = useState<DraftParsedTransaction[]>(() => createParsedDrafts(initialItems));
 	const [localCategories, setLocalCategories] = useState<Category[]>(initialCategories);
 
 	// UX: 서버 작업 중 UI 블로킹을 방지하기 위한 Transitions 및 전용 로딩 훅
@@ -412,7 +432,7 @@ export function ParseResultSheet({
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
 	useEffect(() => {
-		setItems(initialItems);
+		setDraftItems(createParsedDrafts(initialItems));
 		setErrorMessage(null);
 	}, [initialItems]);
 
@@ -420,15 +440,17 @@ export function ParseResultSheet({
 		setLocalCategories(initialCategories);
 	}, [initialCategories]);
 
-	// 특정 인덱스 항목 수정 (불변성 유지)
-	const handleUpdate = useCallback((index: number, updated: ParsedTransaction) => {
-		setItems((prev) => prev.map((item, i) => (i === index ? updated : item)));
+	// 특정 항목 수정 (불변성 유지 + 다른 항목 참조 유지)
+	const handleUpdate = useCallback((itemId: string, updated: ParsedTransaction) => {
+		setDraftItems((prev) =>
+			prev.map((draft) => (draft.clientKey === itemId ? { ...draft, value: updated } : draft)),
+		);
 	}, []);
 
 	// 항목 삭제 — 마지막 항목 삭제 시 시트 자동 닫기 (queueMicrotask로 렌더 중 상태 변경 방지)
-	const handleRemove = useCallback((index: number) => {
-		setItems((prev) => {
-			const next = prev.filter((_, i) => i !== index);
+	const handleRemove = useCallback((itemId: string) => {
+		setDraftItems((prev) => {
+			const next = prev.filter((draft) => draft.clientKey !== itemId);
 			if (next.length === 0) {
 				queueMicrotask(() => onOpenChange(false));
 			}
@@ -437,7 +459,7 @@ export function ParseResultSheet({
 	}, [onOpenChange]);
 
 	// AI 추천 카테고리 DB 등록 + 같은 suggestedCategory를 가진 항목 일괄 동기화
-	const handleAddCategory = async (index: number, rawName: string, type: "income" | "expense") => {
+	const handleAddCategory = async (itemId: string, rawName: string, type: "income" | "expense") => {
 		const name = normalizeCategoryName(rawName);
 		if (!name) return;
 
@@ -462,19 +484,25 @@ export function ParseResultSheet({
 				setLocalCategories((prev) => upsertLocalCategory(prev, { name, type, icon }));
 
 				// 해당 항목 + 같은 suggestedCategory를 가진 항목까지 일괄 동기화
-				setItems((prev) =>
-					prev.map((item, i) => {
-						if (i === index) {
-							return { ...item, category: name, suggestedCategory: undefined };
+				setDraftItems((prev) =>
+					prev.map((draft) => {
+						if (draft.clientKey === itemId) {
+							return {
+								...draft,
+								value: { ...draft.value, category: name, suggestedCategory: undefined },
+							};
 						}
 						if (
-							item.type === type
-							&& item.suggestedCategory
-							&& normalizeCategoryName(item.suggestedCategory) === name
+							draft.value.type === type
+							&& draft.value.suggestedCategory
+							&& normalizeCategoryName(draft.value.suggestedCategory) === name
 						) {
-							return { ...item, category: name, suggestedCategory: undefined };
+							return {
+								...draft,
+								value: { ...draft.value, category: name, suggestedCategory: undefined },
+							};
 						}
-						return item;
+						return draft;
 					}),
 				);
 			} else {
@@ -492,11 +520,13 @@ export function ParseResultSheet({
 		}
 	};
 
+	const parsedItems = draftItems.map((draft) => draft.value);
+
 	// 현재 리스트 항목 금액 집계 (사용자 수정 시 실시간 반영)
-	const totalExpense = items
+	const totalExpense = parsedItems
 		.filter((i) => i.type === "expense")
 		.reduce((sum, i) => sum + i.amount, 0);
-	const totalIncome = items
+	const totalIncome = parsedItems
 		.filter((i) => i.type === "income")
 		.reduce((sum, i) => sum + i.amount, 0);
 
@@ -504,14 +534,14 @@ export function ParseResultSheet({
 
 	// 모든 내역 일괄 DB 저장
 	const handleSave = () => {
-		if (items.length === 0 || hasPendingCategoryAdds) return;
+		if (draftItems.length === 0 || hasPendingCategoryAdds) return;
 		setErrorMessage(null);
 
 		startTransition(async () => {
 			startLoading(); // 지연된 로딩 스피너 시작
 			try {
 				// 서버 액션: 한꺼번에 거래 생성 (Bulk insert)
-				const result = await createTransactions(items, originalInput);
+				const result = await createTransactions(parsedItems, originalInput);
 				if (result.success) {
 					onOpenChange(false); // 시트 닫기
 
@@ -521,7 +551,7 @@ export function ParseResultSheet({
 					}
 
 					// 단순 거래 저장인 경우 목록 페이지로 이동하며 성공 메시지 파라미터 전달
-					router.push("/transactions?saved=tx&focus=list");
+					router.push("/transactions?saved=tx");
 					return;
 				}
 
@@ -541,7 +571,7 @@ export function ParseResultSheet({
 				<DrawerHeader>
 					<DrawerTitle>파싱 결과 확인</DrawerTitle>
 					<DrawerDescription>
-						{items.length}건의 거래를 인식했습니다. 항목을 눌러 수정할 수 있습니다.
+						{draftItems.length}건의 거래를 인식했습니다. 항목을 눌러 수정할 수 있습니다.
 					</DrawerDescription>
 					{splitMeta && (
 						<p className="text-xs text-muted-foreground">
@@ -552,14 +582,15 @@ export function ParseResultSheet({
 				</DrawerHeader>
 
 				<div className="max-h-[50vh] overflow-y-auto px-4">
-					{items.map((item, index) => {
-						const key = item.suggestedCategory
-							? categoryKey(item.type, item.suggestedCategory)
+					{draftItems.map((draft, index) => {
+						const key = draft.value.suggestedCategory
+							? categoryKey(draft.value.type, draft.value.suggestedCategory)
 							: null;
 						return (
 							<EditableItem
-								key={`${item.description}-${item.amount}-${index}`}
-								item={item}
+								key={draft.clientKey}
+								itemId={draft.clientKey}
+								item={draft.value}
 								index={index}
 								categories={localCategories}
 								accounts={accounts}
@@ -593,16 +624,16 @@ export function ParseResultSheet({
 					{errorMessage && (
 						<p className="mb-1 whitespace-pre-wrap text-xs text-destructive">{errorMessage}</p>
 					)}
-					<Button onClick={handleSave} disabled={items.length === 0 || isPending || hasPendingCategoryAdds}>
+					<Button onClick={handleSave} disabled={draftItems.length === 0 || isPending || hasPendingCategoryAdds}>
 						{showSpinner ? (
 							<>
 								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 								저장 중...
 							</>
 						) : splitMeta ? (
-							`${items.length}건 저장 후 자산 단계로`
+							`${draftItems.length}건 저장 후 자산 단계로`
 						) : (
-							`${items.length}건 저장`
+							`${draftItems.length}건 저장`
 						)}
 					</Button>
 				</DrawerFooter>

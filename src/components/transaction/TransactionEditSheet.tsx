@@ -34,12 +34,22 @@ interface TransactionEditSheetProps {
 	transaction: Transaction;
 	categories: Category[];
 	accounts: Account[];
+	onUpdated?: (transaction: Transaction) => void;
+	onDeleted?: (transactionId: string) => void;
 }
 
 // 계좌 미선택을 표현하는 센티넬 값
 const NO_ACCOUNT = "__none__";
 
-export function TransactionEditSheet({ open, onOpenChange, transaction: tx, categories, accounts }: TransactionEditSheetProps) {
+export function TransactionEditSheet({
+	open,
+	onOpenChange,
+	transaction: tx,
+	categories,
+	accounts,
+	onUpdated,
+	onDeleted,
+}: TransactionEditSheetProps) {
 	const [isPending, startTransition] = useTransition();
 	const { showSpinner, startLoading, stopLoading } = useDeferredLoading(200);
 
@@ -61,15 +71,44 @@ export function TransactionEditSheet({ open, onOpenChange, transaction: tx, cate
 		startTransition(async () => {
 			startLoading();
 			try {
+				const nextCategoryId = categoryId || null;
+				const nextAccountId = accountId === NO_ACCOUNT ? null : accountId;
 				const result = await updateTransaction(tx.id, {
 					type,
-					categoryId: categoryId || null,
-					accountId: accountId === NO_ACCOUNT ? null : accountId,
+					categoryId: nextCategoryId,
+					accountId: nextAccountId,
 					description: description.trim(),
 					amount: numAmount,
 					date,
 				});
 				if (result.success) {
+					const nextCategory = categories.find((cat) => cat.id === nextCategoryId) ?? null;
+					const nextAccount = accounts.find((acc) => acc.id === nextAccountId) ?? null;
+					onUpdated?.({
+						...tx,
+						type,
+						categoryId: nextCategoryId,
+						accountId: nextAccountId,
+						description: description.trim(),
+						amount: numAmount,
+						date,
+						updatedAt: new Date(),
+						category: nextCategory
+							? {
+								id: nextCategory.id,
+								name: nextCategory.name,
+								icon: nextCategory.icon,
+								type: nextCategory.type,
+							}
+							: null,
+						account: nextAccount
+							? {
+								id: nextAccount.id,
+								name: nextAccount.name,
+								icon: nextAccount.icon,
+							}
+							: null,
+					});
 					onOpenChange(false);
 				}
 			} finally {
@@ -84,6 +123,7 @@ export function TransactionEditSheet({ open, onOpenChange, transaction: tx, cate
 			try {
 				const result = await deleteTransaction(tx.id);
 				if (result.success) {
+					onDeleted?.(tx.id);
 					onOpenChange(false);
 				}
 			} finally {

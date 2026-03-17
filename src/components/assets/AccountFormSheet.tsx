@@ -47,9 +47,19 @@ interface AccountFormSheetProps {
 	mode: "create" | "edit";
 	account?: Account;
 	defaultType?: "asset" | "debt";
+	onCreated?: (account: Account) => void;
+	onUpdated?: (account: Account) => void;
 }
 
-export function AccountFormSheet({ open, onOpenChange, mode, account, defaultType }: AccountFormSheetProps) {
+export function AccountFormSheet({
+	open,
+	onOpenChange,
+	mode,
+	account,
+	defaultType,
+	onCreated,
+	onUpdated,
+}: AccountFormSheetProps) {
 	const [isPending, startTransition] = useTransition();
 	const { showSpinner, startLoading, stopLoading } = useDeferredLoading(200);
 
@@ -75,25 +85,47 @@ export function AccountFormSheet({ open, onOpenChange, mode, account, defaultTyp
 		startTransition(async () => {
 			startLoading();
 			try {
+				const nextBalance = Number(balance) || 0;
 				if (mode === "create") {
 					const result = await createAccount({
 						name: name.trim(),
 						type,
 						subType,
 						icon,
-						balance: Number(balance) || 0,
+						balance: nextBalance,
 					});
 					if (result.success) {
+						onCreated?.({
+							id: result.id,
+							userId: account?.userId ?? "",
+							name: name.trim(),
+							type,
+							subType,
+							icon,
+							balance: nextBalance,
+							sortOrder: 0,
+							isActive: true,
+							createdAt: new Date(),
+							updatedAt: new Date(),
+						});
 						onOpenChange(false);
 					}
 				} else if (account) {
 					const result = await updateAccount(account.id, {
 						name: name.trim(),
 						icon,
-						balance: Number(balance) || 0,
+						balance: nextBalance,
 						subType,
 					});
 					if (result.success) {
+						onUpdated?.({
+							...account,
+							name: name.trim(),
+							icon,
+							subType,
+							balance: nextBalance,
+							updatedAt: new Date(),
+						});
 						onOpenChange(false);
 					}
 				}
