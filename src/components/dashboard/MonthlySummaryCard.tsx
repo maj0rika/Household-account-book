@@ -19,8 +19,8 @@ export function MonthlySummaryCard({ summary, month }: { summary: MonthlySummary
 	const [, m] = month.split("-").map(Number);
 
 	return (
-		<div className="px-4 pt-4">
-			<h2 className="mb-3 text-lg font-semibold">{m}월 요약</h2>
+		<section className="px-4 pt-4" aria-labelledby="monthly-summary-title">
+			<h2 id="monthly-summary-title" className="mb-3 text-lg font-semibold">{m}월 요약</h2>
 			<div className="grid grid-cols-3 gap-2">
 				<motion.div custom={0} variants={cardVariants} initial="hidden" animate="visible">
 					<Card className="overflow-hidden gap-0 py-0">
@@ -56,6 +56,6 @@ export function MonthlySummaryCard({ summary, month }: { summary: MonthlySummary
 					</Card>
 				</motion.div>
 			</div>
-		</div>
+		</section>
 	);
 }

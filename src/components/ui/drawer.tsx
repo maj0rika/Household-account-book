@@ -1,39 +1,20 @@
 // 파일 역할:
-// - `vaul` 기반 Drawer 프리미티브를 프로젝트 스타일과 포커스 정리 규칙으로 감싼 공용 UI 파일이다.
+// - `vaul` 기반 Drawer 프리미티브를 프로젝트 스타일과 포커스 트랩 규칙으로 감싼 공용 UI 파일이다.
 // 사용 위치:
 // - 거래/자산/설정 시트처럼 모바일 바텀 시트를 여는 도메인 컴포넌트가 재사용한다;
 // 흐름:
-// - 열릴 때 레이어 밖에 남아 있던 포커스를 정리하고, overlay/content slot을 통일해 같은 상호작용 규칙을 유지한다;
+// - 열릴 때 컨텐츠 루트에 포커스를 옮겨 모달 내부 탭 순서를 고정하고, overlay/content slot을 통일해 같은 상호작용 규칙을 유지한다;
 "use client"
 
 import * as React from "react"
 import { Drawer as DrawerPrimitive } from "vaul"
 
-import { blurActiveElement } from "@/lib/accessibility"
 import { cn } from "@/lib/utils"
 
 function Drawer({
-  open,
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Root>) {
-  React.useEffect(() => {
-    if (!open || typeof document === "undefined") {
-      return
-    }
-
-    const activeElement = document.activeElement
-    const isFocusInsideLayer = activeElement instanceof Element
-      && (
-        activeElement.closest("[data-slot='drawer-content']") !== null
-        || activeElement.closest("[data-slot='dialog-content']") !== null
-      )
-
-    if (!isFocusInsideLayer) {
-      blurActiveElement()
-    }
-  }, [open])
-
-  return <DrawerPrimitive.Root data-slot="drawer" open={open} {...props} />
+  return <DrawerPrimitive.Root data-slot="drawer" {...props} />
 }
 
 function DrawerTrigger({
@@ -73,13 +54,19 @@ function DrawerOverlay({
 function DrawerContent({
   className,
   children,
+  onOpenAutoFocus,
+  tabIndex = -1,
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Content>) {
+  const contentRef = React.useRef<HTMLDivElement | null>(null)
+
   return (
     <DrawerPortal data-slot="drawer-portal">
       <DrawerOverlay />
       <DrawerPrimitive.Content
         data-slot="drawer-content"
+        ref={contentRef}
+        tabIndex={tabIndex}
         className={cn(
           "group/drawer-content bg-background fixed z-50 flex h-auto flex-col",
           "data-[vaul-drawer-direction=top]:inset-x-0 data-[vaul-drawer-direction=top]:top-0 data-[vaul-drawer-direction=top]:mb-24 data-[vaul-drawer-direction=top]:max-h-[80vh] data-[vaul-drawer-direction=top]:rounded-b-lg data-[vaul-drawer-direction=top]:border-b",
@@ -88,6 +75,16 @@ function DrawerContent({
           "data-[vaul-drawer-direction=left]:inset-y-0 data-[vaul-drawer-direction=left]:left-0 data-[vaul-drawer-direction=left]:w-3/4 data-[vaul-drawer-direction=left]:border-r data-[vaul-drawer-direction=left]:sm:max-w-sm",
           className
         )}
+        onOpenAutoFocus={(event) => {
+          onOpenAutoFocus?.(event)
+
+          if (event.defaultPrevented) {
+            return
+          }
+
+          event.preventDefault()
+          contentRef.current?.focus()
+        }}
         {...props}
       >
         <div className="bg-muted mx-auto mt-4 hidden h-2 w-[100px] shrink-0 rounded-full group-data-[vaul-drawer-direction=bottom]/drawer-content:block" />

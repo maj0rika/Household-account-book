@@ -44,6 +44,7 @@ export default async function BudgetPage({ searchParams }: Props) {
 
 	return (
 		<div className="pb-28 md:pb-24">
+			<h1 className="sr-only">예산</h1>
 			<Suspense fallback={<MonthNavigatorFallback />}>
 				<MonthNavigator month={month} />
 			</Suspense>

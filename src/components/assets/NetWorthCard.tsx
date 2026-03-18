@@ -17,8 +17,8 @@ const cardVariants = {
 
 export function NetWorthCard({ summary }: { summary: AccountSummary }) {
 	return (
-		<div className="px-4 pt-4">
-			<h2 className="mb-3 text-lg font-semibold">자산 현황</h2>
+		<section className="px-4 pt-4" aria-labelledby="net-worth-title">
+			<h2 id="net-worth-title" className="mb-3 text-lg font-semibold">자산 현황</h2>
 			<div className="grid grid-cols-3 gap-2">
 				<motion.div custom={0} variants={cardVariants} initial="hidden" animate="visible">
 					<Card className="overflow-hidden gap-0 py-0">
@@ -54,6 +54,6 @@ export function NetWorthCard({ summary }: { summary: AccountSummary }) {
 					</Card>
 				</motion.div>
 			</div>
-		</div>
+		</section>
 	);
 }

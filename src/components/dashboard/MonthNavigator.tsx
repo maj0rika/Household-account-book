@@ -100,7 +100,15 @@ export function MonthNavigator({ month }: { month: string }) {
 		<>
 			<div className="flex flex-col items-center justify-center gap-1 py-3">
 				<div className="flex items-center justify-center gap-2">
-					<Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(-1)} disabled={isPending}>
+					<Button
+						variant="ghost"
+						size="icon"
+						className="h-10 w-10"
+						onClick={() => navigate(-1)}
+						disabled={isPending}
+						aria-label="이전 달 보기"
+					>
+						<span className="sr-only">이전 달 보기</span>
 						<ChevronLeft className="h-4 w-4" />
 					</Button>
 
@@ -109,6 +117,7 @@ export function MonthNavigator({ month }: { month: string }) {
 						className="min-w-[148px] gap-2 px-3"
 						onClick={handleOpenJump}
 						disabled={isPending}
+						aria-label={`${currentMonthLabel} 선택, 월 바로 이동 열기`}
 					>
 						<span className="text-sm font-semibold">{currentMonthLabel}</span>
 						{showSpinner && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
@@ -117,10 +126,12 @@ export function MonthNavigator({ month }: { month: string }) {
 					<Button
 						variant="ghost"
 						size="icon"
-						className="h-8 w-8"
+						className="h-10 w-10"
 						onClick={() => navigate(1)}
 						disabled={isCurrentMonth || isPending}
+						aria-label="다음 달 보기"
 					>
+						<span className="sr-only">다음 달 보기</span>
 						<ChevronRight className="h-4 w-4" />
 					</Button>
 				</div>

@@ -79,12 +79,9 @@ export function BottomTabBar() {
 								onClick={openManualInput}
 								className="relative flex flex-1 flex-col items-center gap-0.5 py-1 text-xs text-muted-foreground transition-[color,transform] active:scale-95 active:duration-75"
 							>
-								<motion.span
-									whileTap={{ scale: 0.85 }}
-									transition={{ type: "spring", stiffness: 400, damping: 17 }}
-								>
+								<span aria-hidden="true">
 									<Icon className="h-5 w-5" />
-								</motion.span>
+								</span>
 								<span>{tab.label}</span>
 							</button>
 						);
@@ -98,6 +95,7 @@ export function BottomTabBar() {
 							href={tab.href}
 							prefetch
 							onClick={() => handleTabClick(tab.href)}
+							aria-current={isActive ? "page" : undefined}
 							className={cn(
 								"relative flex flex-1 flex-col items-center gap-0.5 py-1 text-xs transition-[color,transform] active:scale-95 active:duration-75",
 								isActive
@@ -112,12 +110,9 @@ export function BottomTabBar() {
 									transition={{ type: "spring", stiffness: 500, damping: 30 }}
 								/>
 							)}
-							<motion.span
-								whileTap={{ scale: 0.85 }}
-								transition={{ type: "spring", stiffness: 400, damping: 17 }}
-							>
+							<span aria-hidden="true">
 								<Icon className="h-5 w-5" />
-							</motion.span>
+							</span>
 							<span>{tab.label}</span>
 						</Link>
 					);

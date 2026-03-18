@@ -38,6 +38,9 @@ export function BudgetForm({ month, budgets, categories }: BudgetFormProps) {
 	const [editOpen, setEditOpen] = useState(false);
 	const [editTarget, setEditTarget] = useState<BudgetWithSpent | null>(null);
 	const [editAmount, setEditAmount] = useState("");
+	const addCategorySelectId = "budget-category-select";
+	const addAmountInputId = "budget-amount";
+	const editAmountInputId = "budget-edit-amount";
 
 	const expenseCategories = categories.filter((c) => c.type === "expense");
 
@@ -134,6 +137,7 @@ export function BudgetForm({ month, budgets, categories }: BudgetFormProps) {
 									className="h-7 w-7"
 									onClick={() => handleEditOpen(b)}
 									disabled={isPending}
+									aria-label={`${b.categoryName} 예산 수정`}
 								>
 									<Pencil className="h-3.5 w-3.5" />
 								</Button>
@@ -143,6 +147,7 @@ export function BudgetForm({ month, budgets, categories }: BudgetFormProps) {
 									className="h-7 w-7"
 									onClick={() => handleDelete(b.id)}
 									disabled={isPending}
+									aria-label={`${b.categoryName} 예산 삭제`}
 								>
 									<Trash2 className="h-3.5 w-3.5" />
 								</Button>
@@ -159,14 +164,15 @@ export function BudgetForm({ month, budgets, categories }: BudgetFormProps) {
 						<DialogTitle>예산 추가</DialogTitle>
 						<DialogDescription>월 예산을 새로 등록할 카테고리와 금액을 입력합니다.</DialogDescription>
 					</DialogHeader>
-					<div className="space-y-4">
-						<div>
-							<Label>카테고리</Label>
-							<select
-								value={categoryId}
-								onChange={(e) => setCategoryId(e.target.value)}
-								className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-							>
+						<div className="space-y-4">
+							<div>
+								<Label htmlFor={addCategorySelectId}>카테고리</Label>
+								<select
+									id={addCategorySelectId}
+									value={categoryId}
+									onChange={(e) => setCategoryId(e.target.value)}
+									className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+								>
 								{!existingCategoryIds.has("__total__") && (
 									<option value="__total__">💰 전체 예산</option>
 								)}
@@ -178,13 +184,14 @@ export function BudgetForm({ month, budgets, categories }: BudgetFormProps) {
 										</option>
 									))}
 							</select>
-						</div>
-						<div>
-							<Label>금액</Label>
-							<Input
-								type="number"
-								value={amount}
-								onChange={(e) => setAmount(e.target.value)}
+							</div>
+							<div>
+								<Label htmlFor={addAmountInputId}>금액</Label>
+								<Input
+									id={addAmountInputId}
+									type="number"
+									value={amount}
+									onChange={(e) => setAmount(e.target.value)}
 								placeholder="500000"
 								className="mt-1"
 							/>
@@ -219,8 +226,9 @@ export function BudgetForm({ month, budgets, categories }: BudgetFormProps) {
 								</div>
 							</div>
 							<div>
-								<Label>금액</Label>
+								<Label htmlFor={editAmountInputId}>금액</Label>
 								<Input
+									id={editAmountInputId}
 									type="number"
 									value={editAmount}
 									onChange={(e) => setEditAmount(e.target.value)}

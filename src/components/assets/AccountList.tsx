@@ -60,6 +60,7 @@ const AccountItem = memo(function AccountItem({
 						size="icon-sm"
 						className="h-7 w-7 text-muted-foreground"
 						onClick={() => onEdit(account)}
+						aria-label={`${account.name} 수정`}
 					>
 						<Pencil className="h-3.5 w-3.5" />
 					</Button>
@@ -69,6 +70,7 @@ const AccountItem = memo(function AccountItem({
 						className="h-7 w-7 text-muted-foreground hover:text-destructive"
 						onClick={() => onDelete(account.id)}
 						disabled={disabled}
+						aria-label={`${account.name} 삭제`}
 					>
 						<Trash2 className="h-3.5 w-3.5" />
 					</Button>

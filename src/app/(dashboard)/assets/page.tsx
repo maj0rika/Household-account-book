@@ -13,6 +13,7 @@ export default async function AssetsPage() {
 
 	return (
 		<div className="pb-28 md:pb-24">
+			<h1 className="sr-only">자산과 부채</h1>
 			<NetWorthCard summary={summary} />
 			<Separator className="my-2" />
 			<AccountList accounts={accounts} />

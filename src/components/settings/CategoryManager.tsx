@@ -39,6 +39,9 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
 	const [type, setType] = useState<"expense" | "income">("expense");
 	const [name, setName] = useState("");
 	const [icon, setIcon] = useState("📦");
+	const typeGroupLabelId = "category-type-label";
+	const iconGroupLabelId = "category-icon-label";
+	const nameInputId = "category-name";
 
 	const expenseCategories = categories.filter((c) => c.type === "expense");
 	const incomeCategories = categories.filter((c) => c.type === "income");
@@ -94,6 +97,7 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
 								className="h-7 w-7"
 								onClick={() => handleDelete(c.id)}
 								disabled={isPending}
+								aria-label={`${c.name} 카테고리 삭제`}
 							>
 								<Trash2 className="h-3.5 w-3.5" />
 							</Button>
@@ -125,12 +129,13 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
 					</DialogHeader>
 					<div className="space-y-4">
 						<div>
-							<Label>유형</Label>
-							<div className="mt-1 flex gap-2">
+							<span id={typeGroupLabelId} className="text-sm font-medium">유형</span>
+							<div role="group" aria-labelledby={typeGroupLabelId} className="mt-1 flex gap-2">
 								<Button
 									size="sm"
 									variant={type === "expense" ? "default" : "outline"}
 									onClick={() => setType("expense")}
+									aria-pressed={type === "expense"}
 								>
 									지출
 								</Button>
@@ -138,14 +143,15 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
 									size="sm"
 									variant={type === "income" ? "default" : "outline"}
 									onClick={() => setType("income")}
+									aria-pressed={type === "income"}
 								>
 									수입
 								</Button>
 							</div>
 						</div>
 						<div>
-							<Label>아이콘</Label>
-							<div className="mt-1 flex flex-wrap gap-1.5">
+							<span id={iconGroupLabelId} className="text-sm font-medium">아이콘</span>
+							<div role="group" aria-labelledby={iconGroupLabelId} className="mt-1 flex flex-wrap gap-1.5">
 								{ICONS.map((ic) => (
 									<button
 										key={ic}
@@ -154,6 +160,8 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
 										className={`rounded-md p-1.5 text-lg transition-colors ${
 											icon === ic ? "bg-accent ring-2 ring-primary" : "hover:bg-accent/50"
 										}`}
+										aria-label={`${ic} 아이콘 선택`}
+										aria-pressed={icon === ic}
 									>
 										{ic}
 									</button>
@@ -161,8 +169,9 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
 							</div>
 						</div>
 						<div>
-							<Label>이름</Label>
+							<Label htmlFor={nameInputId}>이름</Label>
 							<Input
+								id={nameInputId}
 								value={name}
 								onChange={(e) => setName(e.target.value)}
 								placeholder="카테고리명"

@@ -14,7 +14,7 @@ export default async function SettingsPage() {
 
 	return (
 		<div className="mx-auto max-w-lg space-y-4 px-4 pt-4 pb-28 md:pb-24">
-			<h2 className="text-lg font-bold">설정</h2>
+			<h1 className="text-lg font-bold">설정</h1>
 
 			<ProfileSection
 				user={{

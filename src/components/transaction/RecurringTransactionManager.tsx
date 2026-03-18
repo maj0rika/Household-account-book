@@ -59,6 +59,12 @@ export function RecurringTransactionManager() {
 	const [description, setDescription] = useState("");
 	const [amount, setAmount] = useState("");
 	const [dayOfMonth, setDayOfMonth] = useState("1");
+	const recurringListId = "recurring-transaction-list";
+	const typeGroupLabelId = "recurring-transaction-type-label";
+	const categorySelectId = "recurring-transaction-category";
+	const descriptionInputId = "recurring-transaction-description";
+	const amountInputId = "recurring-transaction-amount";
+	const dayInputId = "recurring-transaction-day";
 
 	const loadData = () => {
 		// 규칙 목록, 카테고리 메타데이터, 이번 달 적용 여부를 함께 초기화하고
@@ -146,6 +152,8 @@ export function RecurringTransactionManager() {
 				<button
 					type="button"
 					onClick={() => setCollapsed((prev) => !prev)}
+					aria-expanded={!collapsed}
+					aria-controls={recurringListId}
 					className="flex items-center gap-1.5 text-sm font-semibold"
 				>
 					고정 수입/지출
@@ -181,30 +189,41 @@ export function RecurringTransactionManager() {
 			{!collapsed && (
 				<>
 					{applyMessage && (
-						<p className="mb-2 text-center text-xs text-muted-foreground">{applyMessage}</p>
+						<p className="mb-2 text-center text-xs text-muted-foreground" role="status" aria-live="polite">
+							{applyMessage}
+						</p>
 					)}
 
-					{items.length === 0 ? (
-						<p className="py-3 text-center text-xs text-muted-foreground">
+					<div id={recurringListId}>
+						{items.length === 0 ? (
+							<p className="py-3 text-center text-xs text-muted-foreground">
 							등록된 고정 거래가 없습니다
-						</p>
-					) : (
-						<div className="space-y-1.5">
-							{items.map((item) => (
-								<div key={item.id} className="flex items-center gap-2 text-sm">
-									<Badge variant={item.type === "income" ? "default" : "secondary"} className="shrink-0 text-[10px]">
-										{item.type === "income" ? "수입" : "지출"}
-									</Badge>
-									<span className="flex-1 truncate">{item.description}</span>
-									<span className="shrink-0 text-xs text-muted-foreground">매월 {item.dayOfMonth}일</span>
-									<span className="shrink-0 font-medium">{formatCurrency(item.amount)}</span>
-									<Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => handleDelete(item.id)} disabled={isPending}>
-										<Trash2 className="h-3 w-3" />
-									</Button>
-								</div>
-							))}
-						</div>
-					)}
+							</p>
+						) : (
+							<div className="space-y-1.5">
+								{items.map((item) => (
+									<div key={item.id} className="flex items-center gap-2 text-sm">
+										<Badge variant={item.type === "income" ? "default" : "secondary"} className="shrink-0 text-[10px]">
+											{item.type === "income" ? "수입" : "지출"}
+										</Badge>
+										<span className="flex-1 truncate">{item.description}</span>
+										<span className="shrink-0 text-xs text-muted-foreground">매월 {item.dayOfMonth}일</span>
+										<span className="shrink-0 font-medium">{formatCurrency(item.amount)}</span>
+										<Button
+											variant="ghost"
+											size="icon"
+											className="h-6 w-6 shrink-0"
+											onClick={() => handleDelete(item.id)}
+											disabled={isPending}
+											aria-label={`${item.description} 삭제`}
+										>
+											<Trash2 className="h-3 w-3" />
+										</Button>
+									</div>
+								))}
+							</div>
+						)}
+					</div>
 				</>
 			)}
 
@@ -216,23 +235,24 @@ export function RecurringTransactionManager() {
 					</DialogHeader>
 					<div className="grid gap-4 py-2">
 						<div className="grid gap-2">
-							<Label>유형</Label>
-							<div className="flex gap-2">
-								<Button type="button" variant={type === "expense" ? "default" : "outline"} size="sm" onClick={() => { setType("expense"); setCategoryId(""); }}>
+							<span id={typeGroupLabelId} className="text-sm font-medium">유형</span>
+							<div role="group" aria-labelledby={typeGroupLabelId} className="flex gap-2">
+								<Button type="button" variant={type === "expense" ? "default" : "outline"} size="sm" onClick={() => { setType("expense"); setCategoryId(""); }} aria-pressed={type === "expense"}>
 									지출
 								</Button>
-								<Button type="button" variant={type === "income" ? "default" : "outline"} size="sm" onClick={() => { setType("income"); setCategoryId(""); }}>
+								<Button type="button" variant={type === "income" ? "default" : "outline"} size="sm" onClick={() => { setType("income"); setCategoryId(""); }} aria-pressed={type === "income"}>
 									수입
 								</Button>
 							</div>
 						</div>
 						<div className="grid gap-2">
-							<Label>매월 날짜</Label>
-							<Input type="number" min={1} max={31} value={dayOfMonth} onChange={(e) => setDayOfMonth(e.target.value)} />
+							<Label htmlFor={dayInputId}>매월 날짜</Label>
+							<Input id={dayInputId} type="number" min={1} max={31} value={dayOfMonth} onChange={(e) => setDayOfMonth(e.target.value)} />
 						</div>
 						<div className="grid gap-2">
-							<Label>카테고리</Label>
+							<Label htmlFor={categorySelectId}>카테고리</Label>
 							<select
+								id={categorySelectId}
 								value={categoryId}
 								onChange={(e) => setCategoryId(e.target.value)}
 								className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -244,12 +264,13 @@ export function RecurringTransactionManager() {
 							</select>
 						</div>
 						<div className="grid gap-2">
-							<Label>설명</Label>
-							<Input placeholder="월급, 관리비, 넷플릭스 등" value={description} onChange={(e) => setDescription(e.target.value)} />
+							<Label htmlFor={descriptionInputId}>설명</Label>
+							<Input id={descriptionInputId} placeholder="월급, 관리비, 넷플릭스 등" value={description} onChange={(e) => setDescription(e.target.value)} />
 						</div>
 						<div className="grid gap-2">
-							<Label>금액 (원)</Label>
+							<Label htmlFor={amountInputId}>금액 (원)</Label>
 							<Input
+								id={amountInputId}
 								type="text"
 								inputMode="numeric"
 								placeholder="1,500,000"

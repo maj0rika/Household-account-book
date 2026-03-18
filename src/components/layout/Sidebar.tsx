@@ -59,6 +59,7 @@ export function Sidebar() {
 						size="icon-sm"
 						onClick={toggleCollapsed}
 						className="text-muted-foreground hover:text-foreground"
+						aria-label="사이드바 펼치기"
 						title="사이드바 펼치기"
 					>
 						<PanelLeftOpen className="h-4 w-4" />
@@ -82,6 +83,7 @@ export function Sidebar() {
 							size="icon-sm"
 							onClick={toggleCollapsed}
 							className="text-muted-foreground hover:text-foreground"
+							aria-label="사이드바 접기"
 							title="사이드바 접기"
 						>
 							<PanelLeftClose className="h-4 w-4" />
@@ -102,6 +104,7 @@ export function Sidebar() {
 								key={item.label}
 								type="button"
 								onClick={openManualInput}
+								aria-label={collapsed ? item.label : undefined}
 								title={collapsed ? item.label : undefined}
 								className={cn(
 									"relative flex items-center rounded-lg transition-[color,background-color,transform] active:scale-[0.97] active:duration-75 text-muted-foreground hover:bg-accent/50 hover:text-foreground",
@@ -117,14 +120,16 @@ export function Sidebar() {
 					// 일반 네비게이션
 					const isActive = pathname.startsWith(item.href);
 					return (
-						<Link
-							key={item.href}
-							href={item.href}
-							prefetch
-							title={collapsed ? item.label : undefined}
-							className={cn(
-								"relative flex items-center rounded-lg transition-[color,background-color,transform] active:scale-[0.97] active:duration-75",
-								collapsed ? "justify-center p-2" : "gap-3 px-3 py-2",
+							<Link
+								key={item.href}
+								href={item.href}
+								prefetch
+								aria-current={isActive ? "page" : undefined}
+								aria-label={collapsed ? item.label : undefined}
+								title={collapsed ? item.label : undefined}
+								className={cn(
+									"relative flex items-center rounded-lg transition-[color,background-color,transform] active:scale-[0.97] active:duration-75",
+									collapsed ? "justify-center p-2" : "gap-3 px-3 py-2",
 								isActive
 									? "text-accent-foreground font-medium"
 									: "text-muted-foreground hover:bg-accent/50 hover:text-foreground",

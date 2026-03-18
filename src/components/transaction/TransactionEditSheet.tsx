@@ -63,6 +63,19 @@ export function TransactionEditSheet({
 	const filteredCategories = categories.filter((c) => c.type === type);
 	const assetAccounts = accounts.filter((a) => a.type === "asset");
 	const debtAccounts = accounts.filter((a) => a.type === "debt");
+	const currentTypeLabel = type === "income" ? "수입" : "지출";
+	const selectedCategory = categories.find((category) => category.id === categoryId);
+	const selectedAccount = accounts.find((account) => account.id === accountId);
+	const fieldBaseId = `transaction-edit-${tx.id}`;
+	const descriptionId = `${fieldBaseId}-description`;
+	const amountId = `${fieldBaseId}-amount`;
+	const dateId = `${fieldBaseId}-date`;
+	const typeLabelId = `${fieldBaseId}-type-label`;
+	const typeValueId = `${fieldBaseId}-type-value`;
+	const categoryLabelId = `${fieldBaseId}-category-label`;
+	const categoryValueId = `${fieldBaseId}-category-value`;
+	const accountLabelId = `${fieldBaseId}-account-label`;
+	const accountValueId = `${fieldBaseId}-account-value`;
 
 	const handleSave = () => {
 		const numAmount = Number(amount);
@@ -146,8 +159,9 @@ export function TransactionEditSheet({
 				<div className="space-y-4 px-4">
 					{/* 설명 */}
 					<div className="space-y-1.5">
-						<Label className="text-xs">설명</Label>
+						<Label htmlFor={descriptionId} className="text-xs">설명</Label>
 						<Input
+							id={descriptionId}
 							value={description}
 							onChange={(e) => setDescription(e.target.value)}
 							className="h-9"
@@ -157,8 +171,9 @@ export function TransactionEditSheet({
 					{/* 금액 + 날짜 */}
 					<div className="grid grid-cols-2 gap-3">
 						<div className="space-y-1.5">
-							<Label className="text-xs">금액</Label>
+							<Label htmlFor={amountId} className="text-xs">금액</Label>
 							<Input
+								id={amountId}
 								type="text"
 								inputMode="numeric"
 								value={formatCurrencyInput(amount)}
@@ -167,8 +182,9 @@ export function TransactionEditSheet({
 							/>
 						</div>
 						<div className="space-y-1.5">
-							<Label className="text-xs">날짜</Label>
+							<Label htmlFor={dateId} className="text-xs">날짜</Label>
 							<Input
+								id={dateId}
 								type="date"
 								value={date}
 								onChange={(e) => setDate(e.target.value)}
@@ -180,11 +196,18 @@ export function TransactionEditSheet({
 					{/* 유형 + 카테고리 */}
 					<div className="grid grid-cols-2 gap-3">
 						<div className="space-y-1.5">
-							<Label className="text-xs">유형</Label>
+							<Label id={typeLabelId} className="text-xs">유형</Label>
 							<Select value={type} onValueChange={(v) => handleTypeChange(v as "income" | "expense")}>
-								<SelectTrigger className="h-9">
+								<SelectTrigger
+									className="h-9"
+									aria-labelledby={typeLabelId}
+									aria-describedby={typeValueId}
+								>
 									<SelectValue />
 								</SelectTrigger>
+								<span id={typeValueId} className="sr-only">
+									현재 {currentTypeLabel}
+								</span>
 								<SelectContent>
 									<SelectItem value="expense">지출</SelectItem>
 									<SelectItem value="income">수입</SelectItem>
@@ -192,11 +215,18 @@ export function TransactionEditSheet({
 							</Select>
 						</div>
 						<div className="space-y-1.5">
-							<Label className="text-xs">카테고리</Label>
+							<Label id={categoryLabelId} className="text-xs">카테고리</Label>
 							<Select value={categoryId} onValueChange={setCategoryId}>
-								<SelectTrigger className="h-9">
+								<SelectTrigger
+									className="h-9"
+									aria-labelledby={categoryLabelId}
+									aria-describedby={categoryValueId}
+								>
 									<SelectValue />
 								</SelectTrigger>
+								<span id={categoryValueId} className="sr-only">
+									현재 {selectedCategory ? `${selectedCategory.icon} ${selectedCategory.name}` : "선택 안 함"}
+								</span>
 								<SelectContent>
 									{filteredCategories.map((cat) => (
 										<SelectItem key={cat.id} value={cat.id}>
@@ -211,11 +241,18 @@ export function TransactionEditSheet({
 					{/* 계좌 */}
 					{accounts.length > 0 && (
 						<div className="space-y-1.5">
-							<Label className="text-xs">계좌 (선택사항)</Label>
+							<Label id={accountLabelId} className="text-xs">계좌 (선택사항)</Label>
 							<Select value={accountId} onValueChange={setAccountId}>
-								<SelectTrigger className="h-9">
+								<SelectTrigger
+									className="h-9"
+									aria-labelledby={accountLabelId}
+									aria-describedby={accountValueId}
+								>
 									<SelectValue placeholder="계좌 선택" />
 								</SelectTrigger>
+								<span id={accountValueId} className="sr-only">
+									현재 {selectedAccount ? `${selectedAccount.icon} ${selectedAccount.name}` : "선택 안 함"}
+								</span>
 								<SelectContent>
 									<SelectItem value={NO_ACCOUNT}>선택 안 함</SelectItem>
 									{assetAccounts.length > 0 && (

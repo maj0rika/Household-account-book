@@ -106,7 +106,9 @@ export default function RegisterPage() {
 					</form>
 
 					{errorMessage && (
-						<p className="text-center text-sm text-destructive">{errorMessage}</p>
+						<p className="text-center text-sm text-destructive" role="alert" aria-live="assertive">
+							{errorMessage}
+						</p>
 					)}
 
 					<p className="text-center text-sm text-muted-foreground">
@@ -119,7 +121,7 @@ export default function RegisterPage() {
 						</Link>
 					</p>
 
-					<p className="text-center text-xs text-muted-foreground/60">
+					<p className="text-center text-xs text-muted-foreground">
 						<Link href="/terms" className="hover:underline">이용약관</Link>
 						{" · "}
 						<Link href="/privacy" className="hover:underline">개인정보처리방침</Link>

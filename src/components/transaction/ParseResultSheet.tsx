@@ -136,7 +136,6 @@ interface ParseResultSheetProps {
 const EditableItem = memo(function EditableItem({
 	itemId,
 	item,
-	index,
 	categories,
 	accounts = [],
 	onUpdate,
@@ -146,7 +145,6 @@ const EditableItem = memo(function EditableItem({
 }: {
 	itemId: string;
 	item: ParsedTransaction;
-	index: number;
 	categories: Category[];
 	accounts?: Account[];
 	onUpdate: (itemId: string, updated: ParsedTransaction) => void;
@@ -159,6 +157,19 @@ const EditableItem = memo(function EditableItem({
 	const filteredCategories = categories.filter((c) => c.type === item.type);
 	const assetAccounts = accounts.filter((a) => a.type === "asset");
 	const debtAccounts = accounts.filter((a) => a.type === "debt");
+	const selectedCategory = filteredCategories.find((category) => category.name === item.category);
+	const selectedAccount = accounts.find((account) => account.id === item.accountId);
+	const fieldBaseId = `parse-item-${itemId}`;
+	const descriptionId = `${fieldBaseId}-description`;
+	const amountId = `${fieldBaseId}-amount`;
+	const dateId = `${fieldBaseId}-date`;
+	const categoryLabelId = `${fieldBaseId}-category-label`;
+	const categoryValueId = `${fieldBaseId}-category-value`;
+	const typeLabelId = `${fieldBaseId}-type-label`;
+	const typeValueId = `${fieldBaseId}-type-value`;
+	const recurringId = `${fieldBaseId}-recurring`;
+	const accountLabelId = `${fieldBaseId}-account-label`;
+	const accountValueId = `${fieldBaseId}-account-value`;
 
 	return (
 		<div className="border-b border-border last:border-b-0">
@@ -167,6 +178,7 @@ const EditableItem = memo(function EditableItem({
 				<button
 					type="button"
 					aria-expanded={expanded}
+					aria-label={`${item.description} 상세 ${expanded ? "접기" : "펼치기"}`}
 					className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md py-0.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 					onClick={() => setExpanded((prev) => !prev)}
 				>
@@ -197,6 +209,7 @@ const EditableItem = memo(function EditableItem({
 					size="icon"
 					className="h-7 w-7 shrink-0"
 					onClick={() => onRemove(itemId)}
+					aria-label={`${item.description} 삭제`}
 				>
 					<X className="h-3.5 w-3.5" />
 				</Button>
@@ -237,8 +250,9 @@ const EditableItem = memo(function EditableItem({
 					>
 						{/* 설명 */}
 						<div className="space-y-1">
-							<Label className="text-xs">설명</Label>
+							<Label htmlFor={descriptionId} className="text-xs">설명</Label>
 							<Input
+								id={descriptionId}
 								value={item.description}
 								// 입력 변경 시 부모 상태 즉시 동기화
 								onChange={(e) => onUpdate(itemId, { ...item, description: e.target.value })}
@@ -249,8 +263,9 @@ const EditableItem = memo(function EditableItem({
 						{/* 금액 + 날짜: 금액 입력 시 콤마 등 포맷팅 처리를 실시간으로 수행합니다. */}
 						<div className="grid grid-cols-2 gap-2">
 							<div className="space-y-1">
-								<Label className="text-xs">금액</Label>
+								<Label htmlFor={amountId} className="text-xs">금액</Label>
 								<Input
+									id={amountId}
 									type="text"
 									inputMode="numeric"
 									value={formatCurrencyInput(String(item.amount))}
@@ -262,8 +277,9 @@ const EditableItem = memo(function EditableItem({
 								/>
 							</div>
 							<div className="space-y-1">
-								<Label className="text-xs">날짜</Label>
+								<Label htmlFor={dateId} className="text-xs">날짜</Label>
 								<Input
+									id={dateId}
 									type="date"
 									value={item.date}
 									// 날짜 선택 시 해당 항목의 date 필드만 교체합니다.
@@ -276,15 +292,22 @@ const EditableItem = memo(function EditableItem({
 						{/* 카테고리 + 타입 */}
 						<div className="grid grid-cols-2 gap-2">
 							<div className="space-y-1">
-								<Label className="text-xs">카테고리</Label>
+								<Label id={categoryLabelId} className="text-xs">카테고리</Label>
 								<Select
 									value={item.category}
 									// 카테고리 직접 선택 시 AI 추천(suggestedCategory) 표시는 제거합니다.
 									onValueChange={(value) => onUpdate(itemId, { ...item, category: value, suggestedCategory: undefined })}
 								>
-									<SelectTrigger className="h-8 text-sm">
+									<SelectTrigger
+										className="h-8 text-sm"
+										aria-labelledby={categoryLabelId}
+										aria-describedby={categoryValueId}
+									>
 										<SelectValue />
 									</SelectTrigger>
+									<span id={categoryValueId} className="sr-only">
+										현재 {selectedCategory ? `${selectedCategory.icon} ${selectedCategory.name}` : "선택 안 함"}
+									</span>
 									<SelectContent>
 										{filteredCategories.map((cat) => (
 											<SelectItem key={cat.id} value={cat.name}>
@@ -295,7 +318,7 @@ const EditableItem = memo(function EditableItem({
 								</Select>
 							</div>
 							<div className="space-y-1">
-								<Label className="text-xs">유형</Label>
+								<Label id={typeLabelId} className="text-xs">유형</Label>
 								<Select
 									value={item.type}
 									onValueChange={(value) =>
@@ -306,9 +329,16 @@ const EditableItem = memo(function EditableItem({
 										})
 									}
 								>
-									<SelectTrigger className="h-8 text-sm">
+									<SelectTrigger
+										className="h-8 text-sm"
+										aria-labelledby={typeLabelId}
+										aria-describedby={typeValueId}
+									>
 										<SelectValue />
 									</SelectTrigger>
+									<span id={typeValueId} className="sr-only">
+										현재 {item.type === "income" ? "수입" : "지출"}
+									</span>
 									<SelectContent>
 										<SelectItem value="expense">지출</SelectItem>
 										<SelectItem value="income">수입</SelectItem>
@@ -321,7 +351,7 @@ const EditableItem = memo(function EditableItem({
 						<div className="flex items-center gap-3">
 							<div className="flex items-center gap-2">
 								<Switch
-									id={`recurring-${index}`}
+									id={recurringId}
 									checked={item.isRecurring ?? false}
 									// 고정 거래 토글 시, 활성화된 경우 현재 날짜를 기반으로 '매월 N일' 기본값을 설정합니다.
 									onCheckedChange={(checked) =>
@@ -332,7 +362,7 @@ const EditableItem = memo(function EditableItem({
 										})
 									}
 								/>
-								<Label htmlFor={`recurring-${index}`} className="text-xs">
+								<Label htmlFor={recurringId} className="text-xs">
 									고정 거래
 								</Label>
 							</div>
@@ -356,16 +386,23 @@ const EditableItem = memo(function EditableItem({
 						{/* 계좌 */}
 						{accounts.length > 0 && (
 							<div className="space-y-1">
-								<Label className="text-xs">계좌 (선택사항)</Label>
+								<Label id={accountLabelId} className="text-xs">계좌 (선택사항)</Label>
 								<Select
 									value={item.accountId ?? NO_ACCOUNT}
 									onValueChange={(value) =>
 										onUpdate(itemId, { ...item, accountId: value === NO_ACCOUNT ? null : value })
 									}
 								>
-									<SelectTrigger className="h-8 text-sm">
+									<SelectTrigger
+										className="h-8 text-sm"
+										aria-labelledby={accountLabelId}
+										aria-describedby={accountValueId}
+									>
 										<SelectValue placeholder="계좌 선택" />
 									</SelectTrigger>
+									<span id={accountValueId} className="sr-only">
+										현재 {selectedAccount ? `${selectedAccount.icon} ${selectedAccount.name}` : "선택 안 함"}
+									</span>
 									<SelectContent>
 										<SelectItem value={NO_ACCOUNT}>선택 안 함</SelectItem>
 										{assetAccounts.length > 0 && (
@@ -581,7 +618,7 @@ export function ParseResultSheet({
 				</DrawerHeader>
 
 				<div className="max-h-[50vh] overflow-y-auto px-4">
-					{draftItems.map((draft, index) => {
+					{draftItems.map((draft) => {
 						const key = draft.value.suggestedCategory
 							? categoryKey(draft.value.type, draft.value.suggestedCategory)
 							: null;
@@ -590,7 +627,6 @@ export function ParseResultSheet({
 								key={draft.clientKey}
 								itemId={draft.clientKey}
 								item={draft.value}
-								index={index}
 								categories={localCategories}
 								accounts={accounts}
 								onUpdate={handleUpdate}
@@ -621,7 +657,9 @@ export function ParseResultSheet({
 						<p className="mb-1 text-xs text-muted-foreground">카테고리 동기화 중입니다. 완료 후 저장해 주세요.</p>
 					)}
 					{errorMessage && (
-						<p className="mb-1 whitespace-pre-wrap text-xs text-destructive">{errorMessage}</p>
+						<p className="mb-1 whitespace-pre-wrap text-xs text-destructive" role="alert" aria-live="assertive">
+							{errorMessage}
+						</p>
 					)}
 					<Button onClick={handleSave} disabled={draftItems.length === 0 || isPending || hasPendingCategoryAdds}>
 						{showSpinner ? (
