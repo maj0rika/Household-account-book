@@ -18,6 +18,7 @@ export default function GlobalError({
 						{error.digest ? `오류 코드: ${error.digest}` : "잠시 후 다시 시도해 주세요."}
 					</p>
 					<button
+						type="button"
 						onClick={reset}
 						style={{ padding: "0.5rem 1rem", borderRadius: "0.5rem", border: "1px solid #ccc", cursor: "pointer", fontSize: "0.875rem" }}
 					>
