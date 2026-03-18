@@ -64,7 +64,7 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.17 0.02 155);
   /* Primary — 에메랄드 그린 */
-  --primary: oklch(0.55 0.17 155);
+  --primary: oklch(0.42 0.14 155);
   --primary-foreground: oklch(0.985 0 0);
   /* Secondary */
   --secondary: oklch(0.955 0.02 155);
@@ -80,9 +80,9 @@
   /* Border/Input */
   --border: oklch(0.90 0.02 155);
   --input: oklch(0.90 0.02 155);
-  --ring: oklch(0.55 0.17 155);
+  --ring: oklch(0.42 0.14 155);
   /* 차트 컬러 */
-  --chart-1: oklch(0.55 0.17 155);
+  --chart-1: oklch(0.42 0.14 155);
   --chart-2: oklch(0.65 0.20 165);
   --chart-3: oklch(0.45 0.12 145);
   --chart-4: oklch(0.75 0.15 135);
@@ -90,14 +90,14 @@
   /* 사이드바 */
   --sidebar: oklch(0.975 0.005 155);
   --sidebar-foreground: oklch(0.17 0.02 155);
-  --sidebar-primary: oklch(0.55 0.17 155);
+  --sidebar-primary: oklch(0.42 0.14 155);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.94 0.03 155);
   --sidebar-accent-foreground: oklch(0.25 0.04 155);
   --sidebar-border: oklch(0.90 0.02 155);
-  --sidebar-ring: oklch(0.55 0.17 155);
+  --sidebar-ring: oklch(0.42 0.14 155);
   /* 수입/지출 시맨틱 컬러 */
-  --income: oklch(0.55 0.17 155);
+  --income: oklch(0.42 0.14 155);
   --expense: oklch(0.577 0.245 27.325);
 }
 
@@ -189,6 +189,16 @@
   .skip-link:focus-visible {
     transform: translateY(0);
   }
+
+  .textarea-auto {
+    resize: vertical;
+  }
+
+  @supports (field-sizing: content) {
+    .textarea-auto {
+      field-sizing: content;
+    }
+  }
 }
 
 /* Mesh Gradient 유틸 */
@@ -240,7 +250,7 @@
   justify-content: center;
   background: oklch(0.985 0.002 155);
   opacity: 1;
-  transition: opacity 400ms ease-out;
+  transition: opacity 240ms ease-out;
 }
 .dark .splash-overlay {
   background: oklch(0.145 0.015 155);

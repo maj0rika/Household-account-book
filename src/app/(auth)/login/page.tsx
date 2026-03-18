@@ -1,33 +1,14 @@
-"use client";
+import { headers } from "next/headers";
+import Script from "next/script";
+import { LoginPageClient } from "@/components/auth/LoginPageClient";
+import { getRequestSiteBaseURL } from "@/lib/site-url";
 
-// 파일 역할:
-// - App Router 페이지 엔트리 파일이다.
-// 사용 위치:
-// - App Router가 `/login` 경로를 렌더링할 때 직접 사용한다;
-// 흐름:
-// - 클라이언트에서 로그인 폼 상태를 관리하고 `authClient.signIn.email()` 성공 시 `/transactions`로 즉시 이동한다;
-import { type FormEvent, useMemo, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Wallet } from "lucide-react";
-
-import { authClient } from "@/lib/auth-client";
-import { mapAuthClientError } from "@/lib/auth-errors";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-
-export default function LoginPage() {
-	const router = useRouter();
-	const [email, setEmail] = useState("");
-	const [password, setPassword] = useState("");
-	const [errorMessage, setErrorMessage] = useState<string | null>(null);
-	const [isLoading, setIsLoading] = useState(false);
-	const [rememberMe, setRememberMe] = useState(true);
-	const baseUrl = process.env.NEXT_PUBLIC_BETTER_AUTH_URL ?? "https://household-account-book-tawny.vercel.app";
-	const structuredData = useMemo(() => ({
+export default async function LoginPage() {
+	// 로그인 페이지의 JSON-LD도 레이아웃 메타데이터와 같은 origin 규칙을 써야
+	// 크롤러가 보는 WebSite/SoftwareApplication URL이 `metadataBase`와 어긋나지 않는다.
+	const requestHeaders = await headers();
+	const baseUrl = getRequestSiteBaseURL(requestHeaders);
+	const structuredData = {
 		"@context": "https://schema.org",
 		"@graph": [
 			{
@@ -58,115 +39,20 @@ export default function LoginPage() {
 				},
 			},
 		],
-	}), [baseUrl]);
-
-	const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-		event.preventDefault();
-		setIsLoading(true);
-		setErrorMessage(null);
-
-		// Better Auth callback과 클라이언트 replace를 같은 목적지로 맞춰
-		// `/` 경유 없이 거래 화면으로 바로 수렴시킨다.
-		const { error } = await authClient.signIn.email({
-			email,
-			password,
-			rememberMe,
-			callbackURL: "/transactions",
-		});
-
-		if (error) {
-			setErrorMessage(mapAuthClientError(error, "login"));
-			setIsLoading(false);
-			return;
-		}
-
-		router.replace("/transactions");
 	};
 
 	return (
 		<>
-			<script
+			<Script
+				id="login-structured-data"
 				type="application/ld+json"
-				suppressHydrationWarning
-				dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
-			/>
-			<main id="main-content" tabIndex={-1} className="flex min-h-dvh items-center justify-center px-4">
-				<Card className="w-full max-w-sm">
-				<CardHeader className="items-center gap-2 pb-2">
-					<div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-						<Wallet className="h-6 w-6 text-primary" />
-					</div>
-					<h1 className="text-xl font-semibold">가계부</h1>
-					<p className="text-sm text-muted-foreground">
-						AI가 자동 분류하는 스마트 가계부
-					</p>
-				</CardHeader>
-				<CardContent className="space-y-4">
-					<form className="space-y-3" onSubmit={handleSubmit}>
-						<div className="space-y-1.5">
-							<Label htmlFor="email">이메일</Label>
-							<Input
-								id="email"
-								type="email"
-								required
-								placeholder="name@example.com"
-								value={email}
-								onChange={(event) => setEmail(event.target.value)}
-								autoComplete="email"
-							/>
-						</div>
-						<div className="space-y-1.5">
-							<Label htmlFor="password">비밀번호</Label>
-							<Input
-								id="password"
-								type="password"
-								required
-								placeholder="비밀번호 입력"
-								value={password}
-								onChange={(event) => setPassword(event.target.value)}
-								autoComplete="current-password"
-							/>
-						</div>
-						<div className="flex items-center gap-2">
-							<Checkbox
-								id="rememberMe"
-								checked={rememberMe}
-								onCheckedChange={(checked) => setRememberMe(checked === true)}
-							/>
-							<Label
-								htmlFor="rememberMe"
-								className="text-sm font-normal text-muted-foreground cursor-pointer"
-							>
-								자동 로그인
-							</Label>
-						</div>
-						<Button type="submit" className="w-full" disabled={isLoading}>
-							{isLoading ? "로그인 중..." : "로그인"}
-						</Button>
-					</form>
-
-					{errorMessage && (
-						<p className="text-center text-sm text-destructive">{errorMessage}</p>
-					)}
-
-					<p className="text-center text-sm text-muted-foreground">
-						계정이 없나요?{" "}
-						<Link
-							href="/register"
-							className="font-medium text-primary hover:underline"
-						>
-							회원가입
-						</Link>
-					</p>
-
-					<p className="text-center text-xs text-muted-foreground/60">
-						<Link href="/terms" className="hover:underline">이용약관</Link>
-						{" · "}
-						<Link href="/privacy" className="hover:underline">개인정보처리방침</Link>
-					</p>
-				</CardContent>
-				</Card>
-			</main>
+				strategy="beforeInteractive"
+			>
+				{/* 구조화 데이터는 클라이언트 hydration 이후가 아니라 최초 HTML에 같이 들어가야
+					검색 엔진이 로그인 화면을 수집할 때 origin과 서비스 설명을 바로 읽을 수 있다. */}
+				{JSON.stringify(structuredData)}
+			</Script>
+			<LoginPageClient />
 		</>
 	);
 }

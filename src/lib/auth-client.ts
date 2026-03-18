@@ -3,10 +3,16 @@
 // 서버 레이아웃이나 서버 액션에서는 이 파일이 아니라 `src/server/auth.ts`를 사용한다.
 import { createAuthClient } from "better-auth/client";
 
+const getAuthBaseURL = (): string => {
+	if (typeof window !== "undefined") {
+		return window.location.origin;
+	}
+
+	return process.env.NEXT_PUBLIC_BETTER_AUTH_URL ?? "http://localhost:3000";
+};
+
 export const authClient = createAuthClient({
-	// 브라우저에서 현재 origin을 바로 알 수 있으면 그것을 쓰고,
-	// 정적 환경이나 클라이언트 부팅 전에는 공개 auth URL을 우선 사용한다.
-	baseURL:
-		process.env.NEXT_PUBLIC_BETTER_AUTH_URL ??
-		(typeof window !== "undefined" ? window.location.origin : ""),
+	// 브라우저에서는 현재 origin을 우선 사용해 개발/프리뷰 포트와 auth origin 불일치를 막는다.
+	// 서버 렌더 단계에서는 공개 auth URL을 fallback으로 둔다.
+	baseURL: getAuthBaseURL(),
 });
