@@ -27,7 +27,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 			<RoutePrefetcher />
 			<div className="flex h-dvh flex-col md:flex-row">
 				<Sidebar />
-				<main className="flex-1 overflow-y-auto pb-36 md:pb-8">{children}</main>
+				<main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto pb-36 md:pb-8">{children}</main>
 				<BottomTabBar />
 			</div>
 			<GlobalManualInputDialog />

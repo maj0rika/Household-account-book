@@ -162,10 +162,32 @@
   :root {
     --bottom-nav-height: calc(3.5rem + env(safe-area-inset-bottom, 0px));
   }
-  /* Recharts SVG 요소에 글로벌 outline 제거 */
-  .recharts-wrapper,
-  .recharts-wrapper * {
-    outline: none !important;
+  /* Recharts 포커스는 마우스 포커스만 숨기고 키보드 포커스는 유지 */
+  .recharts-wrapper :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  .recharts-wrapper :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  .skip-link {
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    z-index: 10000;
+    border-radius: 0.5rem;
+    background: var(--background);
+    color: var(--foreground);
+    padding: 0.75rem 1rem;
+    box-shadow: 0 0 0 2px var(--ring);
+    transform: translateY(-200%);
+    transition: transform 150ms ease;
+  }
+
+  .skip-link:focus-visible {
+    transform: translateY(0);
   }
 }
 

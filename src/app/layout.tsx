@@ -62,8 +62,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
 	width: "device-width",
 	initialScale: 1,
-	maximumScale: 1,
-	userScalable: false,
 	viewportFit: "cover",
 	themeColor: [
 		{ media: "(prefers-color-scheme: light)", color: "#2da562" },
@@ -81,6 +79,7 @@ export default function RootLayout({
 			<body
 				className={`${pretendard.variable} ${geistSans.variable} ${geistMono.variable} antialiased`}
 			>
+				<a href="#main-content" className="skip-link">본문으로 건너뛰기</a>
 				{/* 전역 스플래시는 앱 첫 진입과 라우트 전환 초반의 체감 공백을 메운다. */}
 				<AppSplashScreen />
 				{children}

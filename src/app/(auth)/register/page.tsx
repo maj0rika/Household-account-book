@@ -50,7 +50,7 @@ export default function RegisterPage() {
 	};
 
 	return (
-		<main className="flex min-h-dvh items-center justify-center px-4">
+		<main id="main-content" tabIndex={-1} className="flex min-h-dvh items-center justify-center px-4">
 			<Card className="w-full max-w-sm">
 				<CardHeader className="items-center gap-2 pb-2">
 					<div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">

@@ -6,7 +6,7 @@
 // - App Router가 `/login` 경로를 렌더링할 때 직접 사용한다;
 // 흐름:
 // - 클라이언트에서 로그인 폼 상태를 관리하고 `authClient.signIn.email()` 성공 시 `/transactions`로 즉시 이동한다;
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Wallet } from "lucide-react";
@@ -26,6 +26,39 @@ export default function LoginPage() {
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [isLoading, setIsLoading] = useState(false);
 	const [rememberMe, setRememberMe] = useState(true);
+	const baseUrl = process.env.NEXT_PUBLIC_BETTER_AUTH_URL ?? "https://household-account-book-tawny.vercel.app";
+	const structuredData = useMemo(() => ({
+		"@context": "https://schema.org",
+		"@graph": [
+			{
+				"@type": "WebSite",
+				name: "가계부",
+				url: baseUrl,
+				description: "자연어와 이미지 입력을 AI가 자동 분류하는 스마트 가계부 서비스",
+				inLanguage: "ko-KR",
+			},
+			{
+				"@type": "SoftwareApplication",
+				name: "가계부",
+				applicationCategory: "FinanceApplication",
+				operatingSystem: "Web, iOS, Android",
+				url: `${baseUrl}/login`,
+				description: "자연어와 이미지 입력을 AI가 자동 분류해 거래 기록을 줄여주는 AI 가계부",
+				featureList: [
+					"자연어 거래 입력",
+					"이미지 기반 거래 파싱",
+					"AI 자동 분류",
+					"예산 및 통계 관리",
+					"자산/부채 관리",
+				],
+				offers: {
+					"@type": "Offer",
+					price: "0",
+					priceCurrency: "KRW",
+				},
+			},
+		],
+	}), [baseUrl]);
 
 	const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
@@ -51,8 +84,14 @@ export default function LoginPage() {
 	};
 
 	return (
-		<main className="flex min-h-dvh items-center justify-center px-4">
-			<Card className="w-full max-w-sm">
+		<>
+			<script
+				type="application/ld+json"
+				suppressHydrationWarning
+				dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+			/>
+			<main id="main-content" tabIndex={-1} className="flex min-h-dvh items-center justify-center px-4">
+				<Card className="w-full max-w-sm">
 				<CardHeader className="items-center gap-2 pb-2">
 					<div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
 						<Wallet className="h-6 w-6 text-primary" />
@@ -126,7 +165,8 @@ export default function LoginPage() {
 						<Link href="/privacy" className="hover:underline">개인정보처리방침</Link>
 					</p>
 				</CardContent>
-			</Card>
-		</main>
+				</Card>
+			</main>
+		</>
 	);
 }
