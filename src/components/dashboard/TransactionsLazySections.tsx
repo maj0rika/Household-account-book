@@ -45,6 +45,7 @@ interface TransactionsLazySectionsProps {
 	categoryBreakdown: CategoryBreakdown[];
 	month: string;
 	transactions: Transaction[];
+	weekTransactionsByDate: Record<string, Transaction[]>;
 	categories: Category[];
 	accounts: Account[];
 }
@@ -55,6 +56,7 @@ export function TransactionsLazySections({
 	categoryBreakdown,
 	month,
 	transactions,
+	weekTransactionsByDate,
 	categories,
 	accounts,
 }: TransactionsLazySectionsProps) {
@@ -63,13 +65,20 @@ export function TransactionsLazySections({
 	return (
 		<div>
 			<Separator className="my-2" />
-			<WeeklyBarChart data={dailyExpenses} weekDates={weekDates} transactions={transactions} categories={categories} />
+			<WeeklyBarChart
+				data={dailyExpenses}
+				weekDates={weekDates}
+				transactionsByDate={weekTransactionsByDate}
+				categories={categories}
+			/>
 			<Separator className="my-2" />
 			<CategoryPieChart data={categoryBreakdown} month={month} />
-			<Separator className="my-2" />
-			<RecurringTransactionManager />
-			<Separator className="my-2" />
-			<FilterableTransactionList transactions={transactions} categories={categories} accounts={accounts} />
+			<div style={{ contentVisibility: "auto", containIntrinsicBlockSize: "960px" }}>
+				<Separator className="my-2" />
+				<RecurringTransactionManager />
+				<Separator className="my-2" />
+				<FilterableTransactionList transactions={transactions} categories={categories} accounts={accounts} />
+			</div>
 		</div>
 	);
 }

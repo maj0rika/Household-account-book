@@ -1,14 +1,10 @@
-"use client";
-
 // 파일 역할:
-// - 통계 화면에서 쓰이는 시각화 UI 파일이다.
+// - 통계 화면 하단의 카테고리별 지출 랭킹 카드를 그리는 프레젠테이션 컴포넌트다;
 // 사용 위치:
-// - 직접 import 경로가 드러나지 않는 진입점이거나, 프레임워크/테스트 러너가 런타임에 호출한다;
+// - `StatisticsRankingSection`이 서버에서 랭킹 데이터와 선택 상태를 정리한 뒤 이 컴포넌트에 전달한다;
 // 흐름:
-// - 상위 페이지/섹션 컴포넌트가 데이터를 내려주면, 이 파일이 상태와 이벤트를 정리해 하위 UI 프리미티브에 전달한다;
-import { useMemo } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { motion } from "motion/react";
+// - 이미 서버에서 정리된 데이터와 링크만 받아 렌더링만 수행하므로, 클라이언트 상태나 라우터 훅 없이 서버 렌더링이 가능하다;
+import Link from "next/link";
 
 import { formatCurrency } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
@@ -18,36 +14,14 @@ import type { CategoryRanking } from "@/server/actions/statistics";
 interface CategoryRankingListProps {
 	data: CategoryRanking[];
 	selectedCategoryId?: string | null;
-	month: string;
+	clearCategoryHref: string;
 }
 
-const itemVariants = {
-	hidden: { opacity: 0, x: -12 },
-	visible: (i: number) => ({
-		opacity: 1,
-		x: 0,
-		transition: { delay: i * 0.06, duration: 0.3, ease: "easeOut" as const },
-	}),
-};
-
-export function CategoryRankingList({ data, selectedCategoryId, month }: CategoryRankingListProps) {
-	const router = useRouter();
-	const searchParams = useSearchParams();
-
-	const filteredData = useMemo(() => {
-		// 통계 상세는 로컬 상태가 아니라 URL의 `category` 쿼리를 진실 공급원으로 삼는다.
-		if (!selectedCategoryId) return data;
-		return data.filter((item) => item.categoryId === selectedCategoryId);
-	}, [data, selectedCategoryId]);
-
-	const clearCategoryFilter = () => {
-		// 상세 필터만 지우고 현재 월 쿼리는 유지해
-		// 같은 기간 안에서 전체 카테고리 목록으로 되돌아간다.
-		const params = new URLSearchParams(searchParams.toString());
-		params.delete("category");
-		params.set("month", month);
-		router.push(`/statistics?${params.toString()}`);
-	};
+export function CategoryRankingList({ data, selectedCategoryId, clearCategoryHref }: CategoryRankingListProps) {
+	// 통계 상세는 로컬 상태가 아니라 URL의 `category` 쿼리를 진실 공급원으로 삼는다.
+	const filteredData = selectedCategoryId
+		? data.filter((item) => item.categoryId === selectedCategoryId)
+		: data;
 
 	if (data.length === 0) {
 		return (
@@ -63,7 +37,9 @@ export function CategoryRankingList({ data, selectedCategoryId, month }: Categor
 			<div className="rounded-xl border border-border bg-card p-4">
 				<div className="mb-3 flex items-center justify-between">
 					<h3 className="text-sm font-semibold">카테고리별 지출</h3>
-					<Button size="sm" variant="outline" onClick={clearCategoryFilter}>전체 보기</Button>
+					<Button size="sm" variant="outline" asChild>
+						<Link href={clearCategoryHref}>전체 보기</Link>
+					</Button>
 				</div>
 				<p className="py-8 text-center text-sm text-muted-foreground">선택한 카테고리 내역이 없습니다.</p>
 			</div>
@@ -71,34 +47,26 @@ export function CategoryRankingList({ data, selectedCategoryId, month }: Categor
 	}
 
 	const renderData = filteredData;
+	// 랭킹 막대의 너비는 현재 렌더 목록 안에서 상대 비교를 해야 하므로
+	// 전체 원본이 아니라 필터링된 결과의 최댓값을 기준점으로 사용한다.
 	const maxAmount = renderData[0]?.amount ?? 1;
 
 	return (
-		<motion.div
-			className="rounded-xl border border-border bg-card p-4"
-			initial={{ opacity: 0, y: 16 }}
-			animate={{ opacity: 1, y: 0 }}
-			transition={{ duration: 0.4, delay: 0.15 }}
-		>
+		<div className="rounded-xl border border-border bg-card p-4">
 			<div className="mb-3 flex items-center justify-between gap-2">
 				<h3 className="text-sm font-semibold">카테고리별 지출</h3>
 				{selectedCategoryId && (
 					<div className="flex items-center gap-2">
 						<Badge variant="secondary" className="text-[11px]">상세 필터 적용됨</Badge>
-						<Button size="sm" variant="outline" onClick={clearCategoryFilter}>전체 보기</Button>
+						<Button size="sm" variant="outline" asChild>
+							<Link href={clearCategoryHref}>전체 보기</Link>
+						</Button>
 					</div>
 				)}
 			</div>
 			<div className="space-y-3">
-				{renderData.map((item, index) => (
-					<motion.div
-						key={item.categoryId}
-						className="space-y-1"
-						custom={index}
-						variants={itemVariants}
-						initial="hidden"
-						animate="visible"
-					>
+				{renderData.map((item) => (
+					<div key={item.categoryId} className="space-y-1">
 						<div className="flex items-center justify-between text-sm">
 							<div className="flex items-center gap-2">
 								<span className="text-base">{item.categoryIcon}</span>
@@ -113,16 +81,14 @@ export function CategoryRankingList({ data, selectedCategoryId, month }: Categor
 							</div>
 						</div>
 						<div className="h-2 rounded-full bg-muted">
-							<motion.div
+							<div
 								className="h-full rounded-full bg-primary/70"
-								initial={{ width: 0 }}
-								animate={{ width: `${(item.amount / maxAmount) * 100}%` }}
-								transition={{ delay: 0.3 + index * 0.06, duration: 0.5, ease: "easeOut" }}
+								style={{ width: `${(item.amount / maxAmount) * 100}%` }}
 							/>
 						</div>
-					</motion.div>
+					</div>
 				))}
 			</div>
-		</motion.div>
+		</div>
 	);
 }

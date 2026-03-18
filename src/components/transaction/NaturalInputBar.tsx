@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useId } from "react";
 import Image from "next/image";
 import { Send, Loader2, ImagePlus, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -169,6 +169,8 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 	const [isLoading, setIsLoading] = useState(false);
 	const [statusMessage, setStatusMessage] = useState<string>("");
 	const [showLongHint, setShowLongHint] = useState(false);
+	const inputId = useId();
+	const hintId = useId();
 
 	// [참조 관리]
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -413,6 +415,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 								<button
 									type="button"
 									onClick={handleCancel}
+									aria-label="파싱 요청 취소"
 									className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
 								>
 									<X className="h-3 w-3" />
@@ -449,6 +452,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 								<button
 									type="button"
 									onClick={clearImage}
+									aria-label="첨부 이미지 제거"
 									className="absolute -right-1.5 -top-1.5 rounded-full bg-destructive p-0.5 text-destructive-foreground shadow-sm active:scale-90"
 									disabled={isLoading}
 								>
@@ -465,9 +469,10 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 						type="button"
 						variant="ghost"
 						size="icon"
-						className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground active:scale-90"
+						className="h-11 w-11 shrink-0 text-foreground active:scale-90"
 						onClick={() => fileInputRef.current?.click()}
 						disabled={isLoading}
+						aria-label="이미지 첨부"
 					>
 						<ImagePlus className="h-4 w-4" />
 					</Button>
@@ -481,8 +486,15 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 
 					{/* 텍스트 입력창 */}
 					<div className="relative min-w-0 flex-1">
+						<label htmlFor={inputId} className="sr-only">
+							거래 또는 자산 입력
+						</label>
+						<p id={hintId} className="sr-only">
+							거래나 자산 내역을 입력하세요. Enter로 전송하고 Shift+Enter로 줄바꿈합니다.
+						</p>
 						<AnimatedPlaceholder show={!input && !isLoading} />
 						<textarea
+							id={inputId}
 							ref={textareaRef}
 							value={input}
 							onChange={(e) => {
@@ -494,6 +506,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 								if (error) setError(null);
 							}}
 							onKeyDown={handleKeyDown}
+							aria-describedby={hintId}
 							className="block h-9 min-h-9 w-full resize-none rounded-md border border-input bg-transparent px-3 py-[7px] text-sm leading-5 shadow-xs outline-none transition-shadow focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
 							rows={1}
 							disabled={isLoading}
@@ -505,7 +518,8 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 							size="icon"
 							onClick={handleSubmit}
 							disabled={(!input.trim() && !imageData) || isLoading}
-							className="h-9 w-9"
+							className="h-11 w-11"
+							aria-label={isLoading ? "입력 분석 중" : "입력 전송"}
 						>
 							{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
 						</Button>
@@ -527,6 +541,7 @@ export function NaturalInputBar({ onParsed }: NaturalInputBarProps) {
 								<button
 									type="button"
 									onClick={handleRetry}
+									aria-label="같은 요청 다시 시도"
 									className="text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
 								>
 									같은 요청 다시 시도

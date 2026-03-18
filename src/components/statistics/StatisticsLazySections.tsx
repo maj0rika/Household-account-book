@@ -1,56 +1,34 @@
-"use client";
-
-import dynamic from "next/dynamic";
-
-import { MonthlyTrendChart } from "@/components/statistics/MonthlyTrendChart";
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
+import { CategoryRankingList } from "@/components/statistics/CategoryRankingList";
 import type { CategoryRanking } from "@/server/actions/statistics";
 
-// Recharts 차트는 Turbopack dev에서 동적 청크 로딩 실패를 줄이기 위해 정적 import로 유지한다.
-function SectionLoading({ title }: { title: string }) {
-	return (
-		<div className="rounded-xl border border-border bg-card p-4">
-			<h3 className="mb-3 text-sm font-semibold">{title}</h3>
-			<div className="space-y-2">
-				<Skeleton className="h-4 w-full" />
-				<Skeleton className="h-4 w-4/5" />
-				<Skeleton className="h-4 w-3/5" />
-			</div>
-		</div>
-	);
-}
-
-const CategoryRankingList = dynamic(
-	() => import("@/components/statistics/CategoryRankingList").then((m) => m.CategoryRankingList),
-	{
-		ssr: false,
-		loading: () => <SectionLoading title="카테고리별 지출" />,
-	},
-);
-
-interface StatisticsLazySectionsProps {
-	trend: Array<{ month: string; income: number; expense: number }>;
+// 파일 역할:
+// - 통계 화면의 "늦게 읽혀도 되는 하단 랭킹 섹션" 경계만 분리하는 얇은 wrapper다;
+// 사용 위치:
+// - `/statistics` 페이지의 서버 섹션이 데이터를 모은 뒤 이 컴포넌트를 호출한다;
+// 흐름:
+// - 섹션 단위 layout과 `content-visibility` 힌트만 맡고, 실제 카드 렌더링은 `CategoryRankingList`에 위임한다;
+interface StatisticsRankingSectionProps {
 	ranking: CategoryRanking[];
 	selectedCategoryId: string | null;
-	month: string;
+	clearCategoryHref: string;
 }
 
-export function StatisticsLazySections({
-	trend,
+export function StatisticsRankingSection({
 	ranking,
 	selectedCategoryId,
-	month,
-}: StatisticsLazySectionsProps) {
+	clearCategoryHref,
+}: StatisticsRankingSectionProps) {
+	// 랭킹 리스트는 더 이상 로컬 상태가 없어서 서버에서 바로 그려
+	// 통계 상세 하단 카드의 불필요한 하이드레이션을 줄인다.
 	return (
-		<div style={{ contentVisibility: "auto", containIntrinsicBlockSize: "500px" }}>
-			<div className="px-4 py-2">
-				<MonthlyTrendChart data={trend} />
-			</div>
-			<Separator className="my-2" />
-			<div className="px-4 py-2">
-				<CategoryRankingList data={ranking} selectedCategoryId={selectedCategoryId} month={month} />
-			</div>
+		// 이 영역은 화면 상단보다 늦게 보이는 경우가 많아
+		// 브라우저가 필요 시점 전까지 레이아웃/페인트 비용을 미룰 수 있게 힌트를 준다.
+		<div className="px-4 py-2" style={{ contentVisibility: "auto", containIntrinsicBlockSize: "360px" }}>
+			<CategoryRankingList
+				data={ranking}
+				selectedCategoryId={selectedCategoryId}
+				clearCategoryHref={clearCategoryHref}
+			/>
 		</div>
 	);
 }

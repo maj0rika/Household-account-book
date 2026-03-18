@@ -6,7 +6,7 @@
 // - 거래 페이지가 월 기준 거래 배열과 카테고리/계정 목록을 내려줄 때 함께 렌더링된다;
 // 흐름:
 // - 서버에서 받은 거래 배열은 그대로 두고, 검색어는 Enter 시점에만 적용해 로컬 필터 상태로 목록을 좁힌다;
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useId } from "react";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -59,6 +59,8 @@ function FilterBar({
 }) {
 	const [localQuery, setLocalQuery] = useState(filters.query);
 	const [filtersOpen, setFiltersOpen] = useState(false);
+	const searchInputId = useId();
+	const filterPanelId = useId();
 
 	const hasActiveFilters = !!filters.query || !!filters.type || filters.categoryIds.length > 0;
 
@@ -110,8 +112,16 @@ function FilterBar({
 			{/* 검색바 */}
 			<div className="flex items-center gap-2">
 				<div className="relative flex-1">
-					<Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+					<label htmlFor={searchInputId} className="sr-only">
+						거래 내역 검색
+					</label>
+					<Search
+						aria-hidden="true"
+						className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+					/>
 					<Input
+						id={searchInputId}
+						type="search"
 						value={localQuery}
 						onChange={(e) => setLocalQuery(e.target.value)}
 						onKeyDown={handleKeyDown}
@@ -122,7 +132,8 @@ function FilterBar({
 						<button
 							type="button"
 							onClick={handleClearQuery}
-							className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+							aria-label="검색어 지우기"
+							className="absolute right-1 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-foreground transition-colors hover:bg-accent hover:text-foreground"
 						>
 							<X className="h-3.5 w-3.5" />
 						</button>
@@ -131,8 +142,11 @@ function FilterBar({
 				<Button
 					variant={filtersOpen ? "secondary" : "outline"}
 					size="icon"
-					className="h-9 w-9 shrink-0"
+					className="h-11 w-11 shrink-0"
 					onClick={() => setFiltersOpen(!filtersOpen)}
+					aria-label={filtersOpen ? "필터 접기" : "필터 열기"}
+					aria-expanded={filtersOpen}
+					aria-controls={filterPanelId}
 				>
 					<SlidersHorizontal className="h-3.5 w-3.5" />
 				</Button>
@@ -147,6 +161,7 @@ function FilterBar({
 							<button
 								type="button"
 								onClick={handleClearQuery}
+								aria-label="검색 필터 제거"
 								className="p-1 -mr-1 rounded-full hover:bg-muted"
 							>
 								<X className="h-3 w-3" />
@@ -159,6 +174,7 @@ function FilterBar({
 							<button
 								type="button"
 								onClick={() => onFiltersChange({ ...filters, type: null })}
+								aria-label={`${filters.type === "income" ? "수입" : "지출"} 필터 제거`}
 								className="p-1 -mr-1 rounded-full hover:bg-muted"
 							>
 								<X className="h-3 w-3" />
@@ -180,6 +196,7 @@ function FilterBar({
 											),
 										})
 									}
+									aria-label={`${cat ? cat.name : "카테고리"} 필터 제거`}
 									className="p-1 -mr-1 rounded-full hover:bg-muted"
 								>
 									<X className="h-3 w-3" />
@@ -201,6 +218,7 @@ function FilterBar({
 			<AnimatePresence>
 				{filtersOpen && (
 					<motion.div
+						id={filterPanelId}
 						className="mt-3 space-y-3 overflow-hidden"
 						initial={{ height: 0, opacity: 0 }}
 						animate={{ height: "auto", opacity: 1 }}

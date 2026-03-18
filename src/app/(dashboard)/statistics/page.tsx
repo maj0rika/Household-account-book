@@ -11,7 +11,8 @@ import { getMonthlySummary } from "@/server/actions/transaction";
 import { getCurrentMonth } from "@/lib/format";
 import { MonthNavigator } from "@/components/dashboard/MonthNavigator";
 import { MonthlySummaryCard } from "@/components/dashboard/MonthlySummaryCard";
-import { StatisticsLazySections } from "@/components/statistics/StatisticsLazySections";
+import { MonthlyTrendChart } from "@/components/statistics/MonthlyTrendChart";
+import { StatisticsRankingSection } from "@/components/statistics/StatisticsLazySections";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -40,13 +41,23 @@ function SummaryFallback() {
 	);
 }
 
-function DetailFallback() {
+function TrendFallback() {
 	return (
 		<>
 			<Separator className="my-2" />
 			<div className="space-y-2 px-4 py-2">
 				<Skeleton className="h-5 w-24" />
 				<Skeleton className="h-40 w-full" />
+			</div>
+		</>
+	);
+}
+
+function RankingFallback() {
+	return (
+		<>
+			<Separator className="my-2" />
+			<div className="space-y-2 px-4 py-2">
 				<Skeleton className="h-5 w-28" />
 				<Skeleton className="h-28 w-full" />
 			</div>
@@ -60,28 +71,42 @@ async function StatisticsSummarySection({ month }: { month: string }) {
 	return <MonthlySummaryCard summary={summary} month={month} />;
 }
 
-async function StatisticsDetailSection({
+async function StatisticsTrendSection() {
+	// 추이 차트는 선택 카테고리와 무관한 공통 맥락 정보라
+	// 랭킹 쿼리보다 먼저 풀어 사용자가 "이번 화면이 어느 기간의 통계인지"를 빠르게 파악하게 한다.
+	const trend = await getMonthlyTrend(6);
+
+	return (
+		<>
+			<Separator className="my-2" />
+			<div className="px-4 py-2">
+				<MonthlyTrendChart data={trend} />
+			</div>
+		</>
+	);
+}
+
+async function StatisticsRankingServerSection({
 	month,
 	selectedCategoryId,
 }: {
 	month: string;
 	selectedCategoryId: string | null;
 }) {
-	// 추이와 카테고리 랭킹은 서로 다른 쿼리지만 둘 다 상세 영역에만 쓰이므로
-	// 한 섹션 안에서 병렬 조회 후 지연 렌더링한다.
-	const [trend, ranking] = await Promise.all([
-		getMonthlyTrend(6),
-		getCategoryRanking(month),
-	]);
+	// 랭킹 영역은 선택된 카테고리와 "전체 보기" 링크를 함께 다뤄야 하므로
+	// 서버에서 clear href를 완성해 내려 클라이언트 라우터 훅 없이도 같은 화면 상태를 복원할 수 있게 한다.
+	const ranking = await getCategoryRanking(month);
+	const params = new URLSearchParams();
+	params.set("month", month);
+	const clearCategoryHref = `/statistics?${params.toString()}`;
 
 	return (
 		<>
 			<Separator className="my-2" />
-			<StatisticsLazySections
-				trend={trend}
+			<StatisticsRankingSection
 				ranking={ranking}
 				selectedCategoryId={selectedCategoryId}
-				month={month}
+				clearCategoryHref={clearCategoryHref}
 			/>
 		</>
 	);
@@ -95,6 +120,9 @@ export default async function StatisticsPage({ searchParams }: Props) {
 
 	return (
 		<div className="pb-28 md:pb-24">
+			<h1 className="sr-only">통계</h1>
+			{/* 통계 화면은 "월 이동 -> 요약 -> 추이 -> 랭킹" 순서로 정보를 쌓는다.
+				각 구간을 개별 Suspense로 분리해 하단 랭킹이 느려도 상단 맥락 카드와 차트는 먼저 읽히게 한다. */}
 			<Suspense fallback={<MonthNavigatorFallback />}>
 				<MonthNavigator month={month} />
 			</Suspense>
@@ -103,8 +131,12 @@ export default async function StatisticsPage({ searchParams }: Props) {
 				<StatisticsSummarySection month={month} />
 			</Suspense>
 
-			<Suspense fallback={<DetailFallback />}>
-				<StatisticsDetailSection month={month} selectedCategoryId={selectedCategoryId} />
+			<Suspense fallback={<TrendFallback />}>
+				<StatisticsTrendSection />
+			</Suspense>
+
+			<Suspense fallback={<RankingFallback />}>
+				<StatisticsRankingServerSection month={month} selectedCategoryId={selectedCategoryId} />
 			</Suspense>
 		</div>
 	);

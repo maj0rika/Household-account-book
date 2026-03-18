@@ -6,7 +6,7 @@
 // - `src/components/transaction/FilterableTransactionList.tsx`에서 이 파일을 import해 상위 흐름에 연결한다;
 // 흐름:
 // - 상위 페이지/섹션 컴포넌트가 데이터를 내려주면, 이 파일이 상태와 이벤트를 정리해 하위 UI 프리미티브에 전달한다;
-import { useState, useCallback, useEffect, memo } from "react";
+import { useState, useCallback, useEffect, useMemo, memo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 
 import { Separator } from "@/components/ui/separator";
@@ -19,18 +19,20 @@ import type { Transaction, Category, Account } from "@/types";
 const TransactionItem = memo(function TransactionItem({
 	tx,
 	onEdit,
+	enableMotion,
 }: {
 	tx: Transaction;
 	onEdit: (tx: Transaction) => void;
+	enableMotion: boolean;
 }) {
 	return (
 		<motion.button
 			type="button"
-			layout
-			initial={{ opacity: 0, y: 8 }}
+			layout={enableMotion}
+			initial={enableMotion ? { opacity: 0, y: 8 } : false}
 			animate={{ opacity: 1, y: 0 }}
-			exit={{ opacity: 0, x: -60, transition: { duration: 0.2 } }}
-			transition={{ duration: 0.25, ease: "easeOut" }}
+			exit={enableMotion ? { opacity: 0, x: -60, transition: { duration: 0.2 } } : undefined}
+			transition={enableMotion ? { duration: 0.25, ease: "easeOut" } : { duration: 0 }}
 			className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-accent/30 active:bg-accent/50"
 			onClick={() => {
 				blurActiveElement();
@@ -72,6 +74,8 @@ export function TransactionList({
 		setLocalTransactions((prev) => prev.filter((tx) => tx.id !== transactionId));
 		setEditingTx(null);
 	}, []);
+	const groups = useMemo(() => groupTransactionsByDate(localTransactions), [localTransactions]);
+	const enableItemMotion = localTransactions.length <= 40;
 
 	if (localTransactions.length === 0) {
 		return (
@@ -87,8 +91,6 @@ export function TransactionList({
 		);
 	}
 
-	const groups = groupTransactionsByDate(localTransactions);
-
 	return (
 		<>
 			<div className="mt-2">
@@ -103,6 +105,7 @@ export function TransactionList({
 									key={tx.id}
 									tx={tx}
 									onEdit={handleEdit}
+									enableMotion={enableItemMotion}
 								/>
 							))}
 							<Separator />

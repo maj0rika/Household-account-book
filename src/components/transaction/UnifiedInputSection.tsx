@@ -1,14 +1,27 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState, useEffect, useRef } from "react";
 
 import { NaturalInputBar } from "@/components/transaction/NaturalInputBar";
-import { ParseResultSheet } from "@/components/transaction/ParseResultSheet";
-import { AccountParseResultSheet } from "@/components/assets/AccountParseResultSheet";
 import { getUserCategories } from "@/server/actions/transaction";
 import { getAccounts } from "@/server/actions/account";
 import type { UnifiedParseResult, ParsedTransaction, ParsedAccount } from "@/server/llm/types";
 import type { Category, Account } from "@/types";
+
+const LazyParseResultSheet = dynamic(
+	() => import("@/components/transaction/ParseResultSheet").then((module) => module.ParseResultSheet),
+	{
+		ssr: false,
+	},
+);
+
+const LazyAccountParseResultSheet = dynamic(
+	() => import("@/components/assets/AccountParseResultSheet").then((module) => module.AccountParseResultSheet),
+	{
+		ssr: false,
+	},
+);
 
 interface UnifiedInputSectionProps {
 	initialCategories: Category[];
@@ -145,22 +158,26 @@ export function UnifiedInputSection({
 	return (
 		<>
 			<NaturalInputBar onParsed={handleParsed} />
-			<ParseResultSheet
-				open={txSheetOpen}
-				onOpenChange={setTxSheetOpen}
-				items={parsedTransactions}
-				originalInput={originalInput}
-				categories={categories}
-				accounts={existingAccounts}
-				splitMeta={splitMeta}
-			/>
-			<AccountParseResultSheet
-				open={accountSheetOpen}
-				onOpenChange={setAccountSheetOpen}
-				items={parsedAccounts}
-				existingAccounts={existingAccounts}
-				splitMeta={splitMeta}
-			/>
+			{txSheetOpen && (
+				<LazyParseResultSheet
+					open={txSheetOpen}
+					onOpenChange={setTxSheetOpen}
+					items={parsedTransactions}
+					originalInput={originalInput}
+					categories={categories}
+					accounts={existingAccounts}
+					splitMeta={splitMeta}
+				/>
+			)}
+			{accountSheetOpen && (
+				<LazyAccountParseResultSheet
+					open={accountSheetOpen}
+					onOpenChange={setAccountSheetOpen}
+					items={parsedAccounts}
+					existingAccounts={existingAccounts}
+					splitMeta={splitMeta}
+				/>
+			)}
 		</>
 	);
 }

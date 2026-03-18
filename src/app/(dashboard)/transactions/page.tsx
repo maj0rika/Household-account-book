@@ -23,6 +23,7 @@ import { InteractiveCalendar } from "@/components/dashboard/InteractiveCalendar"
 import { TransactionsLazySections } from "@/components/dashboard/TransactionsLazySections";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { Transaction } from "@/types";
 
 interface Props {
 	searchParams: Promise<{ month?: string }>;
@@ -69,6 +70,21 @@ function getWeeklyRangeByMonth(month: string): { weekDates: string[]; startDate:
 const getTransactionsCached = cache(async (month: string) => getTransactions(month));
 const getUserCategoriesCached = cache(async () => getUserCategories());
 const getAccountsCached = cache(async () => getAccounts());
+
+function groupTransactionsByDateMap(transactions: Transaction[]): Record<string, Transaction[]> {
+	// 달력과 주간 차트는 "날짜 -> 그날의 거래들" 형태를 공통으로 사용한다.
+	// 서버에서 한 번만 날짜 맵을 만들고 내려주면 각 클라이언트 컴포넌트가 월 전체 배열을 다시 순회하지 않아도 된다.
+	const grouped: Record<string, Transaction[]> = {};
+
+	for (const transaction of transactions) {
+		if (!grouped[transaction.date]) {
+			grouped[transaction.date] = [];
+		}
+		grouped[transaction.date].push(transaction);
+	}
+
+	return grouped;
+}
 
 function MonthNavigatorFallback() {
 	return (
@@ -135,6 +151,9 @@ async function TransactionsCalendarSection({ month }: { month: string }) {
 		getMonthlyCalendarData(month),
 		getUserCategoriesCached(),
 	]);
+	// 캘린더 셀 클릭 이후 열리는 시트는 날짜별 거래 배열이 바로 필요하므로
+	// 이 섹션에서 날짜 맵을 함께 만든 뒤 InteractiveCalendar에 전달한다.
+	const transactionsByDate = groupTransactionsByDateMap(transactions);
 
 	return (
 		<>
@@ -142,7 +161,7 @@ async function TransactionsCalendarSection({ month }: { month: string }) {
 			<InteractiveCalendar
 				month={month}
 				calendarData={calendarData}
-				transactions={transactions}
+				transactionsByDate={transactionsByDate}
 				categories={categories}
 			/>
 		</>
@@ -165,6 +184,12 @@ async function TransactionsInsightsSection({
 		getCategoryBreakdown(month),
 		getDailyExpenses(startDate, endDateExclusive),
 	]);
+	const transactionsByDate = groupTransactionsByDateMap(transactions);
+	// 주간 차트는 실제로 7일 구간 데이터만 있으면 되므로,
+	// 월 전체 날짜 맵 중 필요한 키만 다시 잘라 `weekTransactionsByDate`로 넘겨 하위 의존 범위를 줄인다.
+	const weekTransactionsByDate = Object.fromEntries(
+		weekDates.map((date) => [date, transactionsByDate[date] ?? []]),
+	);
 
 	return (
 		<TransactionsLazySections
@@ -173,6 +198,7 @@ async function TransactionsInsightsSection({
 			categoryBreakdown={categoryBreakdown}
 			month={month}
 			transactions={transactions}
+			weekTransactionsByDate={weekTransactionsByDate}
 			categories={categories}
 			accounts={accounts}
 		/>
@@ -190,6 +216,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
 
 	return (
 		<div className="pb-28 md:pb-24">
+			<h1 className="sr-only">거래 내역</h1>
 			{/* 거래 페이지는 "월 선택 → 요약 → 캘린더 → 상세 인사이트" 순서로 쌓는다.
 				각 섹션을 분리된 Suspense 경계로 감싸 일부 데이터가 느려도 상단 컨텍스트부터 먼저 읽을 수 있게 한다. */}
 			<Suspense fallback={<MonthNavigatorFallback />}>

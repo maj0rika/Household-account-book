@@ -13,9 +13,10 @@ const hideNativeSplash = async () => {
 };
 
 // 스플래시 표시 시간 (ms)
-const SPLASH_DURATION = 1000;
+const SPLASH_DURATION = 650;
 // 페이드아웃 전환 시간 (ms)
-const FADEOUT_DURATION = 400;
+const FADEOUT_DURATION = 240;
+const SPLASH_SEEN_KEY = "app-splash-seen";
 
 export function AppSplashScreen() {
 	const [phase, setPhase] = useState<"active" | "fadeout" | "done">("active");
@@ -23,6 +24,25 @@ export function AppSplashScreen() {
 	useEffect(() => {
 		// 네이티브 스플래시 숨기기 (커스텀 스플래시가 대체)
 		hideNativeSplash();
+
+		let shouldSkipSplash = false;
+
+		try {
+			const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+			const seenBefore = sessionStorage.getItem(SPLASH_SEEN_KEY) === "true";
+			shouldSkipSplash = prefersReducedMotion || seenBefore;
+
+			if (!seenBefore) {
+				sessionStorage.setItem(SPLASH_SEEN_KEY, "true");
+			}
+		} catch {
+			shouldSkipSplash = true;
+		}
+
+		if (shouldSkipSplash) {
+			setPhase("done");
+			return;
+		}
 
 		// 스플래시 표시 → 페이드아웃 시작
 		const showTimer = setTimeout(() => {
@@ -46,11 +66,7 @@ export function AppSplashScreen() {
 	if (phase === "done") return null;
 
 	return (
-		<div
-			className="splash-overlay"
-			aria-hidden="true"
-			data-phase={phase}
-		>
+		<div className="splash-overlay" aria-hidden="true" data-phase={phase}>
 			<div className="splash-logo">
 				{/* 앱 로고 — ₩ 심볼 + AI 악센트 */}
 				<svg
