@@ -61,6 +61,7 @@ next-env.d.ts
 .agents/
 .gemini/
 .serena/
+.gstack/
 AGENTS.md
 CLAUDE.md
 todos/
