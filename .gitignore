@@ -57,8 +57,13 @@ android/local.properties
 next-env.d.ts
 
 # AI agent 자동생성 파일
-.claude/settings.local.json
-.serena/memories/
+.claude/
+.agents/
+.gemini/
+.serena/
+AGENTS.md
+CLAUDE.md
+todos/
 
 # 개인 참고 자료
 docs/*questions*.md
