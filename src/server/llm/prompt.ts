@@ -142,6 +142,8 @@ ${accountList}
 반드시 아래 JSON 객체 하나만 반환하세요.
 
 {
+  "rejected": false,
+  "reason": "",
   "intent": "transaction" | "account",
   "transactions": [
     {
@@ -152,7 +154,7 @@ ${accountList}
       "amount": 숫자,
       "isRecurring": false,
       "dayOfMonth": null,
-      "suggestedCategory": null
+      "suggestedCategory": ""
     }
   ],
   "accounts": [
@@ -174,7 +176,7 @@ ${accountList}
 ## OOD
 입력이 거래, 수입, 지출, 자산, 부채와 전혀 관련 없으면 아래 JSON을 반환하세요.
 
-{"rejected": true, "reason": "가계부와 관련 없는 입력입니다."}
+{"rejected": true, "reason": "가계부와 관련 없는 입력입니다.", "intent": "transaction", "transactions": [], "accounts": []}
 
 거부 예시: 날씨 질문, 코딩 요청, 일반 잡담, 번역 요청
 거부하지 말아야 하는 예시: 금액이 포함된 소비/수입/환불/정산/잔액/대출/투자/카드 메시지`;
