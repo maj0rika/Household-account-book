@@ -3,6 +3,8 @@ import { getUserCategories } from "@/server/actions/transaction";
 import { ProfileSection } from "@/components/settings/ProfileSection";
 import { CategoryManager } from "@/components/settings/CategoryManager";
 import { ThemeToggle } from "@/components/settings/ThemeToggle";
+import { DataExportSection } from "@/components/settings/DataExportSection";
+import { ChangePasswordSection } from "@/components/settings/ChangePasswordSection";
 import { Separator } from "@/components/ui/separator";
 
 export default async function SettingsPage() {
@@ -27,6 +29,14 @@ export default async function SettingsPage() {
 			<Separator />
 
 			<CategoryManager categories={categories} />
+
+			<Separator />
+
+			<ChangePasswordSection />
+
+			<Separator />
+
+			<DataExportSection />
 
 			<Separator />
 

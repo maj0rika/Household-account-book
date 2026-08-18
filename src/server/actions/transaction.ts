@@ -6,22 +6,24 @@
 "use server";
 
 import { unstable_cache } from "next/cache";
-import { and, eq, gte, lt, lte, ilike, sql, desc, type SQL } from "drizzle-orm";
+import { and, eq, gte, lt, lte, ilike, ne, sql, desc, type SQL } from "drizzle-orm";
 
 import { getAuthUserIdOrThrow } from "@/server/auth";
 import { db } from "@/server/db";
 import { transactions, categories, recurringTransactions, accounts } from "@/server/db/schema";
 import type { ParsedTransaction } from "@/server/llm/types";
-import { applyOwnedAccountBalance, requireOwnedAccount, requireOwnedCategory } from "@/server/lib/account-ledger";
+import { applyOwnedAccountBalance, applyOwnedTransfer, requireOwnedAccount, requireOwnedCategory } from "@/server/lib/account-ledger";
 import { encryptNullable, decryptNullable, decryptString } from "@/server/lib/crypto";
 import {
 	createSingleTransactionSchema,
+	createTransferSchema,
 	firstSchemaError,
 	parsedTransactionSchema,
 	updateTransactionSchema,
 } from "@/server/validation/write-schemas";
 import type { Transaction, MonthlySummary, CategoryBreakdown, DailyExpense, Category } from "@/types";
 import { revalidateTransactionPages, CacheTags } from "@/lib/cache-keys";
+import { requireIncomeExpenseType } from "@/lib/format";
 
 const getAuthUserId = getAuthUserIdOrThrow;
 
@@ -102,7 +104,9 @@ export async function createTransactions(
 			.from(categories)
 			.where(eq(categories.userId, userId));
 
-		let categoryMap = new Map(userCategories.map((c) => [categoryKey(c.type, c.name), c.id]));
+		let categoryMap = new Map(
+			userCategories.map((c) => [categoryKey(requireIncomeExpenseType(c.type), c.name), c.id]),
+		);
 
 		// AI 추천 카테고리가 DB에 없으면 자동 생성하여 UX 끊김 방지
 		const missingMap = new Map<string, { name: string; type: "income" | "expense" }>();
@@ -138,7 +142,9 @@ export async function createTransactions(
 				.select({ id: categories.id, name: categories.name, type: categories.type })
 				.from(categories)
 				.where(eq(categories.userId, userId));
-			categoryMap = new Map(userCategories.map((c) => [categoryKey(c.type, c.name), c.id]));
+			categoryMap = new Map(
+				userCategories.map((c) => [categoryKey(requireIncomeExpenseType(c.type), c.name), c.id]),
+			);
 		}
 
 		const regularValues = normalizedItems
@@ -191,7 +197,7 @@ export async function createTransactions(
 				.where(and(eq(recurringTransactions.userId, userId), eq(recurringTransactions.isActive, true)));
 
 			const existingSignatures: ExistingRecurringSignature[] = existingRecurring.map((row) => ({
-				type: row.type,
+				type: requireIncomeExpenseType(row.type),
 				amount: Number(row.amount),
 				description: row.description,
 				categoryId: row.categoryId,
@@ -380,7 +386,7 @@ async function queryTransactions(userId: string, month: string, filters?: Transa
 					id: row.categoryId!,
 					name: row.categoryName,
 					icon: row.categoryIcon!,
-					type: row.categoryType!,
+					type: requireIncomeExpenseType(row.categoryType!),
 				}
 			: null,
 		account: row.accountName
@@ -451,6 +457,7 @@ export async function deleteTransaction(
 		const [existing] = await db
 			.select({
 				accountId: transactions.accountId,
+				transferAccountId: transactions.transferAccountId,
 				type: transactions.type,
 				amount: transactions.amount,
 			})
@@ -465,6 +472,20 @@ export async function deleteTransaction(
 			await tx
 				.delete(transactions)
 				.where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
+
+			if (existing.type === "transfer") {
+				if (!existing.accountId || !existing.transferAccountId) {
+					throw new Error("이체 계좌 정보가 없습니다.");
+				}
+				await applyOwnedTransfer(tx, {
+					userId,
+					fromAccountId: existing.accountId,
+					toAccountId: existing.transferAccountId,
+					amount: existing.amount,
+					reverse: true,
+				});
+				return;
+			}
 
 			await applyOwnedAccountBalance(tx, {
 				userId,
@@ -516,7 +537,12 @@ export async function updateTransaction(
 			return { success: false, error: "거래를 찾을 수 없습니다." };
 		}
 
-		const newType = data.type ?? existing.type;
+		if (existing.type === "transfer") {
+			return { success: false, error: "이체는 수정할 수 없습니다. 삭제 후 다시 입력해 주세요." };
+		}
+
+		const previousType = requireIncomeExpenseType(existing.type);
+		const newType = requireIncomeExpenseType(data.type ?? previousType);
 		const newAmount = data.amount ?? existing.amount;
 		const newAccountId = data.accountId !== undefined ? data.accountId : existing.accountId;
 
@@ -545,7 +571,7 @@ export async function updateTransaction(
 			await applyOwnedAccountBalance(tx, {
 				userId,
 				accountId: existing.accountId,
-				transactionType: existing.type,
+				transactionType: previousType,
 				amount: existing.amount,
 				reverse: true,
 			});
@@ -577,7 +603,7 @@ const cachedGetUserCategories = unstable_cache(
 			userId: row.userId,
 			name: row.name,
 			icon: row.icon,
-			type: row.type,
+			type: requireIncomeExpenseType(row.type),
 			sortOrder: row.sortOrder,
 			isDefault: row.isDefault,
 		}));
@@ -639,6 +665,49 @@ export async function createSingleTransaction(data: {
 	}
 }
 
+export async function createTransfer(data: {
+	fromAccountId: string;
+	toAccountId: string;
+	description: string;
+	amount: number;
+	date: string;
+	memo?: string;
+}): Promise<{ success: true } | { success: false; error: string }> {
+	try {
+		const parsed = createTransferSchema.safeParse(data);
+		if (!parsed.success) {
+			return { success: false, error: firstSchemaError(parsed.error) };
+		}
+
+		const userId = await getAuthUserId();
+
+		await db.transaction(async (tx) => {
+			await tx.insert(transactions).values({
+				userId,
+				accountId: parsed.data.fromAccountId,
+				transferAccountId: parsed.data.toAccountId,
+				type: "transfer",
+				amount: parsed.data.amount,
+				description: parsed.data.description,
+				date: parsed.data.date,
+				memo: encryptNullable(parsed.data.memo ?? null),
+			});
+
+			await applyOwnedTransfer(tx, {
+				userId,
+				fromAccountId: parsed.data.fromAccountId,
+				toAccountId: parsed.data.toAccountId,
+				amount: parsed.data.amount,
+			});
+		});
+
+		revalidateTransactionPages();
+		return { success: true };
+	} catch (e) {
+		return { success: false, error: e instanceof Error ? e.message : "이체에 실패했습니다." };
+	}
+}
+
 const cachedGetCategoryBreakdown = unstable_cache(
 	async (userId: string, month: string): Promise<CategoryBreakdown[]> => {
 		const startDate = `${month}-01`;
@@ -656,6 +725,7 @@ const cachedGetCategoryBreakdown = unstable_cache(
 			.leftJoin(categories, eq(transactions.categoryId, categories.id))
 			.where(
 				and(
+					ne(transactions.type, "transfer"),
 					eq(transactions.userId, userId),
 					eq(transactions.type, "expense"),
 					gte(transactions.date, startDate),
@@ -744,7 +814,9 @@ const cachedGetMonthlyCalendarData = unstable_cache(
 			if (!result[row.date]) {
 				result[row.date] = { income: 0, expense: 0 };
 			}
-			result[row.date][row.type] = Number(row.total);
+			if (row.type === "income" || row.type === "expense") {
+				result[row.date][row.type] = Number(row.total);
+			}
 		}
 		return result;
 	},

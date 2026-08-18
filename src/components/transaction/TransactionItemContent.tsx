@@ -25,7 +25,7 @@ export const TransactionItemContent = memo(function TransactionItemContent({ tx 
 					)}
 				</div>
 				<p className="truncate text-xs text-muted-foreground">
-					{tx.category?.name ?? "미분류"}
+					{tx.type === "transfer" ? "이체" : (tx.category?.name ?? "미분류")}
 					{tx.account && ` · ${tx.account.icon}${tx.account.name}`}
 				</p>
 			</div>

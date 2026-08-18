@@ -216,7 +216,12 @@ async function getUserLLMCategories(userId: string): Promise<LLMCategory[]> {
 		.from(categories)
 		.where(eq(categories.userId, userId));
 
-	return rows.map((r) => ({ name: r.name, type: r.type }));
+	return rows.map((r) => {
+		if (r.type !== "income" && r.type !== "expense") {
+			throw new Error(`카테고리 유형이 유효하지 않습니다: ${r.type}`);
+		}
+		return { name: r.name, type: r.type };
+	});
 }
 
 async function getUserAccounts(userId: string): Promise<Array<Pick<Account, "name" | "type">>> {

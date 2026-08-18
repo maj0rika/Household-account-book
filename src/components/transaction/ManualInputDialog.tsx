@@ -23,7 +23,7 @@ import {
 	DialogDescription,
 	DialogFooter,
 } from "@/components/ui/dialog";
-import { createSingleTransaction, getUserCategories } from "@/server/actions/transaction";
+import { createSingleTransaction, createTransfer, getUserCategories } from "@/server/actions/transaction";
 import { getAccounts } from "@/server/actions/account";
 import { formatCurrencyInput, parseCurrencyInput, getTodayString } from "@/lib/format";
 import { useDeferredLoading } from "@/hooks/useDeferredLoading";
@@ -44,9 +44,10 @@ export function ManualInputDialog({ open, onOpenChange }: ManualInputDialogProps
 	const [accountList, setAccountList] = useState<Account[]>([]);
 
 	const today = getTodayString();
-	const [type, setType] = useState<"expense" | "income">("expense");
+	const [type, setType] = useState<"expense" | "income" | "transfer">("expense");
 	const [categoryId, setCategoryId] = useState("");
 	const [accountId, setAccountId] = useState(NO_ACCOUNT);
+	const [toAccountId, setToAccountId] = useState(NO_ACCOUNT);
 	const [description, setDescription] = useState("");
 	const [amount, setAmount] = useState("");
 	const [date, setDate] = useState(today);
@@ -70,6 +71,7 @@ export function ManualInputDialog({ open, onOpenChange }: ManualInputDialogProps
 		setType("expense");
 		setCategoryId("");
 		setAccountId(NO_ACCOUNT);
+		setToAccountId(NO_ACCOUNT);
 		setDescription("");
 		setAmount("");
 		setDate(today);
@@ -78,18 +80,29 @@ export function ManualInputDialog({ open, onOpenChange }: ManualInputDialogProps
 	const handleSave = () => {
 		const numAmount = Number(amount);
 		if (!description.trim() || !amount || numAmount <= 0) return;
+		if (type === "transfer" && (accountId === NO_ACCOUNT || toAccountId === NO_ACCOUNT || accountId === toAccountId)) {
+			return;
+		}
 
 		startTransition(async () => {
 			startLoading();
 			try {
-				const result = await createSingleTransaction({
-					type,
-					categoryId: categoryId || null,
-					accountId: accountId === NO_ACCOUNT ? null : accountId,
-					description: description.trim(),
-					amount: numAmount,
-					date,
-				});
+				const result = type === "transfer"
+					? await createTransfer({
+						fromAccountId: accountId,
+						toAccountId,
+						description: description.trim(),
+						amount: numAmount,
+						date,
+					})
+					: await createSingleTransaction({
+						type,
+						categoryId: categoryId || null,
+						accountId: accountId === NO_ACCOUNT ? null : accountId,
+						description: description.trim(),
+						amount: numAmount,
+						date,
+					});
 				if (result.success) {
 					onOpenChange(false);
 					resetForm();
@@ -135,6 +148,17 @@ export function ManualInputDialog({ open, onOpenChange }: ManualInputDialogProps
 							>
 								수입
 							</Button>
+							<Button
+								type="button"
+								variant={type === "transfer" ? "default" : "outline"}
+								size="sm"
+								onClick={() => {
+									setType("transfer");
+									setCategoryId("");
+								}}
+							>
+								이체
+							</Button>
 						</div>
 					</div>
 
@@ -150,7 +174,7 @@ export function ManualInputDialog({ open, onOpenChange }: ManualInputDialogProps
 					</div>
 
 					{/* 카테고리 */}
-					<div className="grid gap-2">
+					{type !== "transfer" && <div className="grid gap-2">
 						<Label htmlFor="manual-category">카테고리</Label>
 						<select
 							id="manual-category"
@@ -165,7 +189,7 @@ export function ManualInputDialog({ open, onOpenChange }: ManualInputDialogProps
 								</option>
 							))}
 						</select>
-					</div>
+					</div>}
 
 					{/* 설명 */}
 					<div className="grid gap-2">
@@ -194,7 +218,7 @@ export function ManualInputDialog({ open, onOpenChange }: ManualInputDialogProps
 					{/* 계좌 */}
 					{accountList.length > 0 && (
 						<div className="grid gap-2">
-							<Label>계좌 (선택사항)</Label>
+							<Label>{type === "transfer" ? "출금 계좌" : "계좌 (선택사항)"}</Label>
 							<Select value={accountId} onValueChange={setAccountId}>
 								<SelectTrigger className="h-9">
 									<SelectValue placeholder="계좌 선택" />
@@ -225,6 +249,24 @@ export function ManualInputDialog({ open, onOpenChange }: ManualInputDialogProps
 							</Select>
 						</div>
 					)}
+					{type === "transfer" && accountList.length > 0 && (
+						<div className="grid gap-2">
+							<Label>입금 계좌</Label>
+							<Select value={toAccountId} onValueChange={setToAccountId}>
+								<SelectTrigger className="h-9">
+									<SelectValue placeholder="계좌 선택" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value={NO_ACCOUNT}>선택 안 함</SelectItem>
+									{accountList.map((acc) => (
+										<SelectItem key={acc.id} value={acc.id}>
+											{acc.icon} {acc.name}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+					)}
 				</div>
 
 				<DialogFooter>
@@ -233,7 +275,13 @@ export function ManualInputDialog({ open, onOpenChange }: ManualInputDialogProps
 					</Button>
 					<Button
 						onClick={handleSave}
-						disabled={!description.trim() || !amount || Number(amount) <= 0 || isPending}
+						disabled={
+							!description.trim()
+							|| !amount
+							|| Number(amount) <= 0
+							|| isPending
+							|| (type === "transfer" && (accountId === NO_ACCOUNT || toAccountId === NO_ACCOUNT || accountId === toAccountId))
+						}
 					>
 						{showSpinner ? (
 							<>

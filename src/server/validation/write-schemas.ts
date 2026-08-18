@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const transactionTypeSchema = z.enum(["income", "expense"]);
+export const moneyMovementTypeSchema = z.enum(["income", "expense", "transfer"]);
 export const accountTypeSchema = z.enum(["asset", "debt"]);
 export const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "날짜 형식이 올바르지 않습니다.");
 export const monthSchema = z.string().regex(/^\d{4}-\d{2}$/, "월 형식이 올바르지 않습니다.");
@@ -63,6 +64,17 @@ export const upsertBudgetSchema = z.object({
 	categoryId: uuidSchema.nullable(),
 	amount: amountSchema,
 	month: monthSchema,
+});
+
+export const createTransferSchema = z.object({
+	fromAccountId: uuidSchema,
+	toAccountId: uuidSchema,
+	description: descriptionSchema,
+	amount: amountSchema,
+	date: isoDateSchema,
+	memo: z.string().trim().max(500).optional(),
+}).refine((value) => value.fromAccountId !== value.toAccountId, {
+	message: "이체 출금 계좌와 입금 계좌가 같습니다.",
 });
 
 export const createRecurringSchema = z.object({

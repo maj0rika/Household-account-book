@@ -148,6 +148,7 @@ export async function applyRecurringTransactions(
 				return {
 					userId,
 					categoryId: r.categoryId,
+					recurringRuleId: r.id,
 					type: r.type,
 					amount: r.amount,
 					description: r.description,
@@ -165,7 +166,7 @@ export async function applyRecurringTransactions(
 			return { success: true, count: 0, alreadyApplied };
 		}
 
-		await db.insert(transactions).values(values);
+		await db.insert(transactions).values(values).onConflictDoNothing();
 
 		revalidateRecurringPages();
 		return { success: true, count: values.length, alreadyApplied };

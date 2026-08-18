@@ -1,12 +1,14 @@
 import { and, eq, sql } from "drizzle-orm";
 
-import { db } from "@/server/db";
 import { accounts, categories } from "@/server/db/schema";
 import { decryptNumber, encryptNumber } from "@/server/lib/crypto";
 
-export type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export type AccountKind = "asset" | "debt";
-export type TransactionKind = "income" | "expense";
+export type TransactionKind = "income" | "expense" | "transfer";
+
+// drizzle transaction or compatible query client
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type LedgerClient = any;
 
 export class LedgerOwnershipError extends Error {
 	constructor(message: string) {
@@ -17,7 +19,7 @@ export class LedgerOwnershipError extends Error {
 
 export function computeBalanceDelta(
 	accountType: AccountKind,
-	transactionType: TransactionKind,
+	transactionType: Exclude<TransactionKind, "transfer">,
 	amount: number,
 ): number {
 	if (!Number.isFinite(amount) || amount <= 0) {
@@ -31,8 +33,24 @@ export function computeBalanceDelta(
 	return transactionType === "expense" ? amount : -amount;
 }
 
+export function computeTransferDelta(
+	accountType: AccountKind,
+	role: "source" | "destination",
+	amount: number,
+): number {
+	if (!Number.isFinite(amount) || amount <= 0) {
+		throw new Error(`잔액 변경 금액이 유효하지 않습니다: ${amount}`);
+	}
+
+	if (role === "source") {
+		return accountType === "asset" ? -amount : amount;
+	}
+
+	return accountType === "asset" ? amount : -amount;
+}
+
 export async function requireOwnedAccount(
-	tx: DbTransaction,
+	tx: LedgerClient,
 	userId: string,
 	accountId: string,
 ): Promise<{ id: string; type: AccountKind; balance: string }> {
@@ -57,7 +75,7 @@ export async function requireOwnedAccount(
 }
 
 export async function requireOwnedCategory(
-	client: Pick<DbTransaction, "select">,
+	client: LedgerClient,
 	userId: string,
 	categoryId: string,
 ): Promise<string> {
@@ -75,11 +93,11 @@ export async function requireOwnedCategory(
 }
 
 export async function applyOwnedAccountBalance(
-	tx: DbTransaction,
+	tx: LedgerClient,
 	input: {
 		userId: string;
 		accountId: string | null | undefined;
-		transactionType: TransactionKind;
+		transactionType: Exclude<TransactionKind, "transfer">;
 		amount: number;
 		reverse?: boolean;
 	},
@@ -98,4 +116,42 @@ export async function applyOwnedAccountBalance(
 			updatedAt: new Date(),
 		})
 		.where(and(eq(accounts.id, account.id), eq(accounts.userId, input.userId)));
+}
+
+export async function applyOwnedTransfer(
+	tx: LedgerClient,
+	input: {
+		userId: string;
+		fromAccountId: string;
+		toAccountId: string;
+		amount: number;
+		reverse?: boolean;
+	},
+): Promise<void> {
+	if (input.fromAccountId === input.toAccountId) {
+		throw new Error("이체 출금 계좌와 입금 계좌가 같습니다.");
+	}
+
+	const from = await requireOwnedAccount(tx, input.userId, input.fromAccountId);
+	const to = await requireOwnedAccount(tx, input.userId, input.toAccountId);
+	const fromDelta = computeTransferDelta(from.type, "source", input.amount);
+	const toDelta = computeTransferDelta(to.type, "destination", input.amount);
+	const signedFrom = input.reverse ? -fromDelta : fromDelta;
+	const signedTo = input.reverse ? -toDelta : toDelta;
+
+	await tx
+		.update(accounts)
+		.set({
+			balance: encryptNumber(decryptNumber(from.balance) + signedFrom),
+			updatedAt: new Date(),
+		})
+		.where(and(eq(accounts.id, from.id), eq(accounts.userId, input.userId)));
+
+	await tx
+		.update(accounts)
+		.set({
+			balance: encryptNumber(decryptNumber(to.balance) + signedTo),
+			updatedAt: new Date(),
+		})
+		.where(and(eq(accounts.id, to.id), eq(accounts.userId, input.userId)));
 }

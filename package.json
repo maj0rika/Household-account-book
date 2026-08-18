@@ -8,6 +8,7 @@
 		"start": "next start",
 		"lint": "eslint src eslint.config.mjs",
 		"test": "vitest run",
+		"test:llm-smoke": "tsx scripts/llm-structured-smoke.ts",
 		"test:e2e": "playwright test",
 		"test:e2e:headed": "playwright test --headed",
 		"test:e2e:install": "playwright install chromium",
@@ -56,6 +57,7 @@
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.4",
 		"@capacitor/cli": "^8.1.0",
+		"@electric-sql/pglite": "0.5.5",
 		"@eslint/eslintrc": "^3",
 		"@playwright/test": "^1.58.2",
 		"@tailwindcss/postcss": "^4",
