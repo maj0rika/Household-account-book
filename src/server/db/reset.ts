@@ -9,8 +9,11 @@ import "dotenv/config";
 import { sql } from "drizzle-orm";
 
 import { db } from "./index";
+import { assertResetAllowed } from "./reset-guard";
 
 const reset = async (): Promise<void> => {
+	assertResetAllowed();
+
 	await db.execute(sql`
 		TRUNCATE TABLE
 			"security_events",

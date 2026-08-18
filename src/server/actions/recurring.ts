@@ -12,6 +12,7 @@ import { eq, and, gte, lt } from "drizzle-orm";
 import { getAuthUserIdOrThrow } from "@/server/auth";
 import { db } from "@/server/db";
 import { recurringTransactions, transactions } from "@/server/db/schema";
+import { requireOwnedCategory } from "@/server/lib/account-ledger";
 import { encryptNullable } from "@/server/lib/crypto";
 import { revalidateRecurringPages } from "@/lib/cache-keys";
 
@@ -39,7 +40,10 @@ export async function createRecurringTransaction(data: {
 	try {
 		const userId = await getAuthUserId();
 
-		// 여기서 저장하는 row는 미래 월에도 반복해서 펼쳐질 원본 규칙이다.
+		if (data.categoryId) {
+			await requireOwnedCategory(db, userId, data.categoryId);
+		}
+
 		await db.insert(recurringTransactions).values({
 			userId,
 			categoryId: data.categoryId,

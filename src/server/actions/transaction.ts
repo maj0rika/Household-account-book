@@ -12,60 +12,10 @@ import { getAuthUserIdOrThrow } from "@/server/auth";
 import { db } from "@/server/db";
 import { transactions, categories, recurringTransactions, accounts } from "@/server/db/schema";
 import type { ParsedTransaction } from "@/server/llm/types";
-import { encryptNullable, decryptNullable, decryptString, encryptNumber, decryptNumber } from "@/server/lib/crypto";
+import { applyOwnedAccountBalance, requireOwnedAccount, requireOwnedCategory } from "@/server/lib/account-ledger";
+import { encryptNullable, decryptNullable, decryptString } from "@/server/lib/crypto";
 import type { Transaction, MonthlySummary, CategoryBreakdown, DailyExpense, Category } from "@/types";
 import { revalidateTransactionPages, CacheTags } from "@/lib/cache-keys";
-
-// db.transaction 콜백의 tx 타입
-type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
-
-// 거래에 따른 계좌 잔액 반영 (FOR UPDATE 락으로 동시 수정 방지)
-async function adjustAccountBalance(
-	tx: DbTransaction,
-	accountId: string | null | undefined,
-	type: "income" | "expense",
-	amount: number,
-) {
-	if (!accountId) return;
-	const delta = type === "income" ? amount : -amount;
-	const result = await tx.execute(
-		sql`SELECT balance FROM accounts WHERE id = ${accountId} FOR UPDATE`,
-	);
-	const row = result.rows[0];
-	if (!row) return;
-	const current = decryptNumber(String(row.balance));
-	await tx
-		.update(accounts)
-		.set({
-			balance: encryptNumber(current + delta),
-			updatedAt: new Date(),
-		})
-		.where(eq(accounts.id, accountId));
-}
-
-// 계좌 잔액 역산 (삭제/수정 시 이전 거래 되돌리기)
-async function reverseAccountBalance(
-	tx: DbTransaction,
-	accountId: string | null | undefined,
-	type: "income" | "expense",
-	amount: number,
-) {
-	if (!accountId) return;
-	const delta = type === "income" ? -amount : amount;
-	const result = await tx.execute(
-		sql`SELECT balance FROM accounts WHERE id = ${accountId} FOR UPDATE`,
-	);
-	const row = result.rows[0];
-	if (!row) return;
-	const current = decryptNumber(String(row.balance));
-	await tx
-		.update(accounts)
-		.set({
-			balance: encryptNumber(current + delta),
-			updatedAt: new Date(),
-		})
-		.where(eq(accounts.id, accountId));
-}
 
 const getAuthUserId = getAuthUserIdOrThrow;
 
@@ -255,12 +205,23 @@ export async function createTransactions(
 			}
 
 			if (regularValues.length > 0) {
+				const uniqueAccountIds = [...new Set(
+					regularValues
+						.map((item) => item.accountId)
+						.filter((accountId): accountId is string => Boolean(accountId)),
+				)];
+				for (const accountId of uniqueAccountIds) {
+					await requireOwnedAccount(tx, userId, accountId);
+				}
+
 				await tx.insert(transactions).values(regularValues);
-				// 거래 row만 저장하면 연결 계좌 잔액과 장부가 어긋나므로
-				// 계좌가 있는 항목은 같은 트랜잭션 안에서 잔액까지 함께 맞춘다.
-				// 연결 계좌 잔액 반영
 				for (const item of regularValues) {
-					await adjustAccountBalance(tx, item.accountId, item.type, item.amount);
+					await applyOwnedAccountBalance(tx, {
+						userId,
+						accountId: item.accountId,
+						transactionType: item.type,
+						amount: item.amount,
+					});
 				}
 			}
 
@@ -493,8 +454,13 @@ export async function deleteTransaction(
 				.delete(transactions)
 				.where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
 
-			// 연결 계좌 잔액 역산
-			await reverseAccountBalance(tx, existing.accountId, existing.type, existing.amount);
+			await applyOwnedAccountBalance(tx, {
+				userId,
+				accountId: existing.accountId,
+				transactionType: existing.type,
+				amount: existing.amount,
+				reverse: true,
+			});
 		});
 
 		revalidateTransactionPages();
@@ -538,7 +504,13 @@ export async function updateTransaction(
 		const newAccountId = data.accountId !== undefined ? data.accountId : existing.accountId;
 
 		await db.transaction(async (tx) => {
-			// 거래 업데이트
+			if (data.categoryId) {
+				await requireOwnedCategory(tx, userId, data.categoryId);
+			}
+			if (newAccountId) {
+				await requireOwnedAccount(tx, userId, newAccountId);
+			}
+
 			await tx
 				.update(transactions)
 				.set({
@@ -553,10 +525,19 @@ export async function updateTransaction(
 				})
 				.where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
 
-			// 이전 계좌 역산
-			await reverseAccountBalance(tx, existing.accountId, existing.type, existing.amount);
-			// 새 계좌 반영
-			await adjustAccountBalance(tx, newAccountId, newType, newAmount);
+			await applyOwnedAccountBalance(tx, {
+				userId,
+				accountId: existing.accountId,
+				transactionType: existing.type,
+				amount: existing.amount,
+				reverse: true,
+			});
+			await applyOwnedAccountBalance(tx, {
+				userId,
+				accountId: newAccountId,
+				transactionType: newType,
+				amount: newAmount,
+			});
 		});
 
 		revalidateTransactionPages();
@@ -606,6 +587,10 @@ export async function createSingleTransaction(data: {
 		const userId = await getAuthUserId();
 
 		await db.transaction(async (tx) => {
+			if (data.categoryId) {
+				await requireOwnedCategory(tx, userId, data.categoryId);
+			}
+
 			await tx.insert(transactions).values({
 				userId,
 				categoryId: data.categoryId,
@@ -617,8 +602,12 @@ export async function createSingleTransaction(data: {
 				memo: encryptNullable(data.memo ?? null),
 			});
 
-			// 연결 계좌 잔액 반영
-			await adjustAccountBalance(tx, data.accountId, data.type, data.amount);
+			await applyOwnedAccountBalance(tx, {
+				userId,
+				accountId: data.accountId,
+				transactionType: data.type,
+				amount: data.amount,
+			});
 		});
 
 		revalidateTransactionPages();

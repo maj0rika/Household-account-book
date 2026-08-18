@@ -135,7 +135,7 @@ export async function updateAccount(
 
 		// 부분 업데이트를 허용해 입력 시트가 바뀐 필드만 보낼 수 있게 한다.
 		// undefined는 전개 조건으로 걸러 기존 컬럼을 덮어쓰지 않도록 한다.
-		await db
+		const updated = await db
 			.update(accounts)
 			.set({
 				...(data.name !== undefined && { name: encrypt(data.name) }),
@@ -145,7 +145,12 @@ export async function updateAccount(
 				...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
 				updatedAt: new Date(),
 			})
-			.where(and(eq(accounts.id, id), eq(accounts.userId, userId)));
+			.where(and(eq(accounts.id, id), eq(accounts.userId, userId)))
+			.returning({ id: accounts.id });
+
+		if (updated.length === 0) {
+			return { success: false, error: "계정을 찾을 수 없거나 권한이 없습니다." };
+		}
 
 		revalidateAccountPages();
 		return { success: true };
@@ -222,10 +227,15 @@ export async function deleteAccount(
 		const userId = await getAuthUserId();
 
 		// 거래 이력과의 참조를 보존해야 하므로 실제 row 삭제 대신 소프트 삭제를 사용한다.
-		await db
+		const deleted = await db
 			.update(accounts)
 			.set({ isActive: false, updatedAt: new Date() })
-			.where(and(eq(accounts.id, id), eq(accounts.userId, userId)));
+			.where(and(eq(accounts.id, id), eq(accounts.userId, userId)))
+			.returning({ id: accounts.id });
+
+		if (deleted.length === 0) {
+			return { success: false, error: "계정을 찾을 수 없거나 권한이 없습니다." };
+		}
 
 		revalidateAccountPages();
 		return { success: true };

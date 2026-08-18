@@ -5,6 +5,7 @@ import { and, eq, gte, lt, sql, isNull } from "drizzle-orm";
 import { getAuthUserIdOrThrow } from "@/server/auth";
 import { db } from "@/server/db";
 import { budgets, transactions, categories } from "@/server/db/schema";
+import { requireOwnedCategory } from "@/server/lib/account-ledger";
 import { revalidateBudgetPages } from "@/lib/cache-keys";
 
 const getAuthUserId = getAuthUserIdOrThrow;
@@ -100,7 +101,10 @@ export async function upsertBudget(data: {
 	try {
 		const userId = await getAuthUserId();
 
-		// 기존 예산 확인
+		if (data.categoryId) {
+			await requireOwnedCategory(db, userId, data.categoryId);
+		}
+
 		const existing = await db
 			.select({ id: budgets.id })
 			.from(budgets)
