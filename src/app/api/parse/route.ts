@@ -229,6 +229,7 @@ export async function POST(request: Request) {
 			textInput,
 			session.user.id,
 			session.session.id,
+			request.signal,
 		);
 
 		const status = result.success ? 200 : 422;
@@ -343,6 +344,7 @@ export async function POST(request: Request) {
 			textInput,
 			session.user.id,
 			session.session.id,
+			request.signal,
 		);
 		const status = result.success ? 200 : 422;
 
@@ -379,6 +381,7 @@ export async function POST(request: Request) {
 		sanitizedInput.value,
 		session.user.id,
 		session.session.id,
+		request.signal,
 	);
 	const status = result.success ? 200 : 422;
 

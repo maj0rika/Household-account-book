@@ -241,6 +241,7 @@ export async function executeTextParse(
 	userId: string,
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	_sessionId: string,
+	signal?: AbortSignal,
 ): Promise<UnifiedParseResponse> {
 	if (!input.trim()) {
 		return { success: false, error: "입력이 비어 있습니다." };
@@ -271,7 +272,7 @@ export async function executeTextParse(
 		userCategories,
 		existingAccounts,
 		providers[0],
-		{ timeoutMs },
+		{ timeoutMs, signal },
 	);
 	return normalizeParseFailure(result, timeoutMs, false);
 }
@@ -286,6 +287,7 @@ export async function executeImageParse(
 	textInput: string,
 	userId: string,
 	sessionId: string,
+	signal?: AbortSignal,
 ): Promise<UnifiedParseResponse> {
 	if (!imageBase64) {
 		return { success: false, error: "이미지가 비어 있습니다." };
@@ -311,7 +313,7 @@ export async function executeImageParse(
 		userCategories,
 		existingAccounts,
 		provider,
-		{ timeoutMs },
+		{ timeoutMs, signal },
 	);
 
 	if (result.success) {

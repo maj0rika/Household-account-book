@@ -25,9 +25,42 @@ const nextConfig: NextConfig = {
 	serverExternalPackages: ["pg"],
 
 	async headers() {
-		// 서비스워커/manifest는 빠른 반영이 중요해 no-cache,
-		// 해시 기반 정적 자산은 immutable로 길게 캐시해 성능을 챙긴다.
+		const securityHeaders = [
+			{ key: "X-Content-Type-Options", value: "nosniff" },
+			{ key: "X-Frame-Options", value: "DENY" },
+			{ key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+			{
+				key: "Permissions-Policy",
+				value: "geolocation=(), microphone=(), payment=(), usb=()",
+			},
+			{
+				key: "Content-Security-Policy",
+				value: [
+					"default-src 'self'",
+					"img-src 'self' data: blob:",
+					"style-src 'self' 'unsafe-inline'",
+					"script-src 'self' 'unsafe-inline'",
+					"font-src 'self' data:",
+					"connect-src 'self'",
+					"frame-ancestors 'none'",
+					"base-uri 'self'",
+					"form-action 'self'",
+				].join("; "),
+			},
+		];
+
+		if (process.env.NODE_ENV === "production") {
+			securityHeaders.push({
+				key: "Strict-Transport-Security",
+				value: "max-age=31536000; includeSubDomains",
+			});
+		}
+
 		const headers = [
+			{
+				source: "/(.*)",
+				headers: securityHeaders,
+			},
 			{
 				source: "/sw.js",
 				headers: [

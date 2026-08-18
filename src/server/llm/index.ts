@@ -311,7 +311,7 @@ export async function parseUnifiedImage(
 	categories: LLMCategory[],
 	existingAccounts: Array<Pick<Account, "name" | "type">> = [],
 	provider?: LLMProvider,
-	options?: { timeoutMs?: number },
+	options?: { timeoutMs?: number; signal?: AbortSignal },
 ): Promise<UnifiedParseResponse> {
 	const { client, model, temperature, extra_body } = getLLMConfig(provider);
 	const today = getTodayString();
@@ -332,7 +332,10 @@ export async function parseUnifiedImage(
 	const startedAt = Date.now();
 
 	try {
-		// 사용자 1회 요청은 벤더 1회 호출만 수행한다.
+		if (options?.signal?.aborted) {
+			throw new Error("external abort");
+		}
+
 		const response = await withTimeout(
 			(signal) => client.chat.completions.create({
 				model,
@@ -344,6 +347,7 @@ export async function parseUnifiedImage(
 				...extra_body,
 			}, { signal }),
 			timeoutMs,
+			options?.signal,
 		);
 
 		const content = response.choices[0]?.message?.content;

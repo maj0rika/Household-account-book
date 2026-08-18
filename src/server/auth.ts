@@ -32,6 +32,13 @@ export const auth = betterAuth({
 			ipAddressHeaders: ["x-forwarded-for", "x-real-ip", "cf-connecting-ip"],
 			ipv6Subnet: 64,
 		},
+		useSecureCookies: process.env.NODE_ENV === "production",
+		defaultCookieAttributes: {
+			httpOnly: true,
+			sameSite: "lax",
+			secure: process.env.NODE_ENV === "production",
+			path: "/",
+		},
 	},
 	rateLimit: {
 		enabled: true,

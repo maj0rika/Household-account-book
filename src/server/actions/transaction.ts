@@ -14,6 +14,12 @@ import { transactions, categories, recurringTransactions, accounts } from "@/ser
 import type { ParsedTransaction } from "@/server/llm/types";
 import { applyOwnedAccountBalance, requireOwnedAccount, requireOwnedCategory } from "@/server/lib/account-ledger";
 import { encryptNullable, decryptNullable, decryptString } from "@/server/lib/crypto";
+import {
+	createSingleTransactionSchema,
+	firstSchemaError,
+	parsedTransactionSchema,
+	updateTransactionSchema,
+} from "@/server/validation/write-schemas";
 import type { Transaction, MonthlySummary, CategoryBreakdown, DailyExpense, Category } from "@/types";
 import { revalidateTransactionPages, CacheTags } from "@/lib/cache-keys";
 
@@ -65,6 +71,12 @@ export async function createTransactions(
 	originalInput: string,
 ): Promise<{ success: true; count: number; message?: string } | { success: false; error: string }> {
 	try {
+		const parsedItems = parsedTransactionSchema.array().min(1).safeParse(items);
+		if (!parsedItems.success) {
+			return { success: false, error: firstSchemaError(parsedItems.error) };
+		}
+		items = parsedItems.data;
+
 		const userId = await getAuthUserId();
 		if (items.length === 0) {
 			return { success: false, error: "저장할 거래가 없습니다." };
@@ -483,6 +495,11 @@ export async function updateTransaction(
 	},
 ): Promise<{ success: true } | { success: false; error: string }> {
 	try {
+		const parsed = updateTransactionSchema.safeParse(data);
+		if (!parsed.success) {
+			return { success: false, error: firstSchemaError(parsed.error) };
+		}
+		data = parsed.data;
 		const userId = await getAuthUserId();
 
 		// 이전 거래 정보 조회 (계좌 잔액 조정용)
@@ -584,6 +601,11 @@ export async function createSingleTransaction(data: {
 	memo?: string;
 }): Promise<{ success: true } | { success: false; error: string }> {
 	try {
+		const parsed = createSingleTransactionSchema.safeParse(data);
+		if (!parsed.success) {
+			return { success: false, error: firstSchemaError(parsed.error) };
+		}
+		data = parsed.data;
 		const userId = await getAuthUserId();
 
 		await db.transaction(async (tx) => {

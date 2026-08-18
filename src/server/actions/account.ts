@@ -17,6 +17,7 @@ import { db } from "@/server/db";
 import { accounts } from "@/server/db/schema";
 import { encrypt, decryptString, encryptNumber, decryptNumber } from "@/server/lib/crypto";
 import { revalidateAccountPages, CacheTags } from "@/lib/cache-keys";
+import { createAccountSchema, firstSchemaError, updateAccountSchema } from "@/server/validation/write-schemas";
 import type { Account, AccountSummary } from "@/types";
 
 const getAuthUserId = getAuthUserIdOrThrow;
@@ -97,6 +98,11 @@ export async function createAccount(data: {
 	balance: number;
 }): Promise<{ success: true; id: string } | { success: false; error: string }> {
 	try {
+		const parsed = createAccountSchema.safeParse(data);
+		if (!parsed.success) {
+			return { success: false, error: firstSchemaError(parsed.error) };
+		}
+		data = parsed.data;
 		const userId = await getAuthUserId();
 
 		// 생성 시점부터 이름과 잔액을 암호화해 저장해야
@@ -131,6 +137,11 @@ export async function updateAccount(
 	},
 ): Promise<{ success: true } | { success: false; error: string }> {
 	try {
+		const parsed = updateAccountSchema.safeParse(data);
+		if (!parsed.success) {
+			return { success: false, error: firstSchemaError(parsed.error) };
+		}
+		data = parsed.data;
 		const userId = await getAuthUserId();
 
 		// 부분 업데이트를 허용해 입력 시트가 바뀐 필드만 보낼 수 있게 한다.

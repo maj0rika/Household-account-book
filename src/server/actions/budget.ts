@@ -7,6 +7,7 @@ import { db } from "@/server/db";
 import { budgets, transactions, categories } from "@/server/db/schema";
 import { requireOwnedCategory } from "@/server/lib/account-ledger";
 import { revalidateBudgetPages } from "@/lib/cache-keys";
+import { firstSchemaError, upsertBudgetSchema } from "@/server/validation/write-schemas";
 
 const getAuthUserId = getAuthUserIdOrThrow;
 
@@ -99,6 +100,11 @@ export async function upsertBudget(data: {
 	month: string;
 }): Promise<{ success: true } | { success: false; error: string }> {
 	try {
+		const parsed = upsertBudgetSchema.safeParse(data);
+		if (!parsed.success) {
+			return { success: false, error: firstSchemaError(parsed.error) };
+		}
+		data = parsed.data;
 		const userId = await getAuthUserId();
 
 		if (data.categoryId) {

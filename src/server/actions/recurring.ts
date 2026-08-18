@@ -3,7 +3,7 @@
 // 파일 역할:
 // - 고정 거래 규칙과 실제 월간 거래 생성 사이를 이어 주는 서버 액션 파일이다.
 // 사용 위치:
-// - `src/app/(dashboard)/transactions/page.tsx`에서 이 파일을 import해 상위 흐름에 연결한다;
+// - `src/components/transaction/RecurringTransactionManager.tsx`가 규칙 조회/적용에 사용한다;
 // - `src/components/transaction/RecurringTransactionManager.tsx`에서 이 파일을 import해 상위 흐름에 연결한다;
 // 흐름:
 // - 거래 페이지 또는 고정 거래 관리 시트 요청 -> recurring 규칙 조회 -> 대상 월의 실제 거래 시그니처와 비교 -> 아직 없는 거래만 생성 -> 관련 페이지 캐시 갱신 순서로 흐른다;
@@ -15,6 +15,7 @@ import { recurringTransactions, transactions } from "@/server/db/schema";
 import { requireOwnedCategory } from "@/server/lib/account-ledger";
 import { encryptNullable } from "@/server/lib/crypto";
 import { revalidateRecurringPages } from "@/lib/cache-keys";
+import { createRecurringSchema, firstSchemaError, monthSchema } from "@/server/validation/write-schemas";
 
 const getAuthUserId = getAuthUserIdOrThrow;
 
@@ -38,19 +39,24 @@ export async function createRecurringTransaction(data: {
 	dayOfMonth: number;
 }): Promise<{ success: true } | { success: false; error: string }> {
 	try {
+		const parsed = createRecurringSchema.safeParse(data);
+		if (!parsed.success) {
+			return { success: false, error: firstSchemaError(parsed.error) };
+		}
+
 		const userId = await getAuthUserId();
 
-		if (data.categoryId) {
-			await requireOwnedCategory(db, userId, data.categoryId);
+		if (parsed.data.categoryId) {
+			await requireOwnedCategory(db, userId, parsed.data.categoryId);
 		}
 
 		await db.insert(recurringTransactions).values({
 			userId,
-			categoryId: data.categoryId,
-			type: data.type,
-			amount: data.amount,
-			description: data.description,
-			dayOfMonth: data.dayOfMonth,
+			categoryId: parsed.data.categoryId,
+			type: parsed.data.type,
+			amount: parsed.data.amount,
+			description: parsed.data.description,
+			dayOfMonth: parsed.data.dayOfMonth,
 		});
 
 		revalidateRecurringPages();
@@ -81,6 +87,11 @@ export async function applyRecurringTransactions(
 	month: string,
 ): Promise<{ success: true; count: number; alreadyApplied: number } | { success: false; error: string }> {
 	try {
+		const parsedMonth = monthSchema.safeParse(month);
+		if (!parsedMonth.success) {
+			return { success: false, error: firstSchemaError(parsedMonth.error) };
+		}
+
 		const userId = await getAuthUserId();
 
 		// 먼저 "이번 달에 적용할 수 있는 규칙" 전체를 읽어 실제 거래 후보를 만든다.
@@ -226,95 +237,5 @@ export async function checkRecurringApplied(
 		return { total: recurring.length, applied };
 	} catch {
 		return { total: 0, applied: 0 };
-	}
-}
-
-/**
- * 오늘 날짜 기준으로 적용되어야 할 고정 거래를 자동 생성한다.
- * - dayOfMonth <= 오늘 날짜인 고정 거래 중
- * - 이번 달에 아직 동일 거래가 없는 건만 insert
- * - 페이지 로드 시 호출 (서버 컴포넌트)
- */
-export async function autoApplyRecurringTransactions(): Promise<number> {
-	try {
-		const userId = await getAuthUserId();
-
-		const now = new Date();
-		const year = now.getFullYear();
-		const month = now.getMonth() + 1;
-		const today = now.getDate();
-		const daysInMonth = new Date(year, month, 0).getDate();
-
-		const monthStr = `${year}-${String(month).padStart(2, "0")}`;
-		const startDate = `${monthStr}-01`;
-		const nextMonth = month === 12
-			? `${year + 1}-01-01`
-			: `${year}-${String(month + 1).padStart(2, "0")}-01`;
-
-		// 자동 적용은 페이지 로드 때 조용히 실행되므로,
-		// 오늘 기준으로 이미 생성됐어야 하는 규칙만 추려 최소 작업만 수행한다.
-		const recurring = await db
-			.select()
-			.from(recurringTransactions)
-			.where(
-				and(
-					eq(recurringTransactions.userId, userId),
-					eq(recurringTransactions.isActive, true),
-				),
-			);
-
-		const dueItems = recurring.filter((r) => Math.min(r.dayOfMonth, daysInMonth) <= today);
-		if (dueItems.length === 0) return 0;
-
-		// 이번 달 고정 거래로 생성된 기존 거래 조회
-		const existingRows = await db
-			.select({
-				description: transactions.description,
-				amount: transactions.amount,
-				type: transactions.type,
-				date: transactions.date,
-			})
-			.from(transactions)
-			.where(
-				and(
-					eq(transactions.userId, userId),
-					eq(transactions.isRecurring, true),
-					gte(transactions.date, startDate),
-					lt(transactions.date, nextMonth),
-				),
-			);
-
-		const existingSet = new Set(
-			existingRows.map((r) => `${r.type}|${r.description}|${r.amount}|${r.date}`),
-		);
-
-		// `newValues`는 "지금 생성해도 되는 실제 거래"만 남긴 결과다.
-		// 사용자가 수동 적용을 여러 번 눌러도 같은 시그니처는 다시 들어가지 않는다.
-		const newValues = dueItems
-			.map((r) => {
-				const day = Math.min(r.dayOfMonth, daysInMonth);
-				const date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-				return {
-					userId,
-					categoryId: r.categoryId,
-					type: r.type,
-					amount: r.amount,
-					description: r.description,
-					date,
-					memo: encryptNullable("고정 거래 자동 생성"),
-					isRecurring: true,
-				};
-			})
-			.filter((v) => !existingSet.has(`${v.type}|${v.description}|${v.amount}|${v.date}`));
-
-		if (newValues.length === 0) return 0;
-
-		await db.insert(transactions).values(newValues);
-
-		return newValues.length;
-	} catch {
-		// 이 함수는 거래 페이지 초기 렌더 중 백그라운드로 호출된다.
-		// 여기서 예외를 던지면 페이지 진입 UX가 깨지므로 조용히 0으로 삼킨다.
-		return 0;
 	}
 }
