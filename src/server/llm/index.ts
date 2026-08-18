@@ -228,7 +228,7 @@ function getElapsedMs(startedAt: number): number {
 export async function parseUnifiedText(
 	input: string,
 	categories: LLMCategory[],
-	existingAccounts: Account[] = [],
+	existingAccounts: Array<Pick<Account, "name" | "type">> = [],
 	provider?: LLMProvider,
 	options?: { timeoutMs?: number; signal?: AbortSignal },
 ): Promise<UnifiedParseResponse> {
@@ -309,7 +309,7 @@ export async function parseUnifiedImage(
 	mimeType: string,
 	textInput: string,
 	categories: LLMCategory[],
-	existingAccounts: Account[] = [],
+	existingAccounts: Array<Pick<Account, "name" | "type">> = [],
 	provider?: LLMProvider,
 	options?: { timeoutMs?: number },
 ): Promise<UnifiedParseResponse> {

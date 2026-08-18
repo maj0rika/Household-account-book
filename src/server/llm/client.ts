@@ -1,11 +1,10 @@
-// LLM provider별 클라이언트 설정 — OpenAI SDK로 다중 벤더(MiniMax, Kimi, Fireworks)를 통일 인터페이스로 관리
-// getLLMConfig("minimax")    → { client: OpenAI(minimax.io), model:"MiniMax-M2.5", ... }
-// getLLMConfig("kimi")       → { client: OpenAI(moonshot.ai), model:"kimi-k2.5", ... }
-// getLLMConfig("fireworks")  → { client: OpenAI(fireworks.ai), model:"kimi-k2p5", ... }
-// getLLMConfig()             → env LLM_PROVIDER 또는 기본값 "kimi"
+// LLM provider별 클라이언트 설정 — OpenAI SDK로 다중 벤더를 통일 인터페이스로 관리
+// 런타임은 한 요청에 한 provider만 호출한다. 모델 ID는 models.ts와 같아야 한다.
 import OpenAI from "openai";
 
-export type LLMProvider = "minimax" | "kimi" | "fireworks";
+import { RUNTIME_MODELS, type LLMProvider } from "./models";
+
+export type { LLMProvider };
 
 interface LLMConfig {
 	client: OpenAI;
@@ -22,7 +21,7 @@ const configs: Record<LLMProvider, () => LLMConfig> = {
 			apiKey: process.env.MINIMAX_API_KEY,
 			baseURL: "https://api.minimax.io/v1",
 		}),
-		model: "MiniMax-M2.5",
+		model: RUNTIME_MODELS.minimax.model,
 		temperature: 1,
 		extra_body: {
 			reasoning_split: true,
@@ -33,10 +32,10 @@ const configs: Record<LLMProvider, () => LLMConfig> = {
 			apiKey: process.env.KIMI_API_KEY,
 			baseURL: "https://api.moonshot.ai/v1",
 		}),
-		model: "kimi-k2.5",
-		temperature: 1, // K2.5는 temperature 1 고정
+		model: RUNTIME_MODELS.kimi.model,
+		temperature: 1,
 		extra_body: {
-			chat_template_kwargs: { thinking: false },
+			reasoning_effort: "low",
 		},
 	}),
 	fireworks: () => ({
@@ -44,7 +43,7 @@ const configs: Record<LLMProvider, () => LLMConfig> = {
 			apiKey: process.env.FIREWORKS_API_KEY,
 			baseURL: "https://api.fireworks.ai/inference/v1",
 		}),
-		model: "accounts/fireworks/models/kimi-k2p5",
+		model: RUNTIME_MODELS.fireworks.model,
 		temperature: 1,
 	}),
 };

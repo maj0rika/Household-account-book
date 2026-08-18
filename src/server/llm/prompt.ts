@@ -9,7 +9,7 @@ function formatList(items: string[]): string {
 	return items.length > 0 ? items.join(", ") : "없음";
 }
 
-function formatAccountList(existingAccounts: Account[]): string {
+function formatAccountList(existingAccounts: Array<Pick<Account, "name" | "type">>): string {
 	if (existingAccounts.length === 0) {
 		return "없음";
 	}
@@ -19,7 +19,11 @@ function formatAccountList(existingAccounts: Account[]): string {
 		.join(", ");
 }
 
-export function buildSystemPrompt(categories: LLMCategory[], today: string, existingAccounts: Account[] = []): string {
+export function buildSystemPrompt(
+	categories: LLMCategory[],
+	today: string,
+	existingAccounts: Array<Pick<Account, "name" | "type">> = [],
+): string {
 	const expenseCategories = categories
 		.filter((c) => c.type === "expense")
 		.map((c) => c.name);

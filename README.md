@@ -93,7 +93,7 @@ npm run dev
 | `LLM_PROVIDER`                | 선택      | 기본 provider 선택값, 현재 `kimi` 기본;             |
 | `KIMI_API_KEY`                | 선택      | 긴 텍스트/복수 거래 파싱 경로;                      |
 | `FIREWORKS_API_KEY`           | 선택      | 이미지 파싱 우선 경로;                              |
-| `MINIMAX_API_KEY`             | 선택      | 100자 이하 짧은 텍스트 우선 경로;                   |
+| `MINIMAX_API_KEY`             | 선택      | MiniMax 경로. 런타임은 `LLM_PROVIDER` 한 곳만 호출; |
 | `ENCRYPTION_KEY`              | 권장      | 자산/부채 민감 필드 암호화용 64자리 hex 키;         |
 | `NEXT_PUBLIC_API_URL`         | 선택      | 외부 API base URL 지정 시 사용;                     |
 | `REVIEW_ACCOUNT_EMAIL`        | 선택      | Google Play 리뷰 계정 이메일;                       |

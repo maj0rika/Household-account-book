@@ -200,7 +200,7 @@ export function assertTrustedOrigin(request: Request): boolean {
 	// `parse` API의 첫 번째 방어선이다.
 	// origin이 비어 있더라도 referer로 한 번 더 판정해 모바일 웹뷰/브라우저 차이를 흡수한다.
 	const trustedOrigins = getOriginCandidates();
-	if (trustedOrigins.length === 0) return true;
+	if (trustedOrigins.length === 0) return false;
 
 	const originHeader = normalizeHeaderValue(request.headers.get("origin"));
 	if (originHeader) {
