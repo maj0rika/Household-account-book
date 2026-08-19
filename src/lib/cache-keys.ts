@@ -29,6 +29,7 @@ export function revalidateTransactionPages(): void {
 	revalidatePath(CachePaths.budget, "page");
 	revalidateTag(CacheTags.transactions);
 	revalidateTag(CacheTags.categories);
+	revalidateTag(CacheTags.accounts);
 }
 
 // 계좌 mutation 시 무효화

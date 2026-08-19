@@ -12,6 +12,7 @@
 		"test:e2e": "playwright test",
 		"test:e2e:headed": "playwright test --headed",
 		"test:e2e:install": "playwright install chromium",
+		"test:e2e:runtime": "playwright test --config=playwright.runtime.config.ts",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
 		"db:seed:create": "tsx src/server/db/seed.ts",
