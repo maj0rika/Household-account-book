@@ -6,7 +6,10 @@ export function formatCurrency(amount: number): string {
 	return `${KRW.format(amount)}원`;
 }
 
-export function formatSignedCurrency(amount: number, type: "income" | "expense"): string {
+export function formatSignedCurrency(amount: number, type: "income" | "expense" | "transfer"): string {
+	if (type === "transfer") {
+		return KRW.format(amount) + "원";
+	}
 	const sign = type === "income" ? "+" : "-";
 	return `${sign}${KRW.format(amount)}원`;
 }
@@ -31,6 +34,11 @@ export function getKSTDate(): Date {
 	const kstOffset = 9 * 60 * 60 * 1000;
 	const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
 	return new Date(utc + kstOffset);
+}
+
+export function requireIncomeExpenseType(type: string): "income" | "expense" {
+	if (type === "income" || type === "expense") return type;
+	throw new Error(`수입/지출 유형이 아닙니다: ${type}`);
 }
 
 export function formatDateLocal(date: Date): string {

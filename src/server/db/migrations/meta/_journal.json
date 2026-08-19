@@ -64,6 +64,13 @@
       "when": 1773619200000,
       "tag": "0008_auth-parse-security-hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1776556800000,
+      "tag": "0009_ledger-integrity",
+      "breakpoints": true
     }
   ]
 }

@@ -53,7 +53,9 @@ export function TransactionEditSheet({
 	const [isPending, startTransition] = useTransition();
 	const { showSpinner, startLoading, stopLoading } = useDeferredLoading(200);
 
-	const [type, setType] = useState(tx.type);
+	const [type, setType] = useState<"income" | "expense">(
+		tx.type === "income" || tx.type === "expense" ? tx.type : "expense",
+	);
 	const [categoryId, setCategoryId] = useState(tx.categoryId ?? "");
 	const [accountId, setAccountId] = useState(tx.accountId ?? NO_ACCOUNT);
 	const [description, setDescription] = useState(tx.description);
@@ -78,6 +80,7 @@ export function TransactionEditSheet({
 	const accountValueId = `${fieldBaseId}-account-value`;
 
 	const handleSave = () => {
+		if (tx.type === "transfer") return;
 		const numAmount = Number(amount);
 		if (!numAmount || numAmount <= 0 || !description.trim()) return;
 

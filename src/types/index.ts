@@ -11,7 +11,8 @@ export interface Transaction {
 	userId: string;
 	categoryId: string | null;
 	accountId: string | null;
-	type: "income" | "expense";
+	transferAccountId?: string | null;
+	type: "income" | "expense" | "transfer";
 	amount: number;
 	description: string;
 	originalInput: string | null;

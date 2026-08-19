@@ -7,6 +7,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 import {
+	assertTrustedOrigin,
 	extractRequestIp,
 	hashSecurityValue,
 	minimizeSessionIpAddress,
@@ -83,6 +84,16 @@ describe("security helpers", () => {
 
 		expect(valid.ok).toBe(true);
 		expect(invalid.ok).toBe(false);
+	});
+
+	it("trusted origin 환경변수가 없으면 parse origin을 거절한다", () => {
+		vi.stubEnv("BETTER_AUTH_URL", "");
+		vi.stubEnv("NEXT_PUBLIC_BETTER_AUTH_URL", "");
+		const request = new Request("http://localhost:3000/api/parse", {
+			method: "POST",
+			headers: { origin: "http://localhost:3000" },
+		});
+		expect(assertTrustedOrigin(request)).toBe(false);
 	});
 
 	it("잘못된 base64 이미지 payload를 차단한다", () => {

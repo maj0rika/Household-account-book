@@ -21,7 +21,7 @@ import { and, eq } from "drizzle-orm";
 
 import { db } from "@/server/db";
 import { categories, accounts } from "@/server/db/schema";
-import { decryptString, decryptNumber } from "@/server/lib/crypto";
+import { decryptString } from "@/server/lib/crypto";
 import { parseUnifiedText, parseUnifiedImage } from "@/server/llm";
 import type { LLMProvider } from "@/server/llm/client";
 import { isBankMessage, preprocessBankMessage } from "@/server/llm/bank-message";
@@ -92,28 +92,28 @@ function dedupeProviders(providers: Array<LLMProvider | null>): LLMProvider[] {
 // 텍스트 파싱에 사용할 provider 목록 반환 — 사용 가능한 모든 provider를 동시 경쟁시킨다.
 // 더 이상 입력 길이로 단일 경로를 선택하지 않음.
 function resolveTextProviders(): LLMProvider[] {
-	return dedupeProviders([
+	const available = dedupeProviders([
 		hasKimi() ? "kimi" : null,
 		hasFireworks() ? "fireworks" : null,
 		hasMiniMax() ? "minimax" : null,
 	]);
+	if (available.length === 0) return [];
+
+	const preferred = process.env.LLM_PROVIDER as LLMProvider | undefined;
+	if (preferred && available.includes(preferred)) {
+		return [preferred];
+	}
+
+	return [available[0]];
 }
 
 function resolveImageProviders(sessionId: string): LLMProvider[] {
-	// 정책 우선순위 #1: 기존 3회 룰
 	if (canUseImageFireworks(sessionId)) {
-		return dedupeProviders([
-			"fireworks",
-			hasKimi() ? "kimi" : null,
-		]);
+		return ["fireworks"];
 	}
 
-	// Fireworks 우선 사용 조건을 넘겼거나 쿨다운 중이면 Kimi를 먼저 시도한다.
 	if (hasKimi()) return ["kimi"];
-
-	// 최후 폴백
 	if (hasFireworks()) return ["fireworks"];
-
 	return [];
 }
 
@@ -216,38 +216,37 @@ async function getUserLLMCategories(userId: string): Promise<LLMCategory[]> {
 		.from(categories)
 		.where(eq(categories.userId, userId));
 
-	return rows.map((r) => ({ name: r.name, type: r.type }));
+	return rows.map((r) => {
+		if (r.type !== "income" && r.type !== "expense") {
+			throw new Error(`카테고리 유형이 유효하지 않습니다: ${r.type}`);
+		}
+		return { name: r.name, type: r.type };
+	});
 }
 
-// DB 조회: 사용자 계정 (복호화 포함)
-async function getUserAccounts(userId: string): Promise<Account[]> {
+async function getUserAccounts(userId: string): Promise<Array<Pick<Account, "name" | "type">>> {
 	const rows = await db
-		.select()
+		.select({
+			name: accounts.name,
+			type: accounts.type,
+		})
 		.from(accounts)
 		.where(and(eq(accounts.userId, userId), eq(accounts.isActive, true)));
 
 	return rows.map((row) => ({
-		id: row.id,
-		userId: row.userId,
 		name: decryptString(row.name),
 		type: row.type,
-		subType: row.subType,
-		icon: row.icon,
-		balance: decryptNumber(row.balance),
-		sortOrder: row.sortOrder,
-		isActive: row.isActive,
-		createdAt: row.createdAt,
-		updatedAt: row.updatedAt,
 	}));
 }
 
-// 코어 텍스트 파싱 — 현재는 `/api/parse` route handler가 호출하는 텍스트 파싱 진입점이다.
-// OOD 필터 → 카테고리·계좌 병렬 조회 → 모든 provider 동시 경쟁 (first-success-wins)
+// 코어 텍스트 파싱 — `/api/parse` route handler가 호출하는 텍스트 파싱 진입점이다.
+// OOD 필터 → 카테고리·계좌 병렬 조회 → LLM_PROVIDER 단일 호출. 실패는 원래 오류로 반환한다.
 export async function executeTextParse(
 	input: string,
 	userId: string,
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	_sessionId: string,
+	signal?: AbortSignal,
 ): Promise<UnifiedParseResponse> {
 	if (!input.trim()) {
 		return { success: false, error: "입력이 비어 있습니다." };
@@ -267,177 +266,20 @@ export async function executeTextParse(
 		return { success: false, error: mapProviderConfigErrorMessage() };
 	}
 
-	// [성능 최적화] 병렬로 카테고리 + 계정 조회
 	const [userCategories, existingAccounts] = await Promise.all([
 		getUserLLMCategories(userId),
 		getUserAccounts(userId),
 	]);
 
-	// 은행 메시지 전처리 (불필요한 공백이나 특수문자 제거)
 	const processedInput = isBankMessage(input) ? preprocessBankMessage(input) : input;
-
-	// provider가 하나뿐이면 경쟁 제어용 controller/bookkeeping 비용을 생략하고
-	// 가장 짧은 경로로 단건 호출만 수행한다.
-	// provider가 1개면 동시 경쟁 불필요 — 단건 호출로 최적화
-	if (providers.length === 1) {
-		const result = await parseUnifiedText(
-			processedInput,
-			userCategories,
-			existingAccounts,
-			providers[0],
-			{ timeoutMs },
-		);
-		return normalizeParseFailure(result, timeoutMs, false);
-	}
-
-	// Promise.any만으로는 승자 확정, 패자 abort, 실패 수집을 같이 제어하기 어려워
-	// 별도 경쟁 루프로 내려가 첫 성공 응답만 채택한다.
-	// 모든 provider를 동시 호출하고 첫 성공 응답 반환
-	const result = await raceTextProviders(
-		providers,
+	const result = await parseUnifiedText(
 		processedInput,
 		userCategories,
 		existingAccounts,
-		timeoutMs,
+		providers[0],
+		{ timeoutMs, signal },
 	);
 	return normalizeParseFailure(result, timeoutMs, false);
-}
-
-// 텍스트 provider 동시 경쟁 — first-success-wins 전략
-//
-// 설계:
-//   1. 모든 provider를 동시에 시작하되, 각각 독립 AbortController를 부여
-//   2. 첫 번째 성공(success:true) 응답이 도착하면 즉시 반환
-//   3. 패자(pending) promise의 HTTP 요청은 AbortController.abort()로 취소
-//   4. 빠른 실패(네트워크/인증/config)는 무시하고 나머지 provider 결과 대기
-//   5. 전부 실패 시, 복구 가능한 에러보다 콘텐츠 에러를 우선 반환 (더 유의미)
-//
-// reject 누수 방지:
-//   - Promise.any가 내부적으로 rejection을 수집한다.
-//   - 승자 결정 후 남은 promise는 abort + allSettled로 정리한다.
-async function raceTextProviders(
-	providers: LLMProvider[],
-	processedInput: string,
-	userCategories: LLMCategory[],
-	existingAccounts: Account[],
-	timeoutMs: number,
-): Promise<UnifiedParseResponse> {
-	// Promise.any의 성공 조건을 명시적으로 표현해
-	// "첫 success 응답만 채택" 규칙을 타입 수준에서도 드러낸다.
-	interface ProviderRaceSuccess {
-		provider: LLMProvider;
-		index: number;
-		result: Extract<UnifiedParseResponse, { success: true }>;
-	}
-
-	// Promise.any는 reject 이유를 AggregateError.errors에 모으므로
-	// provider별 실패 원인을 이후 pickBestFailure에서 재사용할 수 있게 구조화한다.
-	interface ProviderRaceFailure {
-		provider: LLMProvider;
-		index: number;
-		error: string;
-	}
-
-	// 외부 예외와 우리가 의도적으로 던진 race 실패 객체를 구분한다.
-	const isProviderRaceFailure = (value: unknown): value is ProviderRaceFailure => {
-		if (!value || typeof value !== "object") return false;
-		const candidate = value as Partial<ProviderRaceFailure>;
-		return typeof candidate.provider === "string"
-			&& typeof candidate.index === "number"
-			&& typeof candidate.error === "string";
-	};
-
-	// 각 provider별 독립 AbortController — 승자 외 나머지를 개별 취소
-	const controllers = providers.map(() => new AbortController());
-	// Promise.any는 첫 성공만 반환하므로, 실패 원인은 별도 버퍼에 모아 두었다가
-	// 모든 provider가 실패했을 때 가장 의미 있는 메시지를 선택한다.
-	const failures: Array<{ provider: LLMProvider; error: string }> = [];
-	// 승자 확정 뒤 abort된 패자가 늦게 reject 되더라도 실패 로그에 다시 쌓지 않기 위한 플래그다.
-	let winnerIndex = -1;
-
-	// provider별 promise를 Promise.any용 성공/실패 흐름으로 변환한다.
-	const tasks: Array<Promise<ProviderRaceSuccess>> = providers.map(async (provider, index) => {
-		const controller = controllers[index];
-		try {
-			const result = await parseUnifiedText(
-				processedInput,
-				userCategories,
-				existingAccounts,
-				provider,
-				{ timeoutMs, signal: controller.signal },
-			);
-
-			if (result.success) {
-				return { provider, result, index };
-			}
-
-			// success:false 응답은 Promise.any 입장에서는 "다음 후보를 보라"는 실패이므로
-			// provider 메타데이터를 붙여 reject 경로로 보낸다.
-			throw {
-				provider,
-				index,
-				error: result.error,
-			} satisfies ProviderRaceFailure;
-		} catch (error) {
-			const failure = isProviderRaceFailure(error)
-				? error
-				: {
-					provider,
-					index,
-					error: `파싱 실패: ${error instanceof Error ? error.message : String(error)}`,
-				};
-
-			if (winnerIndex !== -1 && controller.signal.aborted) {
-				throw failure;
-			}
-
-			// 승자 확정 전의 실패만 집계해야 전체 실패 시 우선순위 선택이 정확해진다.
-			failures.push({ provider: failure.provider, error: failure.error });
-			console.warn("[LLM] text race provider failed", {
-				provider: failure.provider,
-				error: failure.error,
-			});
-			throw failure;
-		}
-	});
-
-	try {
-		// 첫 성공 하나만 resolve되고, 나머지는 내부적으로 reject 수집된다.
-		const winner = await Promise.any(tasks);
-		winnerIndex = winner.index;
-
-		console.info("[LLM] text race winner", { provider: winner.provider });
-
-		// 이미 승자가 정해졌으므로 나머지 HTTP 요청은 즉시 중단해 비용과 지연을 줄인다.
-		for (let i = 0; i < controllers.length; i++) {
-			if (i !== winner.index) controllers[i].abort();
-		}
-		// abort된 패자 promise가 백그라운드에서 마무리될 때 unhandled rejection이 남지 않게 정리한다.
-		void Promise.allSettled(tasks);
-
-		return winner.result;
-	} catch (error) {
-		if (!(error instanceof AggregateError)) {
-			throw error;
-		}
-		return pickBestFailure(failures);
-	}
-}
-
-// 여러 provider 실패 중 사용자에게 가장 유의미한 에러를 선택
-// 우선순위: 콘텐츠/파싱 에러(LLM이 응답은 했으나 결과 부적합) > 인프라 에러(타임아웃/네트워크)
-function pickBestFailure(
-	failures: Array<{ provider: LLMProvider; error: string }>,
-): UnifiedParseResponse {
-	// 복구 불가능 에러(콘텐츠 관련)가 있으면 그것이 더 유의미한 피드백
-	const contentFailure = failures.find((f) => !isRecoverableProviderFailure(f.error));
-	if (contentFailure) {
-		return { success: false, error: contentFailure.error };
-	}
-
-	// 전부 인프라 에러면 마지막 에러 반환
-	const lastFailure = failures[failures.length - 1];
-	return { success: false, error: lastFailure?.error ?? "파싱 실패: 알 수 없는 오류" };
 }
 
 /**
@@ -450,6 +292,7 @@ export async function executeImageParse(
 	textInput: string,
 	userId: string,
 	sessionId: string,
+	signal?: AbortSignal,
 ): Promise<UnifiedParseResponse> {
 	if (!imageBase64) {
 		return { success: false, error: "이미지가 비어 있습니다." };
@@ -467,50 +310,27 @@ export async function executeImageParse(
 		getUserAccounts(userId),
 	]);
 
-	let lastResult: UnifiedParseResponse | null = null;
+	const provider = providers[0];
+	const result = await parseUnifiedImage(
+		imageBase64,
+		mimeType,
+		textInput,
+		userCategories,
+		existingAccounts,
+		provider,
+		{ timeoutMs, signal },
+	);
 
-	for (let index = 0; index < providers.length; index++) {
-		const provider = providers[index];
-		// 이미지도 텍스트와 같은 폴백 규칙을 따르되, 전처리 비용이 큰 만큼 동일 payload를 재활용한다.
-		const result = await parseUnifiedImage(
-			imageBase64,
-			mimeType,
-			textInput,
-			userCategories,
-			existingAccounts,
-			provider,
-			{ timeoutMs },
-		);
-
-		if (result.success) {
-			if (provider === "fireworks") {
-				incrementImageFireworksUsage(sessionId);
-			}
-			return result;
+	if (result.success) {
+		if (provider === "fireworks") {
+			incrementImageFireworksUsage(sessionId);
 		}
-
-		lastResult = result;
-
-		const fallbackProvider = providers[index + 1];
-		// 이미지 경로는 텍스트처럼 동시 경쟁하지 않고 순차 폴백 정책을 따른다.
-		// 현재는 Fireworks 실패 시 Kimi 한 단계까지만 허용해 비용과 지연을 통제한다.
-		const shouldFallback = provider === "fireworks" && fallbackProvider === "kimi";
-		if (!shouldFallback) {
-			break;
-		}
-
-		const isRecoverable = isRecoverableProviderFailure(result.error);
-		if (isRecoverable) {
-			activateImageFireworksCooldown(sessionId, result.error);
-		}
-
-		console.warn("[LLM] image provider fallback", {
-			from: provider,
-			to: fallbackProvider,
-			recoverable: isRecoverable,
-			error: result.error,
-		});
+		return result;
 	}
 
-	return normalizeParseFailure(lastResult ?? { success: false, error: "이미지 파싱 실패: 알 수 없는 오류" }, timeoutMs, true);
+	if (provider === "fireworks" && isRecoverableProviderFailure(result.error)) {
+		activateImageFireworksCooldown(sessionId, result.error);
+	}
+
+	return normalizeParseFailure(result, timeoutMs, true);
 }

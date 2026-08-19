@@ -3,7 +3,7 @@
 // 사용 위치:
 // - App Router가 `/transactions` 경로를 렌더링할 때 직접 사용한다;
 // 흐름:
-// - 라우트 진입 -> 월 파라미터 확정 -> 고정 거래 자동 적용 예약 -> 월 네비게이터/요약/캘린더/인사이트를 각 Suspense 경계로 분리 렌더링 -> 하위 클라이언트 컴포넌트가 상호작용을 이어받는 구조다;
+// - 라우트 진입 -> 월 파라미터 확정 -> 월 네비게이터/요약/캘린더/인사이트를 각 Suspense 경계로 분리 렌더링 -> 하위 클라이언트 컴포넌트가 상호작용을 이어받는 구조다;
 import { Suspense, cache } from "react";
 
 import {
@@ -15,7 +15,6 @@ import {
 	getUserCategories,
 } from "@/server/actions/transaction";
 import { getAccounts } from "@/server/actions/account";
-import { autoApplyRecurringTransactions } from "@/server/actions/recurring";
 import { getCurrentMonth, isValidMonth, formatDateLocal, getKSTDate } from "@/lib/format";
 import { MonthlySummaryCard } from "@/components/dashboard/MonthlySummaryCard";
 import { MonthNavigator } from "@/components/dashboard/MonthNavigator";
@@ -210,9 +209,6 @@ export default async function TransactionsPage({ searchParams }: Props) {
 	const rawMonth = params.month ?? getCurrentMonth();
 	// 잘못된 month 쿼리가 들어와도 거래 화면은 항상 유효한 월 하나로 수렴시킨다.
 	const month = isValidMonth(rawMonth) ? rawMonth : getCurrentMonth();
-
-	// 고정 거래 자동 적용 — fire-and-forget (페이지 로드를 블로킹하지 않음)
-	autoApplyRecurringTransactions().catch(() => {});
 
 	return (
 		<div className="pb-28 md:pb-24">

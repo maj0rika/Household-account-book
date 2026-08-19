@@ -1,5 +1,18 @@
 apply plugin: 'com.android.application'
 
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+def isReleaseTask = gradle.startParameter.taskNames.any { name ->
+    name.toLowerCase().contains("release")
+}
+if (isReleaseTask && !keystorePropertiesFile.exists()) {
+    throw new GradleException("Release signing requires android/keystore.properties. Copy android/keystore.properties.example.")
+}
+
 android {
     namespace = "com.maj0rika.household"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -18,15 +31,19 @@ android {
     }
     signingConfigs {
         release {
-            storeFile file('household-release.jks')
-            storePassword 'household2025'
-            keyAlias 'household-key'
-            keyPassword 'household2025'
+            if (keystorePropertiesFile.exists()) {
+                storeFile file(keystoreProperties["storeFile"])
+                storePassword keystoreProperties["storePassword"]
+                keyAlias keystoreProperties["keyAlias"]
+                keyPassword keystoreProperties["keyPassword"]
+            }
         }
     }
     buildTypes {
         release {
-            signingConfig signingConfigs.release
+            if (keystorePropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

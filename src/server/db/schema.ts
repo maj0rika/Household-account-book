@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
 	bigint,
 	boolean,
@@ -13,7 +14,7 @@ import {
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-export const transactionTypeEnum = pgEnum("transaction_type", ["income", "expense"]);
+export const transactionTypeEnum = pgEnum("transaction_type", ["income", "expense", "transfer"]);
 export const accountTypeEnum = pgEnum("account_type", ["asset", "debt"]);
 
 // ── Auth 테이블 (better-auth 관리) ──
@@ -143,6 +144,8 @@ export const transactions = pgTable(
 			.references(() => authUsers.id, { onDelete: "cascade" }),
 		categoryId: uuid("category_id").references(() => categories.id, { onDelete: "set null" }),
 		accountId: uuid("account_id").references(() => accounts.id, { onDelete: "set null" }),
+		transferAccountId: uuid("transfer_account_id").references(() => accounts.id, { onDelete: "set null" }),
+		recurringRuleId: uuid("recurring_rule_id").references(() => recurringTransactions.id, { onDelete: "set null" }),
 		type: transactionTypeEnum("type").notNull(),
 		amount: integer("amount").notNull(),
 		description: text("description").notNull(),
@@ -157,6 +160,9 @@ export const transactions = pgTable(
 		index("transactions_user_date_idx").on(table.userId, table.date),
 		index("transactions_user_type_date_idx").on(table.userId, table.type, table.date),
 		index("transactions_category_idx").on(table.categoryId),
+		uniqueIndex("transactions_user_recurring_rule_date_unique")
+			.on(table.userId, table.recurringRuleId, table.date)
+			.where(sql`${table.recurringRuleId} is not null`),
 	],
 );
 

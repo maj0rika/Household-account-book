@@ -14,6 +14,7 @@ import { and, eq } from "drizzle-orm";
 
 import { db } from "@/server/db";
 import { securityEvents, securityRateLimits } from "@/server/db/schema";
+import { advanceRateLimit } from "./rate-limit-state";
 import {
 	type RequestFingerprint,
 	type SecurityEventType,
@@ -195,91 +196,44 @@ export async function consumeRateLimit(
 			throw new Error("rate limit row를 조회하지 못했습니다.");
 		}
 
-		const requestCount = row.requestCount;
-		const consecutiveBlocks = row.consecutiveBlocks;
-		const windowStartedAt = row.windowStartedAt;
-		const blockedUntil = row.blockedUntil;
+		const decision = advanceRateLimit(
+			{
+				requestCount: row.requestCount,
+				windowStartedAt: row.windowStartedAt,
+				blockedUntil: row.blockedUntil,
+				consecutiveBlocks: row.consecutiveBlocks,
+			},
+			{
+				now,
+				windowMs,
+				max: input.max,
+				escalationAfter,
+				blockSeconds,
+			},
+		);
 
-		// 3단계: 현재 차단 상태인지 확인 — 차단 시간이 아직 안 지났으면 즉시 거부
-		if (blockedUntil && blockedUntil.getTime() > now.getTime()) {
-			return {
-				allowed: false,
-				retryAfterSeconds: toRetryAfterSeconds(blockedUntil),
-				reason: input.reason,
-				scope: input.scope,
-				keyHash,
-			};
-		}
-
-		// 4단계: 윈도우가 만료되었으면 깨끗하게 리셋하고 새 윈도우 시작 (이번 요청을 1회로 카운트)
-		const windowExpired = now.getTime() - windowStartedAt.getTime() >= windowMs;
-		if (windowExpired) {
+		if (
+			decision.next.requestCount !== row.requestCount
+			|| decision.next.windowStartedAt.getTime() !== row.windowStartedAt.getTime()
+			|| (decision.next.blockedUntil?.getTime() ?? null) !== (row.blockedUntil?.getTime() ?? null)
+			|| decision.next.consecutiveBlocks !== row.consecutiveBlocks
+		) {
 			await tx
 				.update(securityRateLimits)
 				.set({
-					requestCount: 1,
-					windowStartedAt: now,
-					blockedUntil: null,
-					consecutiveBlocks: 0,
+					requestCount: decision.next.requestCount,
+					windowStartedAt: decision.next.windowStartedAt,
+					blockedUntil: decision.next.blockedUntil,
+					consecutiveBlocks: decision.next.consecutiveBlocks,
 					lastReason: input.reason,
 					updatedAt: now,
 				})
 				.where(eq(securityRateLimits.id, row.id));
-
-			return {
-				allowed: true,
-				retryAfterSeconds: 0,
-				reason: input.reason,
-				scope: input.scope,
-				keyHash,
-			};
 		}
-
-		// 5단계: 아직 윈도우 내이고 한도 이내 → 카운터만 올리고 허용
-		const nextCount = requestCount + 1;
-		if (nextCount <= input.max) {
-			await tx
-				.update(securityRateLimits)
-				.set({
-					requestCount: nextCount,
-					blockedUntil: null,
-					consecutiveBlocks: 0,
-					lastReason: input.reason,
-					updatedAt: now,
-				})
-				.where(eq(securityRateLimits.id, row.id));
-
-			return {
-				allowed: true,
-				retryAfterSeconds: 0,
-				reason: input.reason,
-				scope: input.scope,
-				keyHash,
-			};
-		}
-
-		// 6단계: 한도 초과 — 차단 시간 결정
-		// 연속 차단이 escalateAfter 미만: 현재 윈도우 끝까지만 대기 (다음 윈도우에서 다시 시도 가능)
-		// 연속 차단이 escalateAfter 이상: 장기 차단 (악의적 반복 시도로 간주)
-		const nextConsecutiveBlocks = consecutiveBlocks + 1;
-		const retryAt = nextConsecutiveBlocks >= escalationAfter
-			? new Date(now.getTime() + blockSeconds * 1000)
-			: new Date(windowStartedAt.getTime() + windowMs);
-
-		await tx
-			.update(securityRateLimits)
-			.set({
-				requestCount: nextCount,
-				blockedUntil: retryAt,
-				consecutiveBlocks: nextConsecutiveBlocks,
-				lastReason: input.reason,
-				updatedAt: now,
-			})
-			.where(eq(securityRateLimits.id, row.id));
 
 		return {
-			allowed: false,
-			retryAfterSeconds: toRetryAfterSeconds(retryAt),
+			allowed: decision.allowed,
+			retryAfterSeconds: decision.retryAt ? toRetryAfterSeconds(decision.retryAt) : 0,
 			reason: input.reason,
 			scope: input.scope,
 			keyHash,

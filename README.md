@@ -60,9 +60,16 @@ cp .env.example .env.local
 
 ### 3. DB 초기화
 
+`db:reset` / `db:init`은 전체 테이블을 비운다. 운영 `DATABASE_URL`에서는 실행하지 않는다. disposable 개발 DB에서만 아래를 설정한다.
+
 ```bash
+export DATABASE_ENV=development
+export ALLOW_DB_RESET=1
+export CONFIRM_DB_RESET=RESET
 npm run db:init
 ```
+
+`NODE_ENV=production`, `DATABASE_ENV=production`, 또는 hostname에 `prod`가 있으면 명령은 즉시 거부된다.
 
 ### 4. 개발 서버 실행
 
@@ -77,13 +84,16 @@ npm run dev
 | 변수                          | 필요 여부 | 설명                                                |
 | ----------------------------- | --------- | --------------------------------------------------- |
 | `DATABASE_URL`                | 필수      | Supabase Postgres 연결 문자열;                      |
+| `DATABASE_ENV`                | 권장      | `development` / `test` / `production`. 파괴적 DB 명령 가드; |
+| `ALLOW_DB_RESET`              | 개발 전용 | disposable DB에서만 `1`. 운영 금지;                 |
+| `CONFIRM_DB_RESET`            | 개발 전용 | 값이 정확히 `RESET`일 때만 reset/init 허용;         |
 | `BETTER_AUTH_SECRET`          | 필수      | Better Auth 세션 서명 키;                           |
 | `BETTER_AUTH_URL`             | 필수      | 서버 기준 인증 URL, 로컬은 `http://localhost:3000`; |
 | `NEXT_PUBLIC_BETTER_AUTH_URL` | 필수      | 클라이언트 기준 인증 URL;                           |
 | `LLM_PROVIDER`                | 선택      | 기본 provider 선택값, 현재 `kimi` 기본;             |
 | `KIMI_API_KEY`                | 선택      | 긴 텍스트/복수 거래 파싱 경로;                      |
 | `FIREWORKS_API_KEY`           | 선택      | 이미지 파싱 우선 경로;                              |
-| `MINIMAX_API_KEY`             | 선택      | 100자 이하 짧은 텍스트 우선 경로;                   |
+| `MINIMAX_API_KEY`             | 선택      | MiniMax 경로. 런타임은 `LLM_PROVIDER` 한 곳만 호출; |
 | `ENCRYPTION_KEY`              | 권장      | 자산/부채 민감 필드 암호화용 64자리 hex 키;         |
 | `NEXT_PUBLIC_API_URL`         | 선택      | 외부 API base URL 지정 시 사용;                     |
 | `REVIEW_ACCOUNT_EMAIL`        | 선택      | Google Play 리뷰 계정 이메일;                       |
