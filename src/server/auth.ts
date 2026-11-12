@@ -9,6 +9,7 @@ import { cache } from "react";
 import { headers } from "next/headers";
 import { APIError, betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 
 import { db } from "@/server/db";
 import * as schema from "@/server/db/schema";
@@ -18,6 +19,11 @@ import {
 	minimizeSessionIpAddress,
 	minimizeSessionUserAgent,
 } from "@/server/security";
+import {
+	DEMO_ACCOUNT_BLOCKED_MESSAGE,
+	isDemoAccountEmail,
+	isDemoBlockedAuthPath,
+} from "@/server/security/demo-account";
 
 const TRUSTED_ORIGINS = [
 	process.env.BETTER_AUTH_URL,
@@ -74,6 +80,18 @@ export const auth = betterAuth({
 		enabled: true,
 	},
 	trustedOrigins: TRUSTED_ORIGINS.length > 0 ? TRUSTED_ORIGINS : ["http://localhost:3000"],
+	hooks: {
+		before: createAuthMiddleware(async (ctx) => {
+			if (!isDemoBlockedAuthPath(ctx.path)) {
+				return;
+			}
+
+			const session = await getSessionFromCtx(ctx);
+			if (isDemoAccountEmail(session?.user.email)) {
+				throw new APIError("FORBIDDEN", { message: DEMO_ACCOUNT_BLOCKED_MESSAGE });
+			}
+		}),
+	},
 	databaseHooks: {
 		user: {
 			create: {
