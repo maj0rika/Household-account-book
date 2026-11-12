@@ -3,10 +3,11 @@
 import { and, eq } from "drizzle-orm";
 import { verifyPassword } from "better-auth/crypto";
 
-import { getAuthUserIdOrThrow } from "@/server/auth";
+import { getAuthUserIdOrThrow, getServerSession } from "@/server/auth";
 import { db } from "@/server/db";
 import { authAccounts, authUsers, categories } from "@/server/db/schema";
 import { revalidateCategoryPages } from "@/lib/cache-keys";
+import { DEMO_ACCOUNT_BLOCKED_MESSAGE, isDemoAccountEmail } from "@/server/security/demo-account";
 
 const getAuthUserId = getAuthUserIdOrThrow;
 
@@ -69,6 +70,10 @@ export async function deleteUserAccount(
 ): Promise<{ success: true } | { success: false; error: string }> {
 	try {
 		const userId = await getAuthUserId();
+		const session = await getServerSession();
+		if (isDemoAccountEmail(session?.user.email)) {
+			return { success: false, error: DEMO_ACCOUNT_BLOCKED_MESSAGE };
+		}
 
 		// 계정 삭제는 되돌릴 수 없는 작업이라
 		// Better Auth credential 해시를 다시 검증한 뒤에만 최종 삭제로 내려간다.
