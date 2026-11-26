@@ -25,6 +25,7 @@ const LEGACY_PIPELINE_STATE_FILES = new Set([
 	"2026-03-16-05-security-review-fixes.md",
 	"2026-03-16-06-security-followup-fixes.md",
 	"2026-03-16-07-parse-user-quota-and-doc-fix.md",
+	"2026-03-18-32-remove-quality-action.md",
 ]);
 const REQUIRED_PIPELINE_SECTIONS = [
 	"## Pipeline State",
@@ -188,6 +189,19 @@ function validatePipelineStates(errors) {
 }
 
 function validateSkills(errors) {
+	const hasClaudeSkills = existsSync(claudeSkillsDir);
+	const hasAgentsSkills = existsSync(agentsSkillsDir);
+	// 로컬 AI 스킬 디렉터리는 .gitignore 정책에 따라 공개 트리에서 제외될 수 있으므로 둘 다 없으면 건너뛴다.
+	if (!hasClaudeSkills && !hasAgentsSkills) {
+		return;
+	}
+
+	ensure(hasClaudeSkills, "[skills] .claude/skills 디렉터리가 없습니다.", errors);
+	ensure(hasAgentsSkills, "[skills] .agents/skills 디렉터리가 없습니다.", errors);
+	if (!hasClaudeSkills || !hasAgentsSkills) {
+		return;
+	}
+
 	const claudeSkillNames = readdirSync(claudeSkillsDir)
 		.filter((name) => statSync(path.join(claudeSkillsDir, name)).isDirectory())
 		.sort();
