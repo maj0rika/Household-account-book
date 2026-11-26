@@ -244,7 +244,6 @@ async function getUserAccounts(userId: string): Promise<Array<Pick<Account, "nam
 export async function executeTextParse(
 	input: string,
 	userId: string,
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	_sessionId: string,
 	signal?: AbortSignal,
 ): Promise<UnifiedParseResponse> {
