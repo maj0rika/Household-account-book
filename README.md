@@ -4,12 +4,13 @@ AI 자연어 입력과 이미지/은행 알림 파싱을 이용해 거래를 기
 
 ## 현재 구현 상태
 
-- 이메일/비밀번호 기반 인증
+- 이메일/비밀번호 기반 인증 (공개 데모 계정 변경 보호 포함)
 - 자연어 거래 입력, 은행 알림 메시지 배치 파싱, 이미지 기반 거래 파싱
 - 거래 목록, 필터 검색, 고정 거래 관리
 - 월간 대시보드, 통계, 예산 관리
-- 자산/부채 계정 관리와 순자산 요약
-- 설정 페이지, 카테고리 관리, 프로필/테마/계정 삭제
+- 자산/부채 계정 관리와 순자산 요약, 계좌 간 이체
+- 설정 페이지, 카테고리 관리, JSON 데이터 내보내기, 비밀번호 변경, 프로필/테마/계정 삭제
+- 웹 보안 헤더(`CSP`, `HSTS`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`) 적용
 - Capacitor iOS/Android 셸 연동과 Android 릴리스 빌드
 
 ## 아직 남아 있는 작업
@@ -94,7 +95,7 @@ npm run dev
 | `KIMI_API_KEY`                | 선택      | 긴 텍스트/복수 거래 파싱 경로;                      |
 | `FIREWORKS_API_KEY`           | 선택      | 이미지 파싱 우선 경로;                              |
 | `MINIMAX_API_KEY`             | 선택      | MiniMax 경로. 런타임은 `LLM_PROVIDER` 한 곳만 호출; |
-| `ENCRYPTION_KEY`              | 권장      | 자산/부채 민감 필드 암호화용 64자리 hex 키;         |
+| `ENCRYPTION_KEY`              | 필수      | 자산/부채 민감 필드 암호화용 64자리 hex 키;         |
 | `NEXT_PUBLIC_API_URL`         | 선택      | 외부 API base URL 지정 시 사용;                     |
 | `REVIEW_ACCOUNT_EMAIL`        | 선택      | Google Play 리뷰 계정 이메일;                       |
 | `REVIEW_ACCOUNT_NAME`         | 선택      | Google Play 리뷰 계정 이름;                         |
@@ -160,4 +161,3 @@ e2e                    Playwright E2E 테스트
 
 - 현재 인증은 이메일/비밀번호만 지원합니다
 - 네이티브 앱 셸은 `capacitor.config.ts`의 Vercel URL을 사용합니다
-- 루트 AI 작업 규칙과 문서 기록 규칙은 `AGENTS.md`를 따릅니다

@@ -68,17 +68,15 @@
 
 ## 보안 강화 backlog
 
-### 웹 보안 헤더 명시
+### 웹 보안 헤더 명시 (완료)
 
-- `next.config.ts`의 캐시 헤더 외에 `CSP`, `HSTS`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`를 명시적으로 추가하는 작업을 backlog로 관리한다;
-- 쿠키 탈취의 전 단계가 되는 `XSS`, 클릭재킹, 프로토콜 다운그레이드 위험을 줄이기 위해 최소 헤더 기준선을 저장소 차원에서 고정한다;
-- 운영/preview/local 환경별 허용 출처와 예외 정책을 분리해 `CSP`가 과도하게 느슨해지지 않도록 검토한다;
+- `next.config.ts`에서 `Content-Security-Policy`, `Strict-Transport-Security`(프로덕션), `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` 헤더를 명시 적용했다;
+- 쿠키 탈취·클릭재킹·프로토콜 다운그레이드 위험을 줄이기 위한 최소 헤더 기준선을 저장소 설정에 고정했다;
 
-### 세션 쿠키 정책 명시 검증
+### 세션 쿠키 정책 명시 검증 (완료)
 
-- `src/server/auth.ts`의 Better Auth 설정이 라이브러리 기본값에만 기대지 않도록 `Secure`, `HttpOnly`, `SameSite`, domain 정책을 명시 검증 대상으로 문서화한다;
-- 코드 설정과 운영 문서가 같은 기준을 보도록 환경별 쿠키 정책 표를 유지하고, 배포 전 점검 항목으로 포함한다;
-- 세션 쿠키 정책이 잘못 바뀌면 바로 감지할 수 있도록 설정 단위 점검 또는 테스트 가능성도 함께 검토한다;
+- `src/server/auth.ts`의 Better Auth 설정에서 `useSecureCookies`, `httpOnly: true`, `sameSite: "lax"`, `secure`(프로덕션), `path: "/"`를 명시해 라이브러리 기본값 의존을 제거했다;
+- 환경별 쿠키 정책 일관성과 설정 단위 점검은 운영 환경 분리 시 함께 검증한다;
 
 ### 세션 탈취 대응 강화
 
@@ -104,50 +102,8 @@
 
 ## 히스토리 로그
 
+> 2026-02~2026-03-18 이전 히스토리 로그는 공개 저장소 정리 과정에서 제외되었다.
+
 | 날짜 | 항목 | 유형 |
 | --- | --- | --- |
 | 2026-03-18 | [GitHub Quality 액션 제거](./history/2026-03-18-32-remove-quality-action.md) | remove |
-| 2026-03-18 | [변경사항 학습·면접 준비 문서 추가](./history/2026-03-18-31-change-interview-study-doc.md) | docs |
-| 2026-03-18 | [워크트리 변경사항 이해 문서 추가](./history/2026-03-18-30-working-tree-overview-doc.md) | docs |
-| 2026-03-18 | [거래 화면 Lighthouse 접근성·초기 JS 보정](./history/2026-03-18-29-transactions-lighthouse-remediation.md) | fix |
-| 2026-03-18 | [최근 변경 파일 주석 보강](./history/2026-03-18-27-commentary-refresh.md) | docs |
-| 2026-03-18 | [요청 origin 기준 메타데이터 정렬](./history/2026-03-18-26-request-origin-metadata-fix.md) | fix |
-| 2026-03-18 | [Next build backup 폴더 정리 규칙 추가](./history/2026-03-18-25-next-backup-ignore-cleanup.md) | config |
-| 2026-03-18 | [통계 랭킹 서버 렌더링과 차트 링크 단순화](./history/2026-03-18-24-statistics-ranking-server-render.md) | perf |
-| 2026-03-18 | [거래 화면 시트 지연 로딩과 모션 경량화](./history/2026-03-18-23-transactions-sheet-motion-trim.md) | perf |
-| 2026-03-18 | [통계와 거래 화면 성능 구조 조정](./history/2026-03-18-22-statistics-transactions-perf-structure.md) | perf |
-| 2026-03-18 | [늦은 섹션 하이드레이션 경량화](./history/2026-03-18-21-late-section-hydration-tuning.md) | perf |
-| 2026-03-18 | [모달 blur 제거와 focus trap 적용](./history/2026-03-18-20-modal-focus-trap.md) | fix |
-| 2026-03-18 | [달력 키보드 탐색과 성능 재측정](./history/2026-03-18-19-calendar-performance-followup.md) | fix |
-| 2026-03-18 | [웹 접근성 P1 후속 보정](./history/2026-03-18-18-audit-p1-followup-fix.md) | fix |
-| 2026-03-18 | [auth 대비와 호환성 1차 보정](./history/2026-03-18-17-auth-contrast-compat-fix.md) | fix |
-| 2026-03-18 | [내비게이션과 예외 화면 시맨틱 보강](./history/2026-03-18-16-navigation-exception-semantic-fix.md) | fix |
-| 2026-03-18 | [차트와 달력 접근성 1차 보강](./history/2026-03-18-15-chart-calendar-a11y-fix.md) | fix |
-| 2026-03-18 | [폼 입력 접근성 1차 보정](./history/2026-03-18-15-form-accessibility-fix.md) | fix |
-| 2026-03-18 | [프론트엔드 스킬과 ESLint 품질 게이트 보강](./history/2026-03-18-14-skill-quality-gates.md) | config |
-| 2026-03-18 | [면접 문서에 웹표준·접근성·상태관리 치트시트 보강](./history/2026-03-18-13-interview-web-standards-expansion.md) | docs |
-| 2026-03-18 | [웹표준·접근성·SEO 면접 문서 분리 재구성](./history/2026-03-18-12-interview-seo-accessibility-reframe.md) | docs |
-| 2026-03-18 | [거래-계좌 연동 backlog 추가](./history/2026-03-18-10-transaction-account-link-backlog.md) | docs |
-| 2026-03-18 | [보안 강화 backlog 추가](./history/2026-03-18-09-security-hardening-backlog.md) | docs |
-| 2026-03-18 | [LLM 텍스트 race를 Promise.any로 전환](./history/2026-03-18-08-llm-promise-any-migration.md) | refactor |
-| 2026-03-18 | [LLM 실패 로그 backlog 추가](./history/2026-03-18-07-llm-failure-log-backlog.md) | docs |
-| 2026-03-18 | [월 요약 상태 유지 UX backlog 추가](./history/2026-03-18-06-month-summary-ux-backlog.md) | docs |
-| 2026-03-18 | [구현 계획서에 환경 분리 페이즈 추가](./history/2026-03-18-02-env-separation-phase-plan.md) | docs |
-| 2026-03-17 | [거래 화면 최적화 면접 설명 문서 작성](./history/2026-03-17-24-interview-optimization-summary.md) | docs |
-| 2026-03-17 | [공개 저장소용 내부 문서 추적 해제](./history/2026-03-17-25-public-doc-pruning.md) | docs |
-| 2026-03-17 | [모바일 비동기 파싱 위젯 개선안 backlog 추가](./history/2026-03-17-26-mobile-async-parse-widget-backlog.md) | docs |
-| 2026-03-17 | [면접 준비 문서 최신화와 PDF 재생성](./history/2026-03-17-27-interview-doc-refresh.md) | docs |
-| 2026-03-17 | [추가 면접 Q&A 문서화와 PDF 생성](./history/2026-03-17-28-interview-qa-expansion.md) | docs |
-| 2026-03-17 | [코드 주석 최신화](./history/2026-03-17-29-comment-refresh.md) | docs |
-| 2026-03-17 | [흐름 파악용 주석 보강](./history/2026-03-17-30-flow-comment-annotation.md) | docs |
-| 2026-03-17 | [중간 흐름 주석 보강](./history/2026-03-17-30-inline-comment-pass.md) | docs |
-| 2026-03-17 | [면접 Q&A 문서 재정리와 PDF 재생성](./history/2026-03-17-31-interview-qa-refresh.md) | docs |
-| 2026-03-18 | [면접 Q&A 캐시 무효화 설명 보강](./history/2026-03-18-01-interview-cache-qa-tuning.md) | docs |
-| 2026-03-18 | [React 훅 전수 정리 문서와 PDF 생성](./history/2026-03-18-03-react-hooks-doc.md) | docs |
-| 2026-03-18 | [React 훅 문서에 useOptimistic 보강](./history/2026-03-18-04-react-hooks-useoptimistic.md) | docs |
-| 2026-03-18 | [면접 문서 표현 보정](./history/2026-03-18-05-interview-wording-tuning.md) | docs |
-| 2026-03-18 | [면접 문서에 서버 액션 선택 이유 보강](./history/2026-03-18-06-interview-server-action-qa.md) | docs |
-| 2026-03-18 | [면접 문서에 보안 Q&A 보강](./history/2026-03-18-07-interview-security-qa.md) | docs |
-| 2026-03-18 | [면접 문서의 AI 역할 설명 수정](./history/2026-03-18-11-interview-ai-role-correction.md) | docs |
-| 2026-03-18 | [면접 문서 변경 사항 총정리 문서와 PDF 추가](./history/2026-03-18-28-interview-docs-summary.md) | docs |
-| 2026-03-18 | [면접 문서 요약을 overview 형식으로 재작성](./history/2026-03-18-29-interview-docs-overview-rewrite.md) | docs |
