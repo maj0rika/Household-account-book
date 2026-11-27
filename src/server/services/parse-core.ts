@@ -27,6 +27,14 @@ import type { LLMProvider } from "@/server/llm/client";
 import { isBankMessage, preprocessBankMessage } from "@/server/llm/bank-message";
 import { isFinancialInput, OOD_ERROR_MESSAGE } from "@/server/llm/ood-filter";
 import type { LLMCategory } from "@/server/llm/prompt";
+import {
+	buildAggregateFailureLog,
+	createParseRequestId,
+	hashInput,
+	redactInputPreview,
+	sanitizeErrorMessage,
+	type LlmAttemptTelemetry,
+} from "@/server/llm/telemetry";
 import type { UnifiedParseResponse } from "@/server/llm/types";
 import type { Account } from "@/types";
 
@@ -145,7 +153,11 @@ function isRecoverableProviderFailure(message: string): boolean {
 		|| normalized.includes("504");
 }
 
-function activateImageFireworksCooldown(sessionId: string, reason: string): void {
+function activateImageFireworksCooldown(
+	sessionId: string,
+	reason: string,
+	parseRequestId: string,
+): void {
 	const entry = imageFireworksUsageMap.get(sessionId);
 	const blockedUntil = Date.now() + IMAGE_FIREWORKS_FAILURE_COOLDOWN_MS;
 
@@ -157,7 +169,8 @@ function activateImageFireworksCooldown(sessionId: string, reason: string): void
 	pruneStaleImageFireworksEntries();
 
 	console.warn("[LLM] fireworks cooldown activated", {
-		reason,
+		parseRequestId,
+		reason: sanitizeErrorMessage(reason),
 		cooldownMs: IMAGE_FIREWORKS_FAILURE_COOLDOWN_MS,
 	});
 }
@@ -265,19 +278,42 @@ export async function executeTextParse(
 		return { success: false, error: mapProviderConfigErrorMessage() };
 	}
 
+	const parseRequestId = createParseRequestId();
 	const [userCategories, existingAccounts] = await Promise.all([
 		getUserLLMCategories(userId),
 		getUserAccounts(userId),
 	]);
 
 	const processedInput = isBankMessage(input) ? preprocessBankMessage(input) : input;
+	const attempts: LlmAttemptTelemetry[] = [];
 	const result = await parseUnifiedText(
 		processedInput,
 		userCategories,
 		existingAccounts,
 		providers[0],
-		{ timeoutMs, signal },
+		{
+			timeoutMs,
+			signal,
+			parseRequestId,
+			onAttempt: (entry) => {
+				attempts.push(entry);
+			},
+		},
 	);
+
+	if (!result.success) {
+		console.error(
+			"[LLM] text parse failed across all providers",
+			buildAggregateFailureLog({
+				parseRequestId,
+				route: "text",
+				inputHash: hashInput(processedInput),
+				inputPreview: redactInputPreview(processedInput),
+				attempts,
+			}),
+		);
+	}
+
 	return normalizeParseFailure(result, timeoutMs, false);
 }
 
@@ -304,12 +340,14 @@ export async function executeImageParse(
 		return { success: false, error: mapProviderConfigErrorMessage() };
 	}
 
+	const parseRequestId = createParseRequestId();
 	const [userCategories, existingAccounts] = await Promise.all([
 		getUserLLMCategories(userId),
 		getUserAccounts(userId),
 	]);
 
 	const provider = providers[0];
+	const attempts: LlmAttemptTelemetry[] = [];
 	const result = await parseUnifiedImage(
 		imageBase64,
 		mimeType,
@@ -317,7 +355,14 @@ export async function executeImageParse(
 		userCategories,
 		existingAccounts,
 		provider,
-		{ timeoutMs, signal },
+		{
+			timeoutMs,
+			signal,
+			parseRequestId,
+			onAttempt: (entry) => {
+				attempts.push(entry);
+			},
+		},
 	);
 
 	if (result.success) {
@@ -328,8 +373,19 @@ export async function executeImageParse(
 	}
 
 	if (provider === "fireworks" && isRecoverableProviderFailure(result.error)) {
-		activateImageFireworksCooldown(sessionId, result.error);
+		activateImageFireworksCooldown(sessionId, result.error, parseRequestId);
 	}
+
+	console.error(
+		"[LLM] image parse failed across all providers",
+		buildAggregateFailureLog({
+			parseRequestId,
+			route: "image",
+			inputHash: hashInput(textInput ? `${imageBase64}\n${textInput}` : imageBase64),
+			inputPreview: textInput.trim() ? redactInputPreview(textInput) : "[image]",
+			attempts,
+		}),
+	);
 
 	return normalizeParseFailure(result, timeoutMs, true);
 }

@@ -6,8 +6,11 @@ import { RUNTIME_MODELS, type LLMProvider } from "./models";
 
 export type { LLMProvider };
 
-interface LLMConfig {
-	client: OpenAI;
+export type LLMChatClient = Pick<OpenAI, "chat">;
+
+export interface LLMConfig {
+	provider: LLMProvider;
+	client: LLMChatClient;
 	model: string;
 	temperature: number;
 	extra_body?: Record<string, unknown>;
@@ -17,6 +20,7 @@ interface LLMConfig {
 // 핵심: baseURL만 바꿔서 동일한 OpenAI SDK로 Kimi/Fireworks 모두 호출
 const configs: Record<LLMProvider, () => LLMConfig> = {
 	minimax: () => ({
+		provider: "minimax",
 		client: new OpenAI({
 			apiKey: process.env.MINIMAX_API_KEY,
 			baseURL: "https://api.minimax.io/v1",
@@ -28,6 +32,7 @@ const configs: Record<LLMProvider, () => LLMConfig> = {
 		},
 	}),
 	kimi: () => ({
+		provider: "kimi",
 		client: new OpenAI({
 			apiKey: process.env.KIMI_API_KEY,
 			baseURL: "https://api.moonshot.ai/v1",
@@ -39,6 +44,7 @@ const configs: Record<LLMProvider, () => LLMConfig> = {
 		},
 	}),
 	fireworks: () => ({
+		provider: "fireworks",
 		client: new OpenAI({
 			apiKey: process.env.FIREWORKS_API_KEY,
 			baseURL: "https://api.fireworks.ai/inference/v1",

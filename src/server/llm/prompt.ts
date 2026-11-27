@@ -19,37 +19,15 @@ function formatAccountList(existingAccounts: Array<Pick<Account, "name" | "type"
 		.join(", ");
 }
 
-export function buildSystemPrompt(
-	categories: LLMCategory[],
-	today: string,
-	existingAccounts: Array<Pick<Account, "name" | "type">> = [],
-): string {
-	const expenseCategories = categories
-		.filter((c) => c.type === "expense")
-		.map((c) => c.name);
-	const incomeCategories = categories
-		.filter((c) => c.type === "income")
-		.map((c) => c.name);
+export const PROMPT_CACHE_DELIMITER = "\n\n---\n\n## 요청 컨텍스트\n";
 
-	const accountList = formatAccountList(existingAccounts);
-
-	return `당신은 한국어 가계부 입력을 구조화된 JSON으로 변환하는 파서입니다.
+export const STATIC_SYSTEM_PROMPT_PREFIX = `당신은 한국어 가계부 입력을 구조화된 JSON으로 변환하는 파서입니다.
 설명문, 인사말, 마크다운 없이 반드시 JSON 객체 하나만 반환하세요.
-
-## 오늘
-${today}
-
-## 사용 가능한 카테고리
-- 지출: ${formatList(expenseCategories)}
-- 수입: ${formatList(incomeCategories)}
-
-## 기존 등록 계정
-${accountList}
 
 ## 공통 원칙
 - 입력이 여러 줄 또는 여러 문장이면 거래/계정을 각각 분리합니다.
 - 사용자가 명시한 사실만 사용하고, 근거 없는 상호명·카테고리·날짜를 추측하지 않습니다.
-- 날짜가 없으면 오늘(${today})을 사용하고, "어제", "그제", "지난주", "2/14", "02-14" 같은 상대/부분 날짜는 오늘 기준으로 계산합니다.
+- 날짜가 없으면 아래 "요청 컨텍스트 > 오늘" 날짜를 사용하고, "어제", "그제", "지난주", "2/14", "02-14" 같은 상대/부분 날짜는 해당 오늘 날짜 기준으로 계산합니다.
 - 금액은 항상 양의 정수 원 단위로 변환합니다.
 - 금액 예시: "9천"=9000, "1만 5천"=15000, "2.3만"=23000, "350만원"=3500000, "1억 2천"=120000000.
 - description은 상호명, 거래 목적, 품목 중심으로 2~30자 안팎으로 간결하게 작성합니다.
@@ -180,6 +158,30 @@ ${accountList}
 
 거부 예시: 날씨 질문, 코딩 요청, 일반 잡담, 번역 요청
 거부하지 말아야 하는 예시: 금액이 포함된 소비/수입/환불/정산/잔액/대출/투자/카드 메시지`;
+
+export function buildSystemPrompt(
+	categories: LLMCategory[],
+	today: string,
+	existingAccounts: Array<Pick<Account, "name" | "type">> = [],
+): string {
+	const expenseCategories = categories
+		.filter((c) => c.type === "expense")
+		.map((c) => c.name);
+	const incomeCategories = categories
+		.filter((c) => c.type === "income")
+		.map((c) => c.name);
+
+	const accountList = formatAccountList(existingAccounts);
+
+	return `${STATIC_SYSTEM_PROMPT_PREFIX}${PROMPT_CACHE_DELIMITER}### 오늘
+${today}
+
+### 사용 가능한 카테고리
+- 지출: ${formatList(expenseCategories)}
+- 수입: ${formatList(incomeCategories)}
+
+### 기존 등록 계정
+${accountList}`;
 }
 
 export function buildUserPrompt(input: string): string {

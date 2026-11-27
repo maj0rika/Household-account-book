@@ -3,13 +3,35 @@
 // 흐름: prompt.ts(프롬프트 생성) → index.ts(structured output 호출 + schema parse) → parse-core.ts
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
 import { getLLMConfig } from "./client";
-import type { LLMProvider } from "./client";
+import type { LLMConfig, LLMProvider } from "./client";
 import { buildSystemPrompt, buildUserPrompt, buildImageUserPrompt } from "./prompt";
 import type { LLMCategory } from "./prompt";
 import type { UnifiedParseResponse } from "./types";
 import type { Account } from "@/types";
 import { getTodayString } from "@/lib/format";
 import { LLM_PARSE_RESPONSE_FORMAT, parseLlmContent } from "./parse-schema";
+import {
+	createParseRequestId,
+	extractErrorTelemetry,
+	extractTokenUsage,
+	hashInput,
+	isRawDebugLoggingEnabled,
+	redactInputPreview,
+	type LlmAttemptTelemetry,
+	type LlmRoute,
+	type RawUsageLike,
+} from "./telemetry";
+
+export interface ParseUnifiedOptions {
+	timeoutMs?: number;
+	signal?: AbortSignal;
+	parseRequestId?: string;
+	today?: string;
+	onAttempt?: (telemetry: LlmAttemptTelemetry) => void;
+	configOverride?: Pick<LLMConfig, "client" | "model" | "temperature" | "extra_body"> & {
+		provider?: LLMProvider;
+	};
+}
 
 // 커스텀 에러 클래스 — 문자열 비교 대신 instanceof 사용 (M6)
 export class LLMTimeoutError extends Error {
@@ -80,6 +102,131 @@ function getElapsedMs(startedAt: number): number {
 	return Date.now() - startedAt;
 }
 
+function resolveAttemptConfig(
+	provider?: LLMProvider,
+	configOverride?: ParseUnifiedOptions["configOverride"],
+): LLMConfig {
+	if (configOverride) {
+		return {
+			provider: configOverride.provider ?? provider ?? "kimi",
+			client: configOverride.client,
+			model: configOverride.model,
+			temperature: configOverride.temperature,
+			extra_body: configOverride.extra_body,
+		};
+	}
+
+	return getLLMConfig(provider);
+}
+
+function emitRawDebugLog(params: {
+	parseRequestId: string;
+	route: LlmRoute;
+	rawInput: string;
+	systemPrompt: string;
+	userPrompt: string;
+}): void {
+	if (!isRawDebugLoggingEnabled()) return;
+	console.debug("[LLM] raw debug", params);
+}
+
+function emitAttemptSuccess(params: {
+	parseRequestId: string;
+	route: LlmRoute;
+	provider: LLMProvider;
+	model: string;
+	attempt: number;
+	timeoutMs: number;
+	startedAt: number;
+	usage?: RawUsageLike | null;
+	inputHash: string;
+	inputPreview: string;
+	rawInput: string;
+	systemPrompt: string;
+	userPrompt: string;
+	onAttempt?: (telemetry: LlmAttemptTelemetry) => void;
+}): void {
+	const tokens = extractTokenUsage(params.usage);
+	const telemetry: LlmAttemptTelemetry = {
+		parseRequestId: params.parseRequestId,
+		route: params.route,
+		provider: params.provider,
+		model: params.model,
+		attempt: params.attempt,
+		timeoutMs: params.timeoutMs,
+		elapsedMs: getElapsedMs(params.startedAt),
+		result: "success",
+		...(tokens ? { tokens } : {}),
+		errorName: null,
+		errorMessage: null,
+		errorCode: null,
+		httpStatus: null,
+		abortReason: null,
+		inputHash: params.inputHash,
+		inputPreview: params.inputPreview,
+	};
+
+	console.info(`[LLM] ${params.route} parse attempt`, telemetry);
+	emitRawDebugLog({
+		parseRequestId: params.parseRequestId,
+		route: params.route,
+		rawInput: params.rawInput,
+		systemPrompt: params.systemPrompt,
+		userPrompt: params.userPrompt,
+	});
+	params.onAttempt?.(telemetry);
+}
+
+function emitAttemptFailure(params: {
+	parseRequestId: string;
+	route: LlmRoute;
+	provider: LLMProvider;
+	model: string;
+	attempt: number;
+	timeoutMs: number;
+	startedAt: number;
+	usage?: RawUsageLike | null;
+	inputHash: string;
+	inputPreview: string;
+	rawInput: string;
+	systemPrompt: string;
+	userPrompt: string;
+	error: unknown;
+	signal?: AbortSignal;
+	onAttempt?: (telemetry: LlmAttemptTelemetry) => void;
+}): void {
+	const tokens = extractTokenUsage(params.usage);
+	const errorTelemetry = extractErrorTelemetry(params.error, params.signal);
+	const telemetry: LlmAttemptTelemetry = {
+		parseRequestId: params.parseRequestId,
+		route: params.route,
+		provider: params.provider,
+		model: params.model,
+		attempt: params.attempt,
+		timeoutMs: params.timeoutMs,
+		elapsedMs: getElapsedMs(params.startedAt),
+		result: errorTelemetry.result,
+		...(tokens ? { tokens } : {}),
+		errorName: errorTelemetry.errorName,
+		errorMessage: errorTelemetry.errorMessage,
+		errorCode: errorTelemetry.errorCode,
+		httpStatus: errorTelemetry.httpStatus,
+		abortReason: errorTelemetry.abortReason,
+		inputHash: params.inputHash,
+		inputPreview: params.inputPreview,
+	};
+
+	console.warn(`[LLM] ${params.route} parse attempt failed`, telemetry);
+	emitRawDebugLog({
+		parseRequestId: params.parseRequestId,
+		route: params.route,
+		rawInput: params.rawInput,
+		systemPrompt: params.systemPrompt,
+		userPrompt: params.userPrompt,
+	});
+	params.onAttempt?.(telemetry);
+}
+
 /**
  * 텍스트 파싱 메인 — parse-core.ts에서 호출
  * input "CU 3500" + categories [{name:"식비",type:"expense"}, ...] + provider "minimax"
@@ -97,39 +244,45 @@ export async function parseUnifiedText(
 	categories: LLMCategory[],
 	existingAccounts: Array<Pick<Account, "name" | "type">> = [],
 	provider?: LLMProvider,
-	options?: { timeoutMs?: number; signal?: AbortSignal },
+	options?: ParseUnifiedOptions,
 ): Promise<UnifiedParseResponse> {
-	const { client, model, temperature, extra_body } = getLLMConfig(provider);
-	const today = getTodayString();
+	const config = resolveAttemptConfig(provider, options?.configOverride);
+	const today = options?.today ?? getTodayString();
 	const timeoutMs = resolveTimeoutMs(options?.timeoutMs, 30000);
-	const providerName = provider ?? "default";
+	const parseRequestId = options?.parseRequestId ?? createParseRequestId();
 
 	const systemPrompt = buildSystemPrompt(categories, today, existingAccounts);
 	const userPrompt = buildUserPrompt(input);
+	const inputHash = hashInput(input);
+	const inputPreview = redactInputPreview(input);
 	const attempt = 1;
 	const startedAt = Date.now();
+	let usage: RawUsageLike | null | undefined;
 
 	try {
 		// 외부에서 abort 될 수 있으면 빠르게 탈출
 		if (options?.signal?.aborted) {
-			throw new Error("external abort");
+			throw options.signal.reason instanceof Error
+				? options.signal.reason
+				: new Error("external abort");
 		}
 
 		const response = await withTimeout(
-			(signal) => client.chat.completions.create({
-				model,
+			(signal) => config.client.chat.completions.create({
+				model: config.model,
 				messages: [
 					{ role: "system", content: systemPrompt },
 					{ role: "user", content: userPrompt },
 				],
-				temperature,
+				temperature: config.temperature,
 				response_format: LLM_PARSE_RESPONSE_FORMAT,
-				...extra_body,
+				...config.extra_body,
 			}, { signal }),
 			timeoutMs,
 			options?.signal,
 		);
 
+		usage = response.usage;
 		const content = response.choices[0]?.message?.content;
 		if (!content) {
 			throw new Error("LLM 응답이 비어 있습니다.");
@@ -137,25 +290,42 @@ export async function parseUnifiedText(
 
 		const result = parseLlmContent(content);
 
-		console.info("[LLM] text parse success", {
-			provider: providerName,
-			model,
+		emitAttemptSuccess({
+			parseRequestId,
+			route: "text",
+			provider: config.provider,
+			model: config.model,
 			attempt,
 			timeoutMs,
-			elapsedMs: getElapsedMs(startedAt),
-			inputLength: input.trim().length,
+			startedAt,
+			usage,
+			inputHash,
+			inputPreview,
+			rawInput: input,
+			systemPrompt,
+			userPrompt,
+			onAttempt: options?.onAttempt,
 		});
 
 		return { success: true, ...result };
 	} catch (error) {
-		console.warn("[LLM] text parse failed", {
-			provider: providerName,
-			model,
+		emitAttemptFailure({
+			parseRequestId,
+			route: "text",
+			provider: config.provider,
+			model: config.model,
 			attempt,
 			timeoutMs,
-			elapsedMs: getElapsedMs(startedAt),
-			inputLength: input.trim().length,
-			error: error instanceof Error ? error.message : String(error),
+			startedAt,
+			usage,
+			inputHash,
+			inputPreview,
+			rawInput: input,
+			systemPrompt,
+			userPrompt,
+			error,
+			signal: options?.signal,
+			onAttempt: options?.onAttempt,
 		});
 
 		const message = error instanceof Error ? error.message : "알 수 없는 오류";
@@ -177,46 +347,53 @@ export async function parseUnifiedImage(
 	categories: LLMCategory[],
 	existingAccounts: Array<Pick<Account, "name" | "type">> = [],
 	provider?: LLMProvider,
-	options?: { timeoutMs?: number; signal?: AbortSignal },
+	options?: ParseUnifiedOptions,
 ): Promise<UnifiedParseResponse> {
-	const { client, model, temperature, extra_body } = getLLMConfig(provider);
-	const today = getTodayString();
+	const config = resolveAttemptConfig(provider, options?.configOverride);
+	const today = options?.today ?? getTodayString();
 	const timeoutMs = resolveTimeoutMs(options?.timeoutMs, 45000);
-	const providerName = provider ?? "default";
+	const parseRequestId = options?.parseRequestId ?? createParseRequestId();
 
 	const systemPrompt = buildSystemPrompt(categories, today, existingAccounts);
+	const imageUserPrompt = buildImageUserPrompt(textInput);
 
 	const userContent: ChatCompletionContentPart[] = [
 		{
 			type: "image_url",
 			image_url: { url: `data:${mimeType};base64,${imageBase64}` },
 		},
+		{ type: "text", text: imageUserPrompt },
 	];
 
-	userContent.push({ type: "text", text: buildImageUserPrompt(textInput) });
+	const inputHash = hashInput(textInput ? `${imageBase64}\n${textInput}` : imageBase64);
+	const inputPreview = textInput.trim() ? redactInputPreview(textInput) : "[image]";
 	const attempt = 1;
 	const startedAt = Date.now();
+	let usage: RawUsageLike | null | undefined;
 
 	try {
 		if (options?.signal?.aborted) {
-			throw new Error("external abort");
+			throw options.signal.reason instanceof Error
+				? options.signal.reason
+				: new Error("external abort");
 		}
 
 		const response = await withTimeout(
-			(signal) => client.chat.completions.create({
-				model,
+			(signal) => config.client.chat.completions.create({
+				model: config.model,
 				messages: [
 					{ role: "system", content: systemPrompt },
 					{ role: "user", content: userContent },
 				],
-				temperature,
+				temperature: config.temperature,
 				response_format: LLM_PARSE_RESPONSE_FORMAT,
-				...extra_body,
+				...config.extra_body,
 			}, { signal }),
 			timeoutMs,
 			options?.signal,
 		);
 
+		usage = response.usage;
 		const content = response.choices[0]?.message?.content;
 		if (!content) {
 			throw new Error("LLM 응답이 비어 있습니다.");
@@ -224,25 +401,42 @@ export async function parseUnifiedImage(
 
 		const result = parseLlmContent(content);
 
-		console.info("[LLM] image parse success", {
-			provider: providerName,
-			model,
+		emitAttemptSuccess({
+			parseRequestId,
+			route: "image",
+			provider: config.provider,
+			model: config.model,
 			attempt,
 			timeoutMs,
-			elapsedMs: getElapsedMs(startedAt),
-			textLength: textInput.trim().length,
+			startedAt,
+			usage,
+			inputHash,
+			inputPreview,
+			rawInput: textInput,
+			systemPrompt,
+			userPrompt: imageUserPrompt,
+			onAttempt: options?.onAttempt,
 		});
 
 		return { success: true, ...result };
 	} catch (error) {
-		console.warn("[LLM] image parse failed", {
-			provider: providerName,
-			model,
+		emitAttemptFailure({
+			parseRequestId,
+			route: "image",
+			provider: config.provider,
+			model: config.model,
 			attempt,
 			timeoutMs,
-			elapsedMs: getElapsedMs(startedAt),
-			textLength: textInput.trim().length,
-			error: error instanceof Error ? error.message : String(error),
+			startedAt,
+			usage,
+			inputHash,
+			inputPreview,
+			rawInput: textInput,
+			systemPrompt,
+			userPrompt: imageUserPrompt,
+			error,
+			signal: options?.signal,
+			onAttempt: options?.onAttempt,
 		});
 
 		const message = error instanceof Error ? error.message : "알 수 없는 오류";
