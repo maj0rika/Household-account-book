@@ -204,23 +204,32 @@ export const budgets = pgTable(
 			table.categoryId,
 			table.month,
 		),
+		uniqueIndex("budgets_user_month_overall_unique")
+			.on(table.userId, table.month)
+			.where(sql`${table.categoryId} is null`),
 	],
 );
 
 // ── 자산/부채 계정 ──
 
-export const accounts = pgTable("accounts", {
-	id: uuid("id").defaultRandom().primaryKey(),
-	userId: text("user_id")
-		.notNull()
-		.references(() => authUsers.id, { onDelete: "cascade" }),
-	name: text("name").notNull(),
-	type: accountTypeEnum("type").notNull(), // 'asset' | 'debt'
-	subType: text("sub_type").notNull(), // 'bank', 'cash', 'savings', 'investment', 'credit_card', 'loan', 'other'
-	icon: text("icon").notNull().default("🏦"),
-	balance: text("balance").notNull().default("0"), // 암호화된 잔액 (원)
-	sortOrder: integer("sort_order").notNull().default(0),
-	isActive: boolean("is_active").notNull().default(true),
-	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const accounts = pgTable(
+	"accounts",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => authUsers.id, { onDelete: "cascade" }),
+		name: text("name").notNull(),
+		type: accountTypeEnum("type").notNull(), // 'asset' | 'debt'
+		subType: text("sub_type").notNull(), // 'bank', 'cash', 'savings', 'investment', 'credit_card', 'loan', 'other'
+		icon: text("icon").notNull().default("🏦"),
+		balance: text("balance").notNull().default("0"), // 암호화된 잔액 (원)
+		sortOrder: integer("sort_order").notNull().default(0),
+		isActive: boolean("is_active").notNull().default(true),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("accounts_id_user_id_unique").on(table.id, table.userId),
+	],
+);
