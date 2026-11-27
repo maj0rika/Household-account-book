@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
-const PAGE_TITLE = "서비스 이용약관 — 가계부";
+const PAGE_TITLE = "서비스 이용약관 | 가계부";
 const PAGE_DESCRIPTION = "가계부 서비스의 이용 조건, 회원 의무, 콘텐츠 권리, AI 기능 안내, 분쟁 해결 기준을 안내합니다.";
 const EFFECTIVE_DATE = "2026-03-16";
 

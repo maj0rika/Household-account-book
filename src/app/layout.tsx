@@ -37,7 +37,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 	return {
 		metadataBase,
-		title: "가계부 — AI 자동 분류 가계부",
+		title: "가계부 | AI 자동 분류 가계부",
 		description: "자연어로 입력하면 AI가 자동 분류하는 스마트 가계부",
 		manifest: "/manifest.json",
 		verification: {
@@ -54,14 +54,14 @@ export async function generateMetadata(): Promise<Metadata> {
 		},
 		openGraph: {
 			type: "website",
-			title: "가계부 — AI 자동 분류 가계부",
+			title: "가계부 | AI 자동 분류 가계부",
 			description: "자연어로 입력하면 AI가 자동 분류하는 스마트 가계부",
 			images: [{ url: "/icons/icon-512.png", width: 512, height: 512, alt: "가계부 앱 아이콘" }],
 			locale: "ko_KR",
 		},
 		twitter: {
 			card: "summary",
-			title: "가계부 — AI 자동 분류 가계부",
+			title: "가계부 | AI 자동 분류 가계부",
 			description: "자연어로 입력하면 AI가 자동 분류하는 스마트 가계부",
 			images: ["/icons/icon-512.png"],
 		},

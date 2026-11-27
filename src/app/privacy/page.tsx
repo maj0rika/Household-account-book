@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
-const PAGE_TITLE = "개인정보처리방침 — 가계부";
+const PAGE_TITLE = "개인정보처리방침 | 가계부";
 const PAGE_DESCRIPTION = "가계부 서비스의 개인정보 수집 항목, 이용 목적, 보유 기간, 위탁 처리, 이용자 권리를 안내합니다.";
 const EFFECTIVE_DATE = "2026-03-16";
 
@@ -90,10 +90,10 @@ export default function PrivacyPage() {
 					<Section title="5. 개인정보의 처리 위탁">
 						<p>본 서비스는 아래 외부 서비스를 이용하여 데이터를 처리합니다.</p>
 						<ul className="mt-2 list-disc space-y-1 pl-5">
-							<li>Supabase (데이터베이스 호스팅) — 거래 데이터 저장</li>
-							<li>Vercel (웹 호스팅) — 서비스 배포 및 운영</li>
+							<li>Supabase (데이터베이스 호스팅): 거래 데이터 저장</li>
+							<li>Vercel (웹 호스팅): 서비스 배포 및 운영</li>
 							<li>
-								Moonshot AI(Kimi), Fireworks AI, MiniMax — 거래/이미지 입력 자동 분류
+								Moonshot AI(Kimi), Fireworks AI, MiniMax: 거래/이미지 입력 자동 분류
 								(서비스 제공에 필요한 입력 텍스트와 이미지 데이터 처리)
 							</li>
 						</ul>

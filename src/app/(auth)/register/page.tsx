@@ -52,11 +52,11 @@ export default function RegisterPage() {
 	return (
 		<main id="main-content" tabIndex={-1} className="flex min-h-dvh items-center justify-center px-4">
 			<Card className="w-full max-w-sm">
-				<CardHeader className="items-center gap-2 pb-2">
-					<div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-						<Wallet className="h-6 w-6 text-primary" />
+				<CardHeader className="gap-1.5 pb-2">
+					<div className="flex items-center gap-2">
+						<Wallet className="h-5 w-5 text-primary" aria-hidden="true" />
+						<h1 className="text-xl font-semibold">회원가입</h1>
 					</div>
-					<h1 className="text-xl font-semibold">회원가입</h1>
 					<p className="text-sm text-muted-foreground">
 						가계부를 시작해보세요
 					</p>
