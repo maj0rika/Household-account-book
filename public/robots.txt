@@ -3,8 +3,9 @@ User-agent: *
 Allow: /$
 Allow: /terms
 Allow: /privacy
-Disallow: /dashboard
+Disallow: /transactions
+Disallow: /statistics
+Disallow: /assets
+Disallow: /budget
 Disallow: /settings
 Disallow: /api/
-
-Sitemap: https://household-account-book.vercel.app/sitemap.xml
