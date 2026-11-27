@@ -5,7 +5,7 @@ import { and, eq, gte, lt, sql } from "drizzle-orm";
 import { getAuthUserIdOrThrow } from "@/server/auth";
 import { db } from "@/server/db";
 import { transactions, categories } from "@/server/db/schema";
-import { getKSTDate } from "@/lib/format";
+import { getKSTDate, getMonthDateRange } from "@/lib/format";
 
 const getAuthUserId = getAuthUserIdOrThrow;
 
@@ -82,9 +82,7 @@ export async function getMonthlyTrend(months: number = 6): Promise<MonthlyTrend[
 export async function getCategoryRanking(month: string): Promise<CategoryRanking[]> {
 	const userId = await getAuthUserId();
 
-	const startDate = `${month}-01`;
-	const [year, m] = month.split("-").map(Number);
-	const nextMonth = m === 12 ? `${year + 1}-01-01` : `${year}-${String(m + 1).padStart(2, "0")}-01`;
+	const { startDate, nextMonthStart: nextMonth } = getMonthDateRange(month);
 
 	const rows = await db
 		.select({

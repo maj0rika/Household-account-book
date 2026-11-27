@@ -16,78 +16,85 @@ import { getAuthUserIdOrThrow } from "@/server/auth";
 import { db } from "@/server/db";
 import { accounts } from "@/server/db/schema";
 import { encrypt, decryptString, encryptNumber, decryptNumber } from "@/server/lib/crypto";
-import { revalidateAccountPages, CacheTags } from "@/lib/cache-keys";
-import { createAccountSchema, firstSchemaError, updateAccountSchema } from "@/server/validation/write-schemas";
+import { revalidateAccountPages, tenantCacheTag } from "@/lib/cache-keys";
+import {
+	createAccountSchema,
+	firstSchemaError,
+	sanitizeActionError,
+	updateAccountSchema,
+	upsertParsedAccountsBatchSchema,
+	uuidSchema,
+} from "@/server/validation/write-schemas";
 import type { Account, AccountSummary } from "@/types";
 
 const getAuthUserId = getAuthUserIdOrThrow;
 
-// `assets/page.tsx`, `transactions/page.tsx`, 계정 선택 시트가 이 함수를 호출한다.
-// DB에는 암호문이 저장되어 있으므로, UI로 내려가기 전에 이름과 잔액을 모두 복호화한다.
-const cachedGetAccounts = unstable_cache(
-	async (userId: string): Promise<Account[]> => {
-		const rows = await db
-			.select()
-			.from(accounts)
-			.where(and(eq(accounts.userId, userId), eq(accounts.isActive, true)))
-			.orderBy(accounts.type, accounts.sortOrder, desc(accounts.createdAt));
+async function queryAccounts(userId: string): Promise<Account[]> {
+	const rows = await db
+		.select()
+		.from(accounts)
+		.where(and(eq(accounts.userId, userId), eq(accounts.isActive, true)))
+		.orderBy(accounts.type, accounts.sortOrder, desc(accounts.createdAt));
 
-		return rows.map((row) => ({
-			id: row.id,
-			userId: row.userId,
-			name: decryptString(row.name),
-			type: row.type,
-			subType: row.subType,
-			icon: row.icon,
-			balance: decryptNumber(row.balance),
-			sortOrder: row.sortOrder,
-			isActive: row.isActive,
-			createdAt: row.createdAt,
-			updatedAt: row.updatedAt,
-		}));
-	},
-	["accounts-list"],
-	{ tags: [CacheTags.accounts], revalidate: 120 },
-);
-
-export async function getAccounts(): Promise<Account[]> {
-	const userId = await getAuthUserId();
-	return cachedGetAccounts(userId);
+	return rows.map((row) => ({
+		id: row.id,
+		userId: row.userId,
+		name: decryptString(row.name),
+		type: row.type,
+		subType: row.subType,
+		icon: row.icon,
+		balance: decryptNumber(row.balance),
+		sortOrder: row.sortOrder,
+		isActive: row.isActive,
+		createdAt: row.createdAt,
+		updatedAt: row.updatedAt,
+	}));
 }
 
-const cachedGetAccountSummary = unstable_cache(
-	async (userId: string): Promise<AccountSummary> => {
-		const rows = await db
-			.select({
-				type: accounts.type,
-				balance: accounts.balance,
-			})
-			.from(accounts)
-			.where(and(eq(accounts.userId, userId), eq(accounts.isActive, true)));
+// `assets/page.tsx`, `transactions/page.tsx`, 계정 선택 시트가 이 함수를 호출한다.
+// DB에는 암호문이 저장되어 있으므로, UI로 내려가기 전에 이름과 잔액을 모두 복호화한다.
+export async function getAccounts(): Promise<Account[]> {
+	const userId = await getAuthUserId();
+	return unstable_cache(
+		() => queryAccounts(userId),
+		["accounts-list", userId],
+		{ tags: [tenantCacheTag(userId, "accounts")], revalidate: 120 },
+	)();
+}
 
-		// 잔액 컬럼이 암호화돼 있어 DB 집계만으로는 순자산을 바로 계산할 수 없다.
-		// 따라서 각 row를 복호화한 뒤 애플리케이션 레벨에서 자산/부채/순자산을 다시 합산한다.
-		let totalAssets = 0;
-		let totalDebts = 0;
-		for (const row of rows) {
-			const balance = decryptNumber(row.balance);
-			if (row.type === "asset") totalAssets += balance;
-			if (row.type === "debt") totalDebts += balance;
-		}
+async function queryAccountSummary(userId: string): Promise<AccountSummary> {
+	const rows = await db
+		.select({
+			type: accounts.type,
+			balance: accounts.balance,
+		})
+		.from(accounts)
+		.where(and(eq(accounts.userId, userId), eq(accounts.isActive, true)));
 
-		return {
-			totalAssets,
-			totalDebts,
-			netWorth: totalAssets - totalDebts,
-		};
-	},
-	["account-summary"],
-	{ tags: [CacheTags.accounts], revalidate: 120 },
-);
+	// 잔액 컬럼이 암호화돼 있어 DB 집계만으로는 순자산을 바로 계산할 수 없다.
+	// 따라서 각 row를 복호화한 뒤 애플리케이션 레벨에서 자산/부채/순자산을 다시 합산한다.
+	let totalAssets = 0;
+	let totalDebts = 0;
+	for (const row of rows) {
+		const balance = decryptNumber(row.balance);
+		if (row.type === "asset") totalAssets += balance;
+		if (row.type === "debt") totalDebts += balance;
+	}
+
+	return {
+		totalAssets,
+		totalDebts,
+		netWorth: totalAssets - totalDebts,
+	};
+}
 
 export async function getAccountSummary(): Promise<AccountSummary> {
 	const userId = await getAuthUserId();
-	return cachedGetAccountSummary(userId);
+	return unstable_cache(
+		() => queryAccountSummary(userId),
+		["account-summary", userId],
+		{ tags: [tenantCacheTag(userId, "accounts")], revalidate: 120 },
+	)();
 }
 
 export async function createAccount(data: {
@@ -119,10 +126,10 @@ export async function createAccount(data: {
 			})
 			.returning({ id: accounts.id });
 
-		revalidateAccountPages();
+		revalidateAccountPages(userId);
 		return { success: true, id: row.id };
 	} catch (e) {
-		return { success: false, error: e instanceof Error ? e.message : "계정 생성에 실패했습니다." };
+		return { success: false, error: sanitizeActionError(e, "계정 생성에 실패했습니다.") };
 	}
 }
 
@@ -137,6 +144,10 @@ export async function updateAccount(
 	},
 ): Promise<{ success: true } | { success: false; error: string }> {
 	try {
+		const parsedId = uuidSchema.safeParse(id);
+		if (!parsedId.success) {
+			return { success: false, error: firstSchemaError(parsedId.error) };
+		}
 		const parsed = updateAccountSchema.safeParse(data);
 		if (!parsed.success) {
 			return { success: false, error: firstSchemaError(parsed.error) };
@@ -156,17 +167,17 @@ export async function updateAccount(
 				...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
 				updatedAt: new Date(),
 			})
-			.where(and(eq(accounts.id, id), eq(accounts.userId, userId)))
+			.where(and(eq(accounts.id, parsedId.data), eq(accounts.userId, userId)))
 			.returning({ id: accounts.id });
 
 		if (updated.length === 0) {
 			return { success: false, error: "계정을 찾을 수 없거나 권한이 없습니다." };
 		}
 
-		revalidateAccountPages();
+		revalidateAccountPages(userId);
 		return { success: true };
 	} catch (e) {
-		return { success: false, error: e instanceof Error ? e.message : "계정 수정에 실패했습니다." };
+		return { success: false, error: sanitizeActionError(e, "계정 수정에 실패했습니다.") };
 	}
 }
 
@@ -178,18 +189,19 @@ export async function upsertParsedAccountsBatch(
 	items: AccountBatchItem[],
 ): Promise<{ success: true; count: number } | { success: false; error: string }> {
 	try {
-		const userId = await getAuthUserId();
-
-		if (items.length === 0) {
-			return { success: false, error: "저장할 항목이 없습니다." };
+		const parsed = upsertParsedAccountsBatchSchema.safeParse(items);
+		if (!parsed.success) {
+			return { success: false, error: firstSchemaError(parsed.error) };
 		}
+		const validItems = parsed.data;
+		const userId = await getAuthUserId();
 
 		// 파싱 시트의 최종 draft는 create/update가 섞여 들어오므로
 		// 일부만 반영된 상태를 남기지 않기 위해 전체 배치를 하나의 트랜잭션으로 처리한다.
 		// 자산 파싱 결과 시트는 create/update가 섞여서 저장될 수 있다.
 		// 하나라도 실패하면 전체를 롤백해야 시트와 실제 DB 상태가 어긋나지 않는다.
 		await db.transaction(async (tx) => {
-			for (const item of items) {
+			for (const item of validItems) {
 				if (item.action === "update") {
 					// update 경로는 기존 계정과 재매칭된 항목을 덮어쓸 때 사용한다.
 					const result = await tx
@@ -221,12 +233,12 @@ export async function upsertParsedAccountsBatch(
 			}
 		});
 
-		revalidateAccountPages();
-		return { success: true, count: items.length };
+		revalidateAccountPages(userId);
+		return { success: true, count: validItems.length };
 	} catch (e) {
 		return {
 			success: false,
-			error: e instanceof Error ? e.message : "자산/부채 저장에 실패했습니다.",
+			error: sanitizeActionError(e, "자산/부채 저장에 실패했습니다."),
 		};
 	}
 }
@@ -235,22 +247,26 @@ export async function deleteAccount(
 	id: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
 	try {
+		const parsedId = uuidSchema.safeParse(id);
+		if (!parsedId.success) {
+			return { success: false, error: firstSchemaError(parsedId.error) };
+		}
 		const userId = await getAuthUserId();
 
 		// 거래 이력과의 참조를 보존해야 하므로 실제 row 삭제 대신 소프트 삭제를 사용한다.
 		const deleted = await db
 			.update(accounts)
 			.set({ isActive: false, updatedAt: new Date() })
-			.where(and(eq(accounts.id, id), eq(accounts.userId, userId)))
+			.where(and(eq(accounts.id, parsedId.data), eq(accounts.userId, userId)))
 			.returning({ id: accounts.id });
 
 		if (deleted.length === 0) {
 			return { success: false, error: "계정을 찾을 수 없거나 권한이 없습니다." };
 		}
 
-		revalidateAccountPages();
+		revalidateAccountPages(userId);
 		return { success: true };
 	} catch (e) {
-		return { success: false, error: e instanceof Error ? e.message : "계정 삭제에 실패했습니다." };
+		return { success: false, error: sanitizeActionError(e, "계정 삭제에 실패했습니다.") };
 	}
 }

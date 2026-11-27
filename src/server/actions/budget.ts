@@ -7,7 +7,8 @@ import { db } from "@/server/db";
 import { budgets, transactions, categories } from "@/server/db/schema";
 import { requireOwnedCategory } from "@/server/lib/account-ledger";
 import { revalidateBudgetPages } from "@/lib/cache-keys";
-import { firstSchemaError, upsertBudgetSchema } from "@/server/validation/write-schemas";
+import { getMonthDateRange } from "@/lib/format";
+import { firstSchemaError, sanitizeActionError, upsertBudgetSchema, uuidSchema } from "@/server/validation/write-schemas";
 
 const getAuthUserId = getAuthUserIdOrThrow;
 
@@ -31,9 +32,7 @@ export interface BudgetWithSpent extends Budget {
 export async function getBudgetsWithSpent(month: string): Promise<BudgetWithSpent[]> {
 	const userId = await getAuthUserId();
 
-	const startDate = `${month}-01`;
-	const [year, m] = month.split("-").map(Number);
-	const nextMonth = m === 12 ? `${year + 1}-01-01` : `${year}-${String(m + 1).padStart(2, "0")}-01`;
+	const { startDate, nextMonthStart: nextMonth } = getMonthDateRange(month);
 
 	// 예산 조회와 지출 합계를 병렬로 실행
 	const [budgetRows, spentRows] = await Promise.all([
@@ -139,10 +138,10 @@ export async function upsertBudget(data: {
 			});
 		}
 
-		revalidateBudgetPages();
+		revalidateBudgetPages(userId);
 		return { success: true };
 	} catch (e) {
-		return { success: false, error: e instanceof Error ? e.message : "예산 저장에 실패했습니다." };
+		return { success: false, error: sanitizeActionError(e, "예산 저장에 실패했습니다.") };
 	}
 }
 
@@ -153,15 +152,19 @@ export async function deleteBudget(
 	id: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
 	try {
+		const parsedId = uuidSchema.safeParse(id);
+		if (!parsedId.success) {
+			return { success: false, error: firstSchemaError(parsedId.error) };
+		}
 		const userId = await getAuthUserId();
 
 		await db
 			.delete(budgets)
-			.where(and(eq(budgets.id, id), eq(budgets.userId, userId)));
+			.where(and(eq(budgets.id, parsedId.data), eq(budgets.userId, userId)));
 
-		revalidateBudgetPages();
+		revalidateBudgetPages(userId);
 		return { success: true };
 	} catch (e) {
-		return { success: false, error: e instanceof Error ? e.message : "예산 삭제에 실패했습니다." };
+		return { success: false, error: sanitizeActionError(e, "예산 삭제에 실패했습니다.") };
 	}
 }

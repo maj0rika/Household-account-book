@@ -8,7 +8,8 @@ import { Suspense } from "react";
 
 import { getMonthlyTrend, getCategoryRanking } from "@/server/actions/statistics";
 import { getMonthlySummary } from "@/server/actions/transaction";
-import { getCurrentMonth } from "@/lib/format";
+import { resolveMonth } from "@/lib/format";
+import { AnalysisSubNav } from "@/components/layout/AnalysisSubNav";
 import { MonthNavigator } from "@/components/dashboard/MonthNavigator";
 import { MonthlySummaryCard } from "@/components/dashboard/MonthlySummaryCard";
 import { MonthlyTrendChart } from "@/components/statistics/MonthlyTrendChart";
@@ -114,13 +115,14 @@ async function StatisticsRankingServerSection({
 
 export default async function StatisticsPage({ searchParams }: Props) {
 	const params = await searchParams;
-	const month = params.month ?? getCurrentMonth();
+	const month = resolveMonth(params.month);
 	// 카테고리 선택은 URL 쿼리로 들고 다녀 월 이동과 공유 링크에도 같은 상태를 유지한다.
 	const selectedCategoryId = params.category ?? null;
 
 	return (
 		<div className="pb-28 md:pb-24">
 			<h1 className="sr-only">통계</h1>
+			<AnalysisSubNav active="statistics" monthQuery={params.month === month ? month : undefined} />
 			{/* 통계 화면은 "월 이동 -> 요약 -> 추이 -> 랭킹" 순서로 정보를 쌓는다.
 				각 구간을 개별 Suspense로 분리해 하단 랭킹이 느려도 상단 맥락 카드와 차트는 먼저 읽히게 한다. */}
 			<Suspense fallback={<MonthNavigatorFallback />}>

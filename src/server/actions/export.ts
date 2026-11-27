@@ -6,6 +6,7 @@ import { getAuthUserIdOrThrow } from "@/server/auth";
 import { db } from "@/server/db";
 import { accounts, budgets, categories, recurringTransactions, transactions } from "@/server/db/schema";
 import { decryptNumber, decryptString, decryptNullable } from "@/server/lib/crypto";
+import { sanitizeActionError } from "@/server/validation/write-schemas";
 
 export interface UserDataExport {
 	exportedAt: string;
@@ -126,6 +127,6 @@ export async function exportUserData(): Promise<
 			},
 		};
 	} catch (e) {
-		return { success: false, error: e instanceof Error ? e.message : "내보내기에 실패했습니다." };
+		return { success: false, error: sanitizeActionError(e, "내보내기에 실패했습니다.") };
 	}
 }
