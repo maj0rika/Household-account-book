@@ -87,8 +87,10 @@ export function BottomTabBar() {
 						);
 					}
 
-					// 일반 네비게이션 탭
-					const isActive = activeHref === tab.href;
+					// 일반 네비게이션 탭 (분석 탭은 하위 /budget 경로에서도 활성 유지)
+					const isActive =
+						activeHref === tab.href ||
+						(tab.href === "/statistics" && activeHref === "/budget");
 					return (
 						<Link
 							key={tab.label}

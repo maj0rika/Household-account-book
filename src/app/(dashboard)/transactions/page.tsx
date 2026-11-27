@@ -15,7 +15,7 @@ import {
 	getUserCategories,
 } from "@/server/actions/transaction";
 import { getAccounts } from "@/server/actions/account";
-import { getCurrentMonth, isValidMonth, formatDateLocal, getKSTDate } from "@/lib/format";
+import { resolveMonth, formatDateLocal, getKSTDate } from "@/lib/format";
 import { MonthlySummaryCard } from "@/components/dashboard/MonthlySummaryCard";
 import { MonthNavigator } from "@/components/dashboard/MonthNavigator";
 import { InteractiveCalendar } from "@/components/dashboard/InteractiveCalendar";
@@ -206,9 +206,8 @@ async function TransactionsInsightsSection({
 
 export default async function TransactionsPage({ searchParams }: Props) {
 	const params = await searchParams;
-	const rawMonth = params.month ?? getCurrentMonth();
 	// 잘못된 month 쿼리가 들어와도 거래 화면은 항상 유효한 월 하나로 수렴시킨다.
-	const month = isValidMonth(rawMonth) ? rawMonth : getCurrentMonth();
+	const month = resolveMonth(params.month);
 
 	return (
 		<div className="pb-28 md:pb-24">

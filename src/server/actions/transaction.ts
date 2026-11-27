@@ -19,11 +19,13 @@ import {
 	createTransferSchema,
 	firstSchemaError,
 	parsedTransactionSchema,
+	sanitizeActionError,
 	updateTransactionSchema,
+	uuidSchema,
 } from "@/server/validation/write-schemas";
 import type { Transaction, MonthlySummary, CategoryBreakdown, DailyExpense, Category } from "@/types";
-import { revalidateTransactionPages, CacheTags } from "@/lib/cache-keys";
-import { requireIncomeExpenseType } from "@/lib/format";
+import { revalidateTransactionPages, tenantCacheTag } from "@/lib/cache-keys";
+import { getMonthDateRange, requireIncomeExpenseType } from "@/lib/format";
 
 const getAuthUserId = getAuthUserIdOrThrow;
 
@@ -165,7 +167,7 @@ export async function createTransactions(
 			.filter((item) => item.isRecurring)
 			.map((item) => {
 				// dayOfMonth가 비정상 값으로 들어와도 recurring rule이 깨지지 않게 1~31 범위로 보정한다.
-				const day = item.dayOfMonth ?? new Date(item.date).getDate();
+				const day = item.dayOfMonth ?? Number(item.date.split("-")[2]);
 				const dayOfMonth = Math.max(1, Math.min(31, day));
 				return {
 					userId,
@@ -286,10 +288,10 @@ export async function createTransactions(
 			}
 		}
 
-		revalidateTransactionPages();
+		revalidateTransactionPages(userId);
 		return { success: true, count: savedCount };
 	} catch (e) {
-		return { success: false, error: e instanceof Error ? e.message : "저장에 실패했습니다." };
+		return { success: false, error: sanitizeActionError(e, "저장에 실패했습니다.") };
 	}
 }
 
@@ -301,22 +303,10 @@ export interface TransactionFilters {
 	query?: string;
 }
 
-// 필터가 없는 기본 월별 조회를 캐싱한다.
-// 필터가 있으면 캐시 키가 복잡해지므로 캐시를 우회한다.
-const cachedGetTransactions = unstable_cache(
-	async (userId: string, month: string): Promise<Transaction[]> => {
-		return queryTransactions(userId, month);
-	},
-	["transactions-list"],
-	{ tags: [CacheTags.transactions, CacheTags.categories, CacheTags.accounts], revalidate: 60 },
-);
-
 // DB 쿼리 실체 — 캐시 래퍼와 필터 경로 양쪽에서 재사용한다.
 async function queryTransactions(userId: string, month: string, filters?: TransactionFilters): Promise<Transaction[]> {
-	const startDate = `${month}-01`;
 	// 월별 조회는 `[이번 달 1일, 다음 달 1일)` 반열린 구간으로 계산해 말일/타임존 경계 오차를 줄인다.
-	const [year, m] = month.split("-").map(Number);
-	const nextMonth = m === 12 ? `${year + 1}-01-01` : `${year}-${String(m + 1).padStart(2, "0")}-01`;
+	const { startDate, nextMonthStart: nextMonth } = getMonthDateRange(month);
 
 	const conditions: SQL[] = [
 		eq(transactions.userId, userId),
@@ -405,52 +395,66 @@ export async function getTransactions(month: string, filters?: TransactionFilter
 	if (filters && Object.keys(filters).length > 0) {
 		return queryTransactions(userId, month, filters);
 	}
-	return cachedGetTransactions(userId, month);
+	return unstable_cache(
+		() => queryTransactions(userId, month),
+		["transactions-list", userId, month],
+		{
+			tags: [
+				tenantCacheTag(userId, "transactions"),
+				tenantCacheTag(userId, "categories"),
+				tenantCacheTag(userId, "accounts"),
+			],
+			revalidate: 60,
+		},
+	)();
 }
 
-const cachedGetMonthlySummary = unstable_cache(
-	async (userId: string, month: string): Promise<MonthlySummary> => {
-		const startDate = `${month}-01`;
-		const [year, m] = month.split("-").map(Number);
-		const nextMonth = m === 12 ? `${year + 1}-01-01` : `${year}-${String(m + 1).padStart(2, "0")}-01`;
+async function queryMonthlySummary(userId: string, month: string): Promise<MonthlySummary> {
+	const { startDate, nextMonthStart: nextMonth } = getMonthDateRange(month);
 
-		const result = await db
-			.select({
-				type: transactions.type,
-				total: sql<number>`coalesce(sum(${transactions.amount}), 0)`,
-			})
-			.from(transactions)
-			.where(
-				and(
-					eq(transactions.userId, userId),
-					gte(transactions.date, startDate),
-					lt(transactions.date, nextMonth),
-				),
-			)
-			.groupBy(transactions.type);
+	const result = await db
+		.select({
+			type: transactions.type,
+			total: sql<number>`coalesce(sum(${transactions.amount}), 0)`,
+		})
+		.from(transactions)
+		.where(
+			and(
+				eq(transactions.userId, userId),
+				gte(transactions.date, startDate),
+				lt(transactions.date, nextMonth),
+			),
+		)
+		.groupBy(transactions.type);
 
-		let income = 0;
-		let expense = 0;
-		for (const row of result) {
-			if (row.type === "income") income = Number(row.total);
-			if (row.type === "expense") expense = Number(row.total);
-		}
+	let income = 0;
+	let expense = 0;
+	for (const row of result) {
+		if (row.type === "income") income = Number(row.total);
+		if (row.type === "expense") expense = Number(row.total);
+	}
 
-		return { income, expense, balance: income - expense };
-	},
-	["monthly-summary"],
-	{ tags: [CacheTags.transactions], revalidate: 60 },
-);
+	return { income, expense, balance: income - expense };
+}
 
 export async function getMonthlySummary(month: string): Promise<MonthlySummary> {
 	const userId = await getAuthUserId();
-	return cachedGetMonthlySummary(userId, month);
+	return unstable_cache(
+		() => queryMonthlySummary(userId, month),
+		["monthly-summary", userId, month],
+		{ tags: [tenantCacheTag(userId, "transactions")], revalidate: 60 },
+	)();
 }
 
 export async function deleteTransaction(
 	id: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
 	try {
+		const parsedId = uuidSchema.safeParse(id);
+		if (!parsedId.success) {
+			return { success: false, error: firstSchemaError(parsedId.error) };
+		}
+		id = parsedId.data;
 		const userId = await getAuthUserId();
 
 		// 삭제 전 거래 정보 조회 (계좌 잔액 역산용)
@@ -496,10 +500,10 @@ export async function deleteTransaction(
 			});
 		});
 
-		revalidateTransactionPages();
+		revalidateTransactionPages(userId);
 		return { success: true };
 	} catch (e) {
-		return { success: false, error: e instanceof Error ? e.message : "삭제에 실패했습니다." };
+		return { success: false, error: sanitizeActionError(e, "삭제에 실패했습니다.") };
 	}
 }
 
@@ -516,6 +520,11 @@ export async function updateTransaction(
 	},
 ): Promise<{ success: true } | { success: false; error: string }> {
 	try {
+		const parsedId = uuidSchema.safeParse(id);
+		if (!parsedId.success) {
+			return { success: false, error: firstSchemaError(parsedId.error) };
+		}
+		id = parsedId.data;
 		const parsed = updateTransactionSchema.safeParse(data);
 		if (!parsed.success) {
 			return { success: false, error: firstSchemaError(parsed.error) };
@@ -583,38 +592,38 @@ export async function updateTransaction(
 			});
 		});
 
-		revalidateTransactionPages();
+		revalidateTransactionPages(userId);
 		return { success: true };
 	} catch (e) {
-		return { success: false, error: e instanceof Error ? e.message : "수정에 실패했습니다." };
+		return { success: false, error: sanitizeActionError(e, "수정에 실패했습니다.") };
 	}
 }
 
-const cachedGetUserCategories = unstable_cache(
-	async (userId: string): Promise<Category[]> => {
-		const rows = await db
-			.select()
-			.from(categories)
-			.where(eq(categories.userId, userId))
-			.orderBy(categories.sortOrder);
+async function queryUserCategories(userId: string): Promise<Category[]> {
+	const rows = await db
+		.select()
+		.from(categories)
+		.where(eq(categories.userId, userId))
+		.orderBy(categories.sortOrder);
 
-		return rows.map((row) => ({
-			id: row.id,
-			userId: row.userId,
-			name: row.name,
-			icon: row.icon,
-			type: requireIncomeExpenseType(row.type),
-			sortOrder: row.sortOrder,
-			isDefault: row.isDefault,
-		}));
-	},
-	["user-categories"],
-	{ tags: [CacheTags.categories], revalidate: 120 },
-);
+	return rows.map((row) => ({
+		id: row.id,
+		userId: row.userId,
+		name: row.name,
+		icon: row.icon,
+		type: requireIncomeExpenseType(row.type),
+		sortOrder: row.sortOrder,
+		isDefault: row.isDefault,
+	}));
+}
 
 export async function getUserCategories(): Promise<Category[]> {
 	const userId = await getAuthUserId();
-	return cachedGetUserCategories(userId);
+	return unstable_cache(
+		() => queryUserCategories(userId),
+		["user-categories", userId],
+		{ tags: [tenantCacheTag(userId, "categories")], revalidate: 120 },
+	)();
 }
 
 export async function createSingleTransaction(data: {
@@ -658,10 +667,10 @@ export async function createSingleTransaction(data: {
 			});
 		});
 
-		revalidateTransactionPages();
+		revalidateTransactionPages(userId);
 		return { success: true };
 	} catch (e) {
-		return { success: false, error: e instanceof Error ? e.message : "저장에 실패했습니다." };
+		return { success: false, error: sanitizeActionError(e, "저장에 실패했습니다.") };
 	}
 }
 
@@ -701,130 +710,132 @@ export async function createTransfer(data: {
 			});
 		});
 
-		revalidateTransactionPages();
+		revalidateTransactionPages(userId);
 		return { success: true };
 	} catch (e) {
-		return { success: false, error: e instanceof Error ? e.message : "이체에 실패했습니다." };
+		return { success: false, error: sanitizeActionError(e, "이체에 실패했습니다.") };
 	}
 }
 
-const cachedGetCategoryBreakdown = unstable_cache(
-	async (userId: string, month: string): Promise<CategoryBreakdown[]> => {
-		const startDate = `${month}-01`;
-		const [year, m] = month.split("-").map(Number);
-		const nextMonth = m === 12 ? `${year + 1}-01-01` : `${year}-${String(m + 1).padStart(2, "0")}-01`;
+async function queryCategoryBreakdown(userId: string, month: string): Promise<CategoryBreakdown[]> {
+	const { startDate, nextMonthStart: nextMonth } = getMonthDateRange(month);
 
-		const rows = await db
-			.select({
-				categoryId: transactions.categoryId,
-				categoryName: categories.name,
-				categoryIcon: categories.icon,
-				amount: sql<number>`coalesce(sum(${transactions.amount}), 0)`,
-			})
-			.from(transactions)
-			.leftJoin(categories, eq(transactions.categoryId, categories.id))
-			.where(
-				and(
-					ne(transactions.type, "transfer"),
-					eq(transactions.userId, userId),
-					eq(transactions.type, "expense"),
-					gte(transactions.date, startDate),
-					lt(transactions.date, nextMonth),
-				),
-			)
-			.groupBy(transactions.categoryId, categories.name, categories.icon)
-			.orderBy(sql`sum(${transactions.amount}) desc`);
+	const rows = await db
+		.select({
+			categoryId: transactions.categoryId,
+			categoryName: categories.name,
+			categoryIcon: categories.icon,
+			amount: sql<number>`coalesce(sum(${transactions.amount}), 0)`,
+		})
+		.from(transactions)
+		.leftJoin(categories, eq(transactions.categoryId, categories.id))
+		.where(
+			and(
+				ne(transactions.type, "transfer"),
+				eq(transactions.userId, userId),
+				eq(transactions.type, "expense"),
+				gte(transactions.date, startDate),
+				lt(transactions.date, nextMonth),
+			),
+		)
+		.groupBy(transactions.categoryId, categories.name, categories.icon)
+		.orderBy(sql`sum(${transactions.amount}) desc`);
 
-		const totalExpense = rows.reduce((sum, row) => sum + Number(row.amount), 0);
+	const totalExpense = rows.reduce((sum, row) => sum + Number(row.amount), 0);
 
-		return rows.map((row) => ({
-			categoryId: row.categoryId ?? "",
-			categoryName: row.categoryName ?? "미분류",
-			categoryIcon: row.categoryIcon ?? "📦",
-			amount: Number(row.amount),
-			percentage: totalExpense > 0 ? Math.round((Number(row.amount) / totalExpense) * 10000) / 100 : 0,
-		}));
-	},
-	["category-breakdown"],
-	{ tags: [CacheTags.transactions, CacheTags.categories], revalidate: 60 },
-);
+	return rows.map((row) => ({
+		categoryId: row.categoryId ?? "",
+		categoryName: row.categoryName ?? "미분류",
+		categoryIcon: row.categoryIcon ?? "📦",
+		amount: Number(row.amount),
+		percentage: totalExpense > 0 ? Math.round((Number(row.amount) / totalExpense) * 10000) / 100 : 0,
+	}));
+}
 
 export async function getCategoryBreakdown(month: string): Promise<CategoryBreakdown[]> {
 	const userId = await getAuthUserId();
-	return cachedGetCategoryBreakdown(userId, month);
+	return unstable_cache(
+		() => queryCategoryBreakdown(userId, month),
+		["category-breakdown", userId, month],
+		{
+			tags: [tenantCacheTag(userId, "transactions"), tenantCacheTag(userId, "categories")],
+			revalidate: 60,
+		},
+	)();
 }
 
-const cachedGetDailyExpenses = unstable_cache(
-	async (userId: string, startDate: string, endDate: string): Promise<DailyExpense[]> => {
-		const rows = await db
-			.select({
-				date: transactions.date,
-				amount: sql<number>`coalesce(sum(${transactions.amount}), 0)`,
-			})
-			.from(transactions)
-			.where(
-				and(
-					eq(transactions.userId, userId),
-					eq(transactions.type, "expense"),
-					gte(transactions.date, startDate),
-					lt(transactions.date, endDate),
-				),
-			)
-			.groupBy(transactions.date)
-			.orderBy(transactions.date);
+async function queryDailyExpenses(userId: string, startDate: string, endDate: string): Promise<DailyExpense[]> {
+	const rows = await db
+		.select({
+			date: transactions.date,
+			amount: sql<number>`coalesce(sum(${transactions.amount}), 0)`,
+		})
+		.from(transactions)
+		.where(
+			and(
+				eq(transactions.userId, userId),
+				eq(transactions.type, "expense"),
+				gte(transactions.date, startDate),
+				lt(transactions.date, endDate),
+			),
+		)
+		.groupBy(transactions.date)
+		.orderBy(transactions.date);
 
-		return rows.map((row) => ({
-			date: row.date,
-			amount: Number(row.amount),
-		}));
-	},
-	["daily-expenses"],
-	{ tags: [CacheTags.transactions], revalidate: 60 },
-);
+	return rows.map((row) => ({
+		date: row.date,
+		amount: Number(row.amount),
+	}));
+}
 
 export async function getDailyExpenses(startDate: string, endDate: string): Promise<DailyExpense[]> {
 	const userId = await getAuthUserId();
-	return cachedGetDailyExpenses(userId, startDate, endDate);
+	return unstable_cache(
+		() => queryDailyExpenses(userId, startDate, endDate),
+		["daily-expenses", userId, startDate, endDate],
+		{ tags: [tenantCacheTag(userId, "transactions")], revalidate: 60 },
+	)();
 }
 
-const cachedGetMonthlyCalendarData = unstable_cache(
-	async (userId: string, month: string): Promise<Record<string, { income: number; expense: number }>> => {
-		const startDate = `${month}-01`;
-		const [year, m] = month.split("-").map(Number);
-		const nextMonth = m === 12 ? `${year + 1}-01-01` : `${year}-${String(m + 1).padStart(2, "0")}-01`;
+async function queryMonthlyCalendarData(
+	userId: string,
+	month: string,
+): Promise<Record<string, { income: number; expense: number }>> {
+	const { startDate, nextMonthStart: nextMonth } = getMonthDateRange(month);
 
-		const rows = await db
-			.select({
-				date: transactions.date,
-				type: transactions.type,
-				total: sql<number>`coalesce(sum(${transactions.amount}), 0)`,
-			})
-			.from(transactions)
-			.where(
-				and(
-					eq(transactions.userId, userId),
-					gte(transactions.date, startDate),
-					lt(transactions.date, nextMonth),
-				),
-			)
-			.groupBy(transactions.date, transactions.type);
+	const rows = await db
+		.select({
+			date: transactions.date,
+			type: transactions.type,
+			total: sql<number>`coalesce(sum(${transactions.amount}), 0)`,
+		})
+		.from(transactions)
+		.where(
+			and(
+				eq(transactions.userId, userId),
+				gte(transactions.date, startDate),
+				lt(transactions.date, nextMonth),
+			),
+		)
+		.groupBy(transactions.date, transactions.type);
 
-		const result: Record<string, { income: number; expense: number }> = {};
-		for (const row of rows) {
-			if (!result[row.date]) {
-				result[row.date] = { income: 0, expense: 0 };
-			}
-			if (row.type === "income" || row.type === "expense") {
-				result[row.date][row.type] = Number(row.total);
-			}
+	const result: Record<string, { income: number; expense: number }> = {};
+	for (const row of rows) {
+		if (!result[row.date]) {
+			result[row.date] = { income: 0, expense: 0 };
 		}
-		return result;
-	},
-	["monthly-calendar"],
-	{ tags: [CacheTags.transactions], revalidate: 60 },
-);
+		if (row.type === "income" || row.type === "expense") {
+			result[row.date][row.type] = Number(row.total);
+		}
+	}
+	return result;
+}
 
 export async function getMonthlyCalendarData(month: string): Promise<Record<string, { income: number; expense: number }>> {
 	const userId = await getAuthUserId();
-	return cachedGetMonthlyCalendarData(userId, month);
+	return unstable_cache(
+		() => queryMonthlyCalendarData(userId, month),
+		["monthly-calendar", userId, month],
+		{ tags: [tenantCacheTag(userId, "transactions")], revalidate: 60 },
+	)();
 }

@@ -15,7 +15,14 @@ import { recurringTransactions, transactions } from "@/server/db/schema";
 import { requireOwnedCategory } from "@/server/lib/account-ledger";
 import { encryptNullable } from "@/server/lib/crypto";
 import { revalidateRecurringPages } from "@/lib/cache-keys";
-import { createRecurringSchema, firstSchemaError, monthSchema } from "@/server/validation/write-schemas";
+import { formatClampedMonthDate, getMonthDateRange } from "@/lib/format";
+import {
+	createRecurringSchema,
+	firstSchemaError,
+	monthSchema,
+	sanitizeActionError,
+	uuidSchema,
+} from "@/server/validation/write-schemas";
 
 const getAuthUserId = getAuthUserIdOrThrow;
 
@@ -59,10 +66,10 @@ export async function createRecurringTransaction(data: {
 			dayOfMonth: parsed.data.dayOfMonth,
 		});
 
-		revalidateRecurringPages();
+		revalidateRecurringPages(userId);
 		return { success: true };
 	} catch (e) {
-		return { success: false, error: e instanceof Error ? e.message : "저장에 실패했습니다." };
+		return { success: false, error: sanitizeActionError(e, "저장에 실패했습니다.") };
 	}
 }
 
@@ -70,16 +77,20 @@ export async function deleteRecurringTransaction(
 	id: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
 	try {
+		const parsedId = uuidSchema.safeParse(id);
+		if (!parsedId.success) {
+			return { success: false, error: firstSchemaError(parsedId.error) };
+		}
 		const userId = await getAuthUserId();
 
 		await db
 			.delete(recurringTransactions)
-			.where(and(eq(recurringTransactions.id, id), eq(recurringTransactions.userId, userId)));
+			.where(and(eq(recurringTransactions.id, parsedId.data), eq(recurringTransactions.userId, userId)));
 
-		revalidateRecurringPages();
+		revalidateRecurringPages(userId);
 		return { success: true };
 	} catch (e) {
-		return { success: false, error: e instanceof Error ? e.message : "삭제에 실패했습니다." };
+		return { success: false, error: sanitizeActionError(e, "삭제에 실패했습니다.") };
 	}
 }
 
@@ -91,6 +102,7 @@ export async function applyRecurringTransactions(
 		if (!parsedMonth.success) {
 			return { success: false, error: firstSchemaError(parsedMonth.error) };
 		}
+		month = parsedMonth.data;
 
 		const userId = await getAuthUserId();
 
@@ -109,13 +121,7 @@ export async function applyRecurringTransactions(
 			return { success: true, count: 0, alreadyApplied: 0 };
 		}
 
-		const [year, m] = month.split("-").map(Number);
-		const daysInMonth = new Date(year, m, 0).getDate();
-		const monthStr = `${year}-${String(m).padStart(2, "0")}`;
-		const startDate = `${monthStr}-01`;
-		const nextMonth = m === 12
-			? `${year + 1}-01-01`
-			: `${year}-${String(m + 1).padStart(2, "0")}-01`;
+		const { startDate, nextMonthStart: nextMonth } = getMonthDateRange(month);
 
 		// `existingRows`는 transactions 테이블에 이미 생성된 실제 고정 거래들이다.
 		// 규칙 테이블과 실제 거래 테이블이 분리돼 있으므로 중복 방지를 위해 월 단위 재조회가 필요하다.
@@ -143,8 +149,7 @@ export async function applyRecurringTransactions(
 		const values = recurring
 			.map((r) => {
 				// 말일을 넘는 dayOfMonth는 해당 월의 마지막 날짜로 보정한다.
-				const day = Math.min(r.dayOfMonth, daysInMonth);
-				const date = `${year}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+				const date = formatClampedMonthDate(month, r.dayOfMonth);
 				return {
 					userId,
 					categoryId: r.categoryId,
@@ -168,10 +173,10 @@ export async function applyRecurringTransactions(
 
 		await db.insert(transactions).values(values).onConflictDoNothing();
 
-		revalidateRecurringPages();
+		revalidateRecurringPages(userId);
 		return { success: true, count: values.length, alreadyApplied };
 	} catch (e) {
-		return { success: false, error: e instanceof Error ? e.message : "적용에 실패했습니다." };
+		return { success: false, error: sanitizeActionError(e, "적용에 실패했습니다.") };
 	}
 }
 
@@ -180,6 +185,11 @@ export async function checkRecurringApplied(
 	month: string,
 ): Promise<{ total: number; applied: number }> {
 	try {
+		const parsedMonth = monthSchema.safeParse(month);
+		if (!parsedMonth.success) {
+			return { total: 0, applied: 0 };
+		}
+		month = parsedMonth.data;
 		const userId = await getAuthUserId();
 
 		const recurring = await db
@@ -196,12 +206,7 @@ export async function checkRecurringApplied(
 			return { total: 0, applied: 0 };
 		}
 
-		const [year, m] = month.split("-").map(Number);
-		const monthStr = `${year}-${String(m).padStart(2, "0")}`;
-		const startDate = `${monthStr}-01`;
-		const nextMonth = m === 12
-			? `${year + 1}-01-01`
-			: `${year}-${String(m + 1).padStart(2, "0")}-01`;
+		const { startDate, nextMonthStart: nextMonth } = getMonthDateRange(month);
 
 		const existingRows = await db
 			.select({
@@ -224,12 +229,10 @@ export async function checkRecurringApplied(
 			existingRows.map((r) => `${r.type}|${r.description}|${r.amount}|${r.date}`),
 		);
 
-		const daysInMonth = new Date(year, m, 0).getDate();
 		let applied = 0;
 		for (const r of recurring) {
 			// 규칙별로 "이번 달에 대응되는 실제 거래가 하나라도 있는지"를 계산한다.
-			const day = Math.min(r.dayOfMonth, daysInMonth);
-			const date = `${year}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+			const date = formatClampedMonthDate(month, r.dayOfMonth);
 			if (existingSet.has(`${r.type}|${r.description}|${r.amount}|${date}`)) {
 				applied++;
 			}

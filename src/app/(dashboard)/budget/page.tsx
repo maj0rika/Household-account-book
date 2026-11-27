@@ -8,7 +8,8 @@ import { Suspense } from "react";
 
 import { getBudgetsWithSpent } from "@/server/actions/budget";
 import { getUserCategories } from "@/server/actions/transaction";
-import { getCurrentMonth } from "@/lib/format";
+import { resolveMonth } from "@/lib/format";
+import { AnalysisSubNav } from "@/components/layout/AnalysisSubNav";
 import { MonthNavigator } from "@/components/dashboard/MonthNavigator";
 import { BudgetProgressList } from "@/components/budget/BudgetProgressList";
 import { BudgetForm } from "@/components/budget/BudgetForm";
@@ -33,7 +34,7 @@ function MonthNavigatorFallback() {
 
 export default async function BudgetPage({ searchParams }: Props) {
 	const params = await searchParams;
-	const month = params.month ?? getCurrentMonth();
+	const month = resolveMonth(params.month);
 
 	// 예산 진행률과 생성 폼이 같은 월/카테고리 기준을 보도록
 	// 서버에서 먼저 한 스냅샷으로 묶어 내려준다.
@@ -45,6 +46,7 @@ export default async function BudgetPage({ searchParams }: Props) {
 	return (
 		<div className="pb-28 md:pb-24">
 			<h1 className="sr-only">예산</h1>
+			<AnalysisSubNav active="budget" monthQuery={params.month === month ? month : undefined} />
 			<Suspense fallback={<MonthNavigatorFallback />}>
 				<MonthNavigator month={month} />
 			</Suspense>
